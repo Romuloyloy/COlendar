@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+!frontend/.env.example.local
+!backend/.env.example
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+node_modules/
+.next/
+out/
+
+postgres_data/

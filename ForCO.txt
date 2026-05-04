@@ -1,0 +1,35 @@
+Hi! Here is what I created for the first project skeleton.
+
+What exists now:
+- A frontend folder with a minimal Next.js, TypeScript, and Tailwind app.
+- A backend folder with a minimal FastAPI app.
+- A PostgreSQL database service in Docker Compose.
+- Backend health endpoints at /health and /health/db.
+- Example environment files, with no real secrets committed.
+- Placeholder module folders for dashboard, notes, tasks, calendar, and tracker.
+
+How to run it on Windows:
+1. Open PowerShell in the repo root.
+2. Optional: run `Copy-Item .env.example .env` if you want local overrides.
+3. Run `docker compose up --build`.
+
+What to check in the browser:
+- Frontend: http://localhost:3000
+- Backend health: http://localhost:8000/health
+- Database health: http://localhost:8000/health/db
+
+Success should look like:
+- The frontend says "COlendar is running".
+- The backend health endpoint returns JSON with status "ok".
+- The database health endpoint says the database is connected.
+- Docker Desktop shows frontend, backend, and database containers running.
+
+Decisions to make next:
+- Whether to keep the working name COlendar.
+- Whether Phase 2 should add Alembic migrations immediately.
+- Whether the first real feature should be notes/folders, as the roadmap suggests.
+
+Warnings and limits:
+- No real productivity features are implemented yet.
+- No auth, AI, Redis, workers, widgets, or sheet/grid GUI exists yet.
+- The default database password is only for local development. Change it before any serious deployment.
