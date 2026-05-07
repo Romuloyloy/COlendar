@@ -13,7 +13,10 @@ import {
   updateSheetSlots,
 } from "./api";
 import type { Sheet, SheetDetail } from "./types";
-import { getDashboardSummary } from "@/features/dashboard/api";
+import {
+  getDashboardSummary,
+  getDashboardWidgetLayout,
+} from "@/features/dashboard/api";
 import {
   DEFAULT_DASHBOARD_WIDGET_DEFINITIONS,
   getDashboardWidgetDefinition,
@@ -96,6 +99,15 @@ export function SheetsPage() {
   );
   const currentSheetName = sheetDetail?.name ?? "Loading sheet";
   const activeDraftSlot = draftSlots[editingSlotIndex] ?? draftSlots[0];
+  const hasUnsavedSlotChanges = useMemo(() => {
+    if (!sheetDetail) {
+      return false;
+    }
+    return (
+      JSON.stringify(draftSlots.map(normalizedDraftSlotForCompare)) !==
+      JSON.stringify(createDraftSlots(sheetDetail).map(normalizedDraftSlotForCompare))
+    );
+  }, [draftSlots, sheetDetail]);
 
   async function loadSheets(preferredSheetId?: number) {
     const loadedSheets = await listSheets();
@@ -156,9 +168,17 @@ export function SheetsPage() {
     }
 
     setError(null);
-    loadSheetDetail(selectedSheetId).catch((caught: Error) =>
-      setError(caught.message),
-    );
+    loadSheetDetail(selectedSheetId).catch((caught: Error) => {
+      if (caught.message === "Sheet not found") {
+        void loadSheets().then((sheetId) => {
+          if (sheetId !== null) {
+            void loadSheetDetail(sheetId);
+          }
+        });
+        return;
+      }
+      setError(caught.message);
+    });
   }, [selectedSheetId]);
 
   useEffect(() => {
@@ -175,6 +195,53 @@ export function SheetsPage() {
     return () =>
       window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
   }, [selectedDate]);
+
+  useEffect(() => {
+    function handleWorkspaceKeyDown(event: KeyboardEvent) {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (isSlotEditorOpen) {
+          event.preventDefault();
+          setIsSlotEditorOpen(false);
+          return;
+        }
+        if (isControlOpen) {
+          event.preventDefault();
+          setIsControlOpen(false);
+        }
+        return;
+      }
+
+      if (isSlotEditorOpen || isControlOpen) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft" && selectedSheetIndex > 0) {
+        event.preventDefault();
+        selectPreviousSheet();
+      } else if (
+        event.key === "ArrowRight" &&
+        selectedSheetIndex >= 0 &&
+        selectedSheetIndex < sheets.length - 1
+      ) {
+        event.preventDefault();
+        selectNextSheet();
+      } else if (
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "a"
+      ) {
+        event.preventDefault();
+        openQuickAdd();
+      }
+    }
+
+    window.addEventListener("keydown", handleWorkspaceKeyDown);
+    return () => window.removeEventListener("keydown", handleWorkspaceKeyDown);
+  }, [isControlOpen, isSlotEditorOpen, selectedSheetIndex, sheets.length]);
 
   async function runAction(action: () => Promise<void>) {
     setIsSaving(true);
@@ -220,7 +287,8 @@ export function SheetsPage() {
       setNewSheetName("");
       await loadSheets(created.id);
       await loadSheetDetail(created.id);
-      setNotice("Sheet created.");
+      setIsControlOpen(false);
+      setNotice(`Sheet "${created.name}" created and selected.`);
     });
   }
 
@@ -261,6 +329,8 @@ export function SheetsPage() {
         setSheetDetail(null);
         setDraftSlots(emptyDraftSlots());
       }
+      setIsSlotEditorOpen(false);
+      setIsControlOpen(false);
       setNotice("Sheet deleted.");
     });
   }
@@ -274,7 +344,42 @@ export function SheetsPage() {
       if (nextSheetId !== null) {
         await loadSheetDetail(nextSheetId);
       }
-      setNotice("Default sheet restored.");
+      setEditingSlotIndex(0);
+      setIsSlotEditorOpen(false);
+      setIsControlOpen(false);
+      setNotice("Default sheets restored.");
+    });
+  }
+
+  async function handleResetCurrentSheetFromDashboard() {
+    if (!sheetDetail) {
+      return;
+    }
+
+    await runAction(async () => {
+      const layout = await getDashboardWidgetLayout();
+      const visibleWidgetKeys = layout.widgets
+        .filter((widget) => widget.is_visible)
+        .map((widget) => widget.widget_key)
+        .filter((widgetKey): widgetKey is DashboardWidgetId =>
+          Boolean(getDashboardWidgetDefinition(widgetKey)),
+        )
+        .slice(0, SLOT_COUNT);
+      const nextSlots = Array.from({ length: SLOT_COUNT }, (_, slotIndex) => ({
+        slot_index: slotIndex,
+        widget_key: visibleWidgetKeys[slotIndex] ?? null,
+        config_json: {},
+      }));
+
+      const updated = await updateSheetSlots(sheetDetail.id, {
+        slots: nextSlots,
+      });
+      setSheetDetail(updated);
+      setDraftSlots(createDraftSlots(updated));
+      setEditingSlotIndex(0);
+      setIsSlotEditorOpen(false);
+      setIsControlOpen(false);
+      setNotice("Current sheet reset to dashboard-style layout.");
     });
   }
 
@@ -293,6 +398,7 @@ export function SheetsPage() {
       });
       setSheetDetail(updated);
       setDraftSlots(createDraftSlots(updated));
+      setEditingSlotIndex((current) => Math.min(current, SLOT_COUNT - 1));
       setNotice("Sheet slots saved.");
     });
   }
@@ -325,6 +431,7 @@ export function SheetsPage() {
   }
 
   function updateDraftSlot(slotIndex: number, widgetKey: string) {
+    setNotice(null);
     setDraftSlots((current) =>
       current.map((slot) =>
         slot.slot_index === slotIndex
@@ -339,6 +446,7 @@ export function SheetsPage() {
   }
 
   function clearDraftSlot(slotIndex: number) {
+    setNotice(null);
     setDraftSlots((current) =>
       current.map((slot) =>
         slot.slot_index === slotIndex
@@ -353,6 +461,7 @@ export function SheetsPage() {
     key: "category_id" | "title_override",
     value: string,
   ) {
+    setNotice(null);
     setDraftSlots((current) =>
       current.map((slot) => {
         if (slot.slot_index !== slotIndex) {
@@ -401,6 +510,7 @@ export function SheetsPage() {
         onOpenSlotEditor={() => openSlotEditor()}
         onPreviousSheet={selectPreviousSheet}
         onRenameSheet={handleRenameSheet}
+        onResetCurrentSheetFromDashboard={handleResetCurrentSheetFromDashboard}
         onResetSheets={handleResetSheets}
         onSelectedSheetChange={(sheetId) => setSelectedSheetId(sheetId)}
         onSetControlOpen={setIsControlOpen}
@@ -479,13 +589,13 @@ export function SheetsPage() {
           onSelectSlot={setEditingSlotIndex}
           onUpdateSlot={updateDraftSlot}
           onUpdateSlotConfig={updateDraftSlotConfig}
+          hasUnsavedChanges={hasUnsavedSlotChanges}
           sheetName={currentSheetName}
         />
       ) : null}
     </main>
   );
 }
-
 function TopCenterControls({
   currentSheetName,
   isControlOpen,
@@ -498,6 +608,7 @@ function TopCenterControls({
   onOpenSlotEditor,
   onPreviousSheet,
   onRenameSheet,
+  onResetCurrentSheetFromDashboard,
   onResetSheets,
   onSelectedSheetChange,
   onSetControlOpen,
@@ -522,6 +633,7 @@ function TopCenterControls({
   onOpenSlotEditor: () => void;
   onPreviousSheet: () => void;
   onRenameSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onResetCurrentSheetFromDashboard: () => Promise<void>;
   onResetSheets: () => Promise<void>;
   onSelectedSheetChange: (sheetId: number) => void;
   onSetControlOpen: (isOpen: boolean) => void;
@@ -543,7 +655,7 @@ function TopCenterControls({
           onClick={() => onSetControlOpen(!isControlOpen)}
           type="button"
         >
-          {currentSheetName} · Workspace
+          {currentSheetName} - Workspace
         </button>
       </div>
 
@@ -572,6 +684,10 @@ function TopCenterControls({
               >
                 Quick Add
               </button>
+              <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-5 text-neutral-600">
+                Shortcuts: Left/Right changes sheets, Esc closes panels,
+                Ctrl+Shift+A opens Quick Add.
+              </div>
               <DateSelector
                 className="mt-3"
                 label={`Widget date (${selectedDateLabel})`}
@@ -686,6 +802,14 @@ function TopCenterControls({
                   Reset default
                 </button>
                 <button
+                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isSaving || selectedSheetId === null}
+                  onClick={onResetCurrentSheetFromDashboard}
+                  type="button"
+                >
+                  Use dashboard layout
+                </button>
+                <button
                   className="ml-auto rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
                   onClick={() => onSetControlOpen(false)}
                   type="button"
@@ -768,6 +892,7 @@ function SlotEditorPanel({
   activeSlot,
   categories,
   draftSlots,
+  hasUnsavedChanges,
   isSaving,
   onClearSlot,
   onClose,
@@ -780,6 +905,7 @@ function SlotEditorPanel({
   activeSlot: DraftSlot;
   categories: TaskCategory[];
   draftSlots: DraftSlot[];
+  hasUnsavedChanges: boolean;
   isSaving: boolean;
   onClearSlot: (slotIndex: number) => void;
   onClose: () => void;
@@ -810,8 +936,13 @@ function SlotEditorPanel({
               Slot Editor
             </p>
             <h2 className="truncate text-xl font-semibold text-neutral-950">
-              {sheetName} · Slot {activeSlot.slot_index + 1}
+              {sheetName} - Slot {activeSlot.slot_index + 1}
             </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              {hasUnsavedChanges
+                ? "Unsaved slot changes"
+                : "All slot changes are saved"}
+            </p>
           </div>
           <button
             className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
@@ -882,6 +1013,37 @@ function SlotEditorPanel({
                 {activeDefinition?.description ??
                   "This slot will stay empty until you choose a widget type."}
               </p>
+              <dl className="mt-3 grid gap-2 text-xs text-neutral-700 sm:grid-cols-3">
+                <div>
+                  <dt className="font-semibold uppercase text-neutral-500">
+                    Widget
+                  </dt>
+                  <dd className="truncate">
+                    {activeDefinition?.displayName ?? "Empty"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase text-neutral-500">
+                    Category
+                  </dt>
+                  <dd className="truncate">
+                    {activeSlot.config_json.category_id
+                      ? categories.find(
+                          (category) =>
+                            category.id === activeSlot.config_json.category_id,
+                        )?.name ?? "Unknown"
+                      : "All"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase text-neutral-500">
+                    Title
+                  </dt>
+                  <dd className="truncate">
+                    {activeSlot.config_json.title_override?.trim() || "Default"}
+                  </dd>
+                </div>
+              </dl>
             </div>
 
             {supportsTaskCategory ? (
@@ -912,6 +1074,9 @@ function SlotEditorPanel({
             {supportsTitleOverride ? (
               <label className="mt-4 block text-sm font-semibold text-neutral-900">
                 Title override
+                <span className="mt-1 block text-xs font-normal leading-5 text-neutral-600">
+                  Optional label for this widget instance only.
+                </span>
                 <input
                   className="mt-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
                   disabled={isSaving}
@@ -936,7 +1101,7 @@ function SlotEditorPanel({
                 onClick={() => onClearSlot(activeSlot.slot_index)}
                 type="button"
               >
-                Clear slot
+                Clear selected slot
               </button>
               <div className="flex flex-wrap gap-3">
                 <button
@@ -952,7 +1117,11 @@ function SlotEditorPanel({
                   onClick={onSaveSlots}
                   type="button"
                 >
-                  {isSaving ? "Saving..." : "Save changes"}
+                  {isSaving
+                    ? "Saving..."
+                    : hasUnsavedChanges
+                      ? "Save changes"
+                      : "Saved"}
                 </button>
               </div>
             </div>
@@ -996,6 +1165,27 @@ function normalizedSlotConfig(slot: DraftSlot) {
     category_id: slot.config_json.category_id ?? null,
     title_override: slot.config_json.title_override ?? "",
   };
+}
+
+function normalizedDraftSlotForCompare(slot: DraftSlot) {
+  return {
+    slot_index: slot.slot_index,
+    widget_key: slot.widget_key,
+    config_json: slot.widget_key ? normalizedSlotConfig(slot) : {},
+  };
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
 }
 
 function createDraftSlots(sheet: SheetDetail): DraftSlot[] {

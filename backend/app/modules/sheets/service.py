@@ -2,10 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.modules.dashboard.widget_catalog import (
-    DEFAULT_DASHBOARD_WIDGET_KEYS,
-    VALID_DASHBOARD_WIDGET_KEYS,
-)
+from app.modules.dashboard.widget_catalog import VALID_DASHBOARD_WIDGET_KEYS
 from app.modules.sheets.models import Sheet, SheetWidgetSlot
 from app.modules.sheets.schemas import (
     SheetCreate,
@@ -15,7 +12,6 @@ from app.modules.sheets.schemas import (
 )
 from app.modules.tasks.models import TaskCategory
 
-DEFAULT_SHEET_NAME = "Default Sheet"
 GRID_SLOT_COUNT = 8
 VALID_SLOT_INDEXES = set(range(GRID_SLOT_COUNT))
 
@@ -91,8 +87,7 @@ def update_sheet_slots(
 def reset_default_sheets(db: Session) -> list[Sheet]:
     db.execute(delete(SheetWidgetSlot))
     db.execute(delete(Sheet))
-    default_sheet = _create_default_sheet()
-    db.add(default_sheet)
+    db.add_all(_create_default_sheets(db))
     db.commit()
     return _ordered_sheets(db)
 
@@ -102,23 +97,102 @@ def _ensure_default_sheet(db: Session) -> None:
     if has_sheet is not None:
         return
 
-    db.add(_create_default_sheet())
+    db.add_all(_create_default_sheets(db))
     db.commit()
 
 
-def _create_default_sheet() -> Sheet:
-    sheet = Sheet(name=DEFAULT_SHEET_NAME, sort_order=0)
+def _create_default_sheets(db: Session) -> list[Sheet]:
+    health_category_id = _find_active_health_category_id(db)
+    return [
+        _configured_sheet(
+            name="Today",
+            sort_order=0,
+            widget_keys=[
+                "today-overview",
+                "daily-tasks",
+                "weekly-tasks",
+                "upcoming-events",
+                "recent-notes",
+                "tracker-summary",
+                "quick-actions",
+                "planning-summary",
+            ],
+        ),
+        _configured_sheet(
+            name="Planning",
+            sort_order=1,
+            widget_keys=[
+                "today-overview",
+                "daily-tasks",
+                "weekly-tasks",
+                "upcoming-events",
+                "planning-summary",
+                "recent-notes",
+                "quick-actions",
+                None,
+            ],
+        ),
+        _configured_sheet(
+            name="Health",
+            sort_order=2,
+            widget_keys=[
+                "tracker-summary",
+                "daily-tasks",
+                "weekly-tasks",
+                "today-overview",
+                "quick-actions",
+                None,
+                None,
+                None,
+            ],
+            task_config={
+                "category_id": health_category_id,
+                "title_override": "Health Tasks" if health_category_id else "",
+            },
+        ),
+    ]
+
+
+def _configured_sheet(
+    *,
+    name: str,
+    sort_order: int,
+    widget_keys: list[str | None],
+    task_config: dict | None = None,
+) -> Sheet:
+    sheet = Sheet(name=name, sort_order=sort_order)
     sheet.slots = [
         SheetWidgetSlot(
             slot_index=slot_index,
-            widget_key=DEFAULT_DASHBOARD_WIDGET_KEYS[slot_index]
-            if slot_index < len(DEFAULT_DASHBOARD_WIDGET_KEYS)
+            widget_key=widget_keys[slot_index]
+            if slot_index < len(widget_keys)
             else None,
-            config_json={},
+            config_json=_default_slot_config(
+                widget_keys[slot_index] if slot_index < len(widget_keys) else None,
+                task_config,
+            ),
         )
         for slot_index in range(GRID_SLOT_COUNT)
     ]
     return sheet
+
+
+def _default_slot_config(widget_key: str | None, task_config: dict | None) -> dict:
+    if widget_key not in {"daily-tasks", "weekly-tasks"} or task_config is None:
+        return {}
+    return task_config.copy()
+
+
+def _find_active_health_category_id(db: Session) -> int | None:
+    return db.scalar(
+        select(TaskCategory.id)
+        .where(
+            func.lower(TaskCategory.name) == "health",
+            TaskCategory.is_archived.is_(False),
+        )
+        .order_by(TaskCategory.id.asc())
+        .limit(1)
+    )
 
 
 def _new_empty_slot(slot_index: int) -> SheetWidgetSlot:

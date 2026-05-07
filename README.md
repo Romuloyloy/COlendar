@@ -247,7 +247,7 @@ The widget layout endpoints use this simple shape:
 
 ## Sheet Workspace Shell v1
 
-The Sheets workspace lives at `http://localhost:3000/sheets`. Sheet Workspace Shell v1 is a UX polish pass on top of the existing Sheet/Grid Prototype v1: it makes `/sheets` feel closer to the long-term sheet-based GUI idea, but it does not replace the normal dashboard at `http://localhost:3000`.
+The Sheets workspace lives at `http://localhost:3000/sheets`. Sheet Workspace Shell v1 plus the current hardening pass make `/sheets` feel closer to the long-term sheet-based GUI idea, but it does not replace the normal dashboard at `http://localhost:3000`.
 
 The dashboard and sheets are different:
 
@@ -259,6 +259,11 @@ The dashboard and sheets are different:
 Workspace shell behavior:
 
 - one sheet is shown at a time
+- the user should not get stuck with no active sheet; listing sheets creates defaults when none exist
+- creating a sheet selects it immediately
+- deleting a sheet selects another available sheet
+- reset recreates and selects the default sheet set
+- stale sheet selections recover by reloading the available sheets
 - the primary surface is a desktop-first 4 columns x 2 rows grid
 - the sheet area fills the available viewport below the app shell as much as practical
 - normal long page scrolling is avoided on `/sheets`
@@ -274,6 +279,16 @@ Top-center dropdown behavior:
 - the dropdown includes a Quick Add button wired to the existing global Quick Add modal
 - the dropdown includes the widget date selector for the sheet widgets
 - the dropdown includes current sheet controls, not a full command palette
+- the dropdown documents the sheet keyboard shortcuts
+
+Keyboard shortcuts on `/sheets`:
+
+- `Left Arrow`: previous sheet
+- `Right Arrow`: next sheet
+- `Esc`: close the Workspace dropdown or slot editor
+- `Ctrl+Shift+A`: open Quick Add
+- shortcuts do not fire while typing in inputs, textareas, selects, or editable content
+- the existing global `Ctrl+K` Quick Add shortcut also ignores typing fields
 
 Sheet navigation behavior:
 
@@ -283,7 +298,16 @@ Sheet navigation behavior:
 - the dropdown includes a sheet selector for jumping between sheets
 - sheets can be created and renamed
 - sheets can be deleted, except the last remaining sheet is protected with a clear message
-- reset restores a single default sheet with the current registry widgets in order
+- reset restores the default sheet set
+- Use dashboard layout fills the current sheet from the current visible dashboard widget preferences
+
+Default sheets:
+
+- `Today`: overview, daily tasks, weekly tasks, upcoming events, recent notes, tracker summary, quick actions, and planning
+- `Planning`: overview, daily tasks, weekly tasks, upcoming events, planning, recent notes, and quick actions
+- `Health`: tracker summary, daily tasks, weekly tasks, overview, and quick actions
+- if an active task category named `Health` exists when defaults are generated, the Health sheet task widgets use that category and a Health title override
+- if no Health category exists, Health sheet task widgets stay generic
 
 Slot editing behavior:
 
@@ -293,6 +317,8 @@ Slot editing behavior:
 - Clear slot empties the active slot
 - Daily Tasks and Weekly Tasks expose category filter controls
 - Daily Tasks and Weekly Tasks expose `title_override`
+- the editor shows the current widget, category, and title config for the selected slot
+- the editor shows whether there are unsaved slot changes
 - Save changes persists all 8 slot definitions
 - duplicate widgets on the same sheet remain supported because each slot is its own widget instance
 
@@ -314,7 +340,7 @@ Examples:
 - another Daily Tasks widget can show only `Gym`
 - Weekly Tasks widgets can do the same for categories such as `Health` or `Work`
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Daily and weekly task widgets show concise task counts and short lists, calendar widgets show upcoming events, notes show recent titles/previews, and tracker widgets show water/activity/calorie totals. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Daily and weekly task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. Calendar, Notes, and Tracker compact widgets link to their full module pages. Cells still allow internal scrolling when content is too long.
 
 Current sheet limitations:
 
@@ -327,6 +353,7 @@ Current sheet limitations:
 - no widget config beyond the current simple `category_id` and `title_override`
 - no database-defined widgets, plugin system, auth, AI, external integrations, notifications, or reminders
 - mobile is not heavily optimized yet
+- Use dashboard layout copies visible dashboard widget order into the current sheet but does not create advanced per-widget config
 
 Future direction:
 

@@ -60,10 +60,14 @@ function ManageLink({ href }: { href: string }) {
 function CompactWidgetCard({
   title,
   meta,
+  actionHref,
+  actionLabel = "Open",
   children,
 }: {
   title: string;
   meta?: string;
+  actionHref?: string;
+  actionLabel?: string;
   children: ReactNode;
 }) {
   return (
@@ -73,6 +77,14 @@ function CompactWidgetCard({
         {meta ? <p className="mt-1 text-xs text-neutral-600">{meta}</p> : null}
       </div>
       <div className="mt-3 min-h-0 flex-1 overflow-auto">{children}</div>
+      {actionHref ? (
+        <Link
+          className="mt-3 shrink-0 rounded-md border border-neutral-300 px-2 py-1.5 text-center text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+          href={actionHref}
+        >
+          {actionLabel}
+        </Link>
+      ) : null}
     </section>
   );
 }
@@ -223,10 +235,16 @@ export function DailyTasksWidget({
       : summary.daily_tasks.filter((task) => task.category_id === categoryId);
   const openTasks = tasks.filter((task) => !task.is_completed);
   const title = configuredTitle("Daily Tasks", widgetConfig);
+  const hiddenTaskCount = Math.max(tasks.length - 5, 0);
 
   if (renderMode === "compact") {
     return (
-      <CompactWidgetCard title={title} meta={`${openTasks.length} open of ${tasks.length}`}>
+      <CompactWidgetCard
+        actionHref="/tasks"
+        actionLabel="Open tasks"
+        title={title}
+        meta={`${openTasks.length} open of ${tasks.length}`}
+      >
         <div className="space-y-2">
           {tasks.length === 0 ? (
             <CompactEmpty message="No daily tasks." />
@@ -250,6 +268,11 @@ export function DailyTasksWidget({
               </label>
             ))
           )}
+          {hiddenTaskCount > 0 ? (
+            <p className="text-xs font-medium text-neutral-600">
+              +{hiddenTaskCount} more
+            </p>
+          ) : null}
         </div>
       </CompactWidgetCard>
     );
@@ -329,10 +352,13 @@ export function WeeklyTasksWidget({
       : summary.weekly_tasks.filter((task) => task.category_id === categoryId);
   const openTasks = tasks.filter((task) => !task.is_completed);
   const title = configuredTitle("Weekly Tasks", widgetConfig);
+  const hiddenTaskCount = Math.max(tasks.length - 5, 0);
 
   if (renderMode === "compact") {
     return (
       <CompactWidgetCard
+        actionHref="/tasks"
+        actionLabel="Open tasks"
         title={title}
         meta={`${openTasks.length} open of ${tasks.length} for ${weekday}`}
       >
@@ -359,6 +385,11 @@ export function WeeklyTasksWidget({
               </label>
             ))
           )}
+          {hiddenTaskCount > 0 ? (
+            <p className="text-xs font-medium text-neutral-600">
+              +{hiddenTaskCount} more
+            </p>
+          ) : null}
         </div>
       </CompactWidgetCard>
     );
@@ -413,7 +444,12 @@ export function RecentNotesWidget({
 }: DashboardWidgetProps) {
   if (renderMode === "compact") {
     return (
-      <CompactWidgetCard title="Recent Notes" meta={`${summary.recent_notes.length} recent`}>
+      <CompactWidgetCard
+        actionHref="/notes"
+        actionLabel="Open notes"
+        title="Recent Notes"
+        meta={`${summary.recent_notes.length} recent`}
+      >
         <div className="space-y-2">
           {summary.recent_notes.length === 0 ? (
             <CompactEmpty message="No recent notes." />
@@ -429,6 +465,11 @@ export function RecentNotesWidget({
               </div>
             ))
           )}
+          {summary.recent_notes.length > 5 ? (
+            <p className="text-xs font-medium text-neutral-600">
+              +{summary.recent_notes.length - 5} more
+            </p>
+          ) : null}
         </div>
       </CompactWidgetCard>
     );
@@ -461,6 +502,8 @@ export function UpcomingEventsWidget({
   if (renderMode === "compact") {
     return (
       <CompactWidgetCard
+        actionHref="/calendar"
+        actionLabel="Open calendar"
         title="Upcoming Events"
         meta={`${summary.upcoming_events.length} upcoming`}
       >
@@ -479,6 +522,11 @@ export function UpcomingEventsWidget({
               </div>
             ))
           )}
+          {summary.upcoming_events.length > 4 ? (
+            <p className="text-xs font-medium text-neutral-600">
+              +{summary.upcoming_events.length - 4} more
+            </p>
+          ) : null}
         </div>
       </CompactWidgetCard>
     );
@@ -519,7 +567,12 @@ export function TrackerSummaryWidget({
 
   if (renderMode === "compact") {
     return (
-      <CompactWidgetCard title="Daily Tracking" meta={hasTrackerData ? undefined : "No entries yet"}>
+      <CompactWidgetCard
+        actionHref="/tracker"
+        actionLabel="Open tracker"
+        title="Daily Tracking"
+        meta={hasTrackerData ? undefined : "No entries yet"}
+      >
         <div className="grid grid-cols-3 gap-2 text-center text-sm">
           <CompactMetric label="Water" value={`${trackerSummary.total_water_ml} ml`} />
           <CompactMetric label="Move" value={trackerSummary.activity_count} />

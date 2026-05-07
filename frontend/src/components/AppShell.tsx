@@ -99,6 +99,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setIsQuickAddOpen(true);
@@ -149,6 +152,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={() => setIsQuickAddOpen(false)}
       />
     </>
+  );
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
   );
 }
 

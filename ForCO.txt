@@ -1,38 +1,37 @@
-Hi! This added Sheet Workspace Shell v1.
+Hi! This added Sheet Hardening + Workspace Flow Polish.
 
 What changed:
-- Reworked `/sheets` into a workspace-first page with one visible sheet at a time.
-- Made the primary sheet surface a fixed desktop-first 4 columns x 2 rows grid.
-- Reduced normal page scrolling on `/sheets` by making the sheet workspace fill the available viewport below the app shell.
-- Kept each slot visually contained with internal clipping/scrolling for overflowing widget content.
-- Added a top-center Workspace trigger and dropdown/control panel.
-- Added dropdown links to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search.
-- Wired the dropdown Quick Add button to the existing global Quick Add modal.
-- Added sheet controls in the dropdown:
-  - previous sheet
-  - next sheet
-  - current sheet selector
-  - create sheet
-  - rename sheet
-  - delete sheet
-  - reset default sheet
-  - customize slots
-- Kept previous/next controls visible in the main sheet workspace header.
-- Kept delete safe by disabling last-sheet deletion in the UI and preserving the backend last-sheet protection.
-- Replaced the old long side editor with a focused slot editor panel.
-- The slot editor now clearly shows the active sheet and active slot.
-- The slot editor lets you select a widget type, clear the slot, set task category filters, set task widget title overrides, and save all slots.
-- Multiple instances of the same widget type remain supported because every slot still persists its own `widget_key` and `config_json`.
-- Tightened compact widget rendering for the 4x2 grid:
-  - daily task widgets show concise counts and short task lists
-  - weekly task widgets show concise counts and scheduled task lists
-  - calendar widgets show concise upcoming events
-  - notes widgets show recent titles and previews
-  - tracker widgets show water/activity/calorie summaries
-  - empty/loading states stay short
-- Left the normal dashboard widgets and dashboard customization behavior intact.
-- No backend schema or migration was added.
-- Updated README.md with the Sheet Workspace Shell v1 overview, top-center dropdown behavior, sheet navigation, slot editing behavior, limitations, future direction, and Windows PowerShell commands.
+- Hardened `/sheets` active-sheet behavior so the UI recovers from stale or deleted sheet selections.
+- Creating a sheet now selects it and shows clear feedback.
+- Deleting a sheet closes sheet panels and selects another valid sheet.
+- Reset now restores the default sheet set, selects the first default sheet, and closes open sheet panels.
+- Added better default sheets:
+  - Today
+  - Planning
+  - Health
+- Health defaults use the Health task category only if an active category named Health exists.
+- Added a low-risk "Use dashboard layout" action that fills the current sheet from visible dashboard widget preferences.
+- Added safe sheet keyboard shortcuts:
+  - Left Arrow for previous sheet
+  - Right Arrow for next sheet
+  - Escape to close the Workspace dropdown or slot editor
+  - Ctrl+Shift+A to open Quick Add
+- Shortcuts do not fire while typing in inputs, textareas, selects, or editable content.
+- Tightened the existing global Ctrl+K Quick Add shortcut so it also ignores typing fields.
+- Improved compact widgets:
+  - Daily Tasks and Weekly Tasks show concise counts, short lists, more-counts, and links to Tasks.
+  - Upcoming Events links to Calendar.
+  - Recent Notes shows title/previews and links to Notes.
+  - Tracker Summary links to Tracker.
+  - Compact content remains contained inside cells.
+- Improved the slot editor:
+  - active slot remains visually obvious
+  - current widget/category/title config is shown
+  - unsaved slot changes are shown
+  - clear action is explicit
+  - save state changes to Saved when there are no unsaved changes
+- Added backend sheet tests for the new default sheets and Health category default behavior.
+- Updated README.md with workspace behavior, shortcuts, default sheets, slot editing behavior, compact widget limitations, future direction, and Windows PowerShell commands.
 
 How I test it:
 1. Start Docker Desktop.
@@ -44,15 +43,15 @@ How I test it:
 7. Check backend health at `http://localhost:8000/health`.
 8. Check DB health at `http://localhost:8000/health/db`.
 9. Open `http://localhost:3000/sheets`.
-10. Confirm the 4x2 workspace fills the page area and does not turn into a long scrolling page.
-11. Open the top-center Workspace dropdown.
-12. Use its links to navigate to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search.
-13. Use Quick Add from the dropdown and confirm the existing modal opens.
-14. Create a second sheet, navigate previous/next, and use the sheet selector.
-15. Rename a sheet.
-16. Confirm deleting the last remaining sheet is not allowed.
-17. Open Customize slots.
-18. Pick a slot, choose Daily Tasks or Weekly Tasks, set a category filter and title override, and save.
+10. Confirm Today, Planning, and Health defaults exist after reset or first default creation.
+11. Create a sheet and confirm it becomes active.
+12. Delete a sheet and confirm another valid sheet becomes active.
+13. Reset sheets and confirm the default sheet set is visible.
+14. Open the Workspace dropdown and test app links, Quick Add, sheet selector, create, rename, delete, reset, Use dashboard layout, and Customize slots.
+15. Test Left Arrow, Right Arrow, Escape, and Ctrl+Shift+A outside input fields.
+16. Confirm shortcuts do nothing while typing in form fields.
+17. Open Customize slots, change widget types/config, clear a slot, and save.
+18. Confirm unsaved/saved messaging updates.
 19. Add duplicate Daily Tasks or Weekly Tasks widgets with different configs.
 20. Refresh `/sheets` and confirm configs persisted.
 21. Check existing pages: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
@@ -63,19 +62,16 @@ How I test it:
 What success looks like:
 - Docker Compose starts cleanly.
 - Backend health and DB health return healthy responses.
-- Alembic reports the current head revision.
+- Alembic reports `20260507_0009 (head)`.
 - Backend tests pass.
 - Frontend build passes.
-- `/sheets` feels like a contained workspace instead of a normal long management page.
-- The sheet grid remains a stable 4x2 layout.
-- Widget overflow stays inside cells.
-- The top-center dropdown works reliably by click, not hover only.
-- Main app areas are reachable from the sheet dropdown.
-- Quick Add still opens from the sheet dropdown.
-- Sheet previous/next, selector, create, rename, delete protection, and reset behavior work.
-- Slot editing is clear, focused, and persists after refresh.
-- Duplicate widget types with different task configs still work.
-- The normal dashboard remains separate and stable.
+- `/sheets` remains a stable 4x2 workspace.
+- The user never lands in a no-active-sheet dead end.
+- Create, rename, delete, reset, and dashboard-layout flows feel understandable.
+- Slot editing shows the active slot, current config, and unsaved state clearly.
+- Duplicate configured widget instances still work.
+- Compact widgets stay readable and contained.
+- Quick Add, Global Search, dashboard customization, and task category filtering still work.
 
 Limitations:
 - No drag-and-drop.
@@ -90,9 +86,10 @@ Limitations:
 - No tracker categories.
 - No database-defined widgets or plugin system.
 - Mobile is still not heavily optimized.
-- The no-scroll feeling is practical rather than absolute; very small viewports may still need browser-level scrolling.
+- Use dashboard layout copies visible dashboard widget order only; it does not create advanced widget config.
+- The no-scroll feeling is practical rather than absolute on very small viewports.
 
 Recommended next phase:
-- Write a short sheet/widget contract doc that defines compact rendering rules and supported `config_json` by widget type.
-- Add a small visual QA pass for `/sheets` across common desktop sizes.
-- Then consider Sheet Layout v2 with explicit edit/view modes before starting drag-and-drop, resizing, or `x/y/w/h` placement.
+- Add a short sheet/widget contract doc for compact rendering rules, config schemas, and edit/view expectations.
+- Add browser visual QA for `/sheets` across common desktop sizes.
+- Then consider Sheet Layout v2 with explicit edit/view modes before drag-and-drop, resizing, or `x/y/w/h` placement.

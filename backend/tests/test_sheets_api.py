@@ -1,13 +1,13 @@
 from fastapi.testclient import TestClient
 
-DEFAULT_WIDGET_KEYS = [
+TODAY_WIDGET_KEYS = [
     "today-overview",
-    "quick-actions",
     "daily-tasks",
     "weekly-tasks",
-    "recent-notes",
     "upcoming-events",
+    "recent-notes",
     "tracker-summary",
+    "quick-actions",
     "planning-summary",
 ]
 
@@ -17,9 +17,8 @@ def test_sheets_returns_default_sheet(client: TestClient) -> None:
 
     assert response.status_code == 200
     sheets = response.json()
-    assert len(sheets) == 1
-    assert sheets[0]["name"] == "Default Sheet"
-    assert sheets[0]["sort_order"] == 0
+    assert [sheet["name"] for sheet in sheets] == ["Today", "Planning", "Health"]
+    assert [sheet["sort_order"] for sheet in sheets] == [0, 1, 2]
 
 
 def test_sheet_detail_returns_slots_in_predictable_order(client: TestClient) -> None:
@@ -30,17 +29,19 @@ def test_sheet_detail_returns_slots_in_predictable_order(client: TestClient) -> 
     assert response.status_code == 200
     slots = response.json()["slots"]
     assert [slot["slot_index"] for slot in slots] == list(range(8))
-    assert [slot["widget_key"] for slot in slots] == DEFAULT_WIDGET_KEYS
+    assert [slot["widget_key"] for slot in slots] == TODAY_WIDGET_KEYS
     assert all(slot["config_json"] == {} for slot in slots)
 
 
 def test_create_sheet(client: TestClient) -> None:
+    client.get("/api/sheets")
+
     response = client.post("/api/sheets", json={"name": "Health"})
 
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Health"
-    assert data["sort_order"] == 0
+    assert data["sort_order"] == 3
     assert len(data["slots"]) == 8
     assert all(slot["widget_key"] is None for slot in data["slots"])
 
@@ -55,18 +56,23 @@ def test_rename_sheet(client: TestClient) -> None:
 
 
 def test_delete_sheet_when_more_than_one_exists(client: TestClient) -> None:
-    default_sheet_id = client.get("/api/sheets").json()[0]["id"]
+    default_sheet_ids = [sheet["id"] for sheet in client.get("/api/sheets").json()]
     second_sheet = client.post("/api/sheets", json={"name": "Work"}).json()
 
     response = client.delete(f"/api/sheets/{second_sheet['id']}")
 
     assert response.status_code == 204
     sheets = client.get("/api/sheets").json()
-    assert [sheet["id"] for sheet in sheets] == [default_sheet_id]
+    assert [sheet["id"] for sheet in sheets] == default_sheet_ids
 
 
 def test_delete_last_sheet_is_rejected(client: TestClient) -> None:
-    sheet_id = client.get("/api/sheets").json()[0]["id"]
+    sheets = client.get("/api/sheets").json()
+    for sheet in sheets[1:]:
+        response = client.delete(f"/api/sheets/{sheet['id']}")
+        assert response.status_code == 204
+
+    sheet_id = sheets[0]["id"]
 
     response = client.delete(f"/api/sheets/{sheet_id}")
 
@@ -222,6 +228,31 @@ def test_reset_default_sheets(client: TestClient) -> None:
 
     assert response.status_code == 200
     sheets = response.json()
-    assert len(sheets) == 1
-    assert sheets[0]["name"] == "Default Sheet"
-    assert sheets[0]["sort_order"] == 0
+    assert [sheet["name"] for sheet in sheets] == ["Today", "Planning", "Health"]
+    assert [sheet["sort_order"] for sheet in sheets] == [0, 1, 2]
+
+
+def test_health_default_uses_health_category_when_it_exists(
+    client: TestClient,
+) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Health", "color": "#22c55e"},
+    ).json()
+
+    sheets = client.get("/api/sheets").json()
+    health_sheet_id = next(sheet["id"] for sheet in sheets if sheet["name"] == "Health")
+    response = client.get(f"/api/sheets/{health_sheet_id}")
+
+    assert response.status_code == 200
+    slots = response.json()["slots"]
+    assert slots[1]["widget_key"] == "daily-tasks"
+    assert slots[1]["config_json"] == {
+        "category_id": category["id"],
+        "title_override": "Health Tasks",
+    }
+    assert slots[2]["widget_key"] == "weekly-tasks"
+    assert slots[2]["config_json"] == {
+        "category_id": category["id"],
+        "title_override": "Health Tasks",
+    }
