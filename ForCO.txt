@@ -1,13 +1,16 @@
-Hi! This was a Phase 4 hardening pass for Tasks.
+Hi! This was Phase 7: the basic tracker.
 
-What got fixed:
-- Weekly task occurrences can only be completed on dates matching the task's weekdays.
-- The Tasks page now disables weekly completion checkboxes when a task is not scheduled for the selected date.
-- The default Tasks date now uses your local browser date.
-- Task API calls encode date query values safely.
-- Backend tests now cover daily completion idempotency, weekly task editing, and invalid weekly occurrence dates.
+What changed:
+- Added a Tracker page at http://localhost:3000/tracker.
+- You can add and archive water entries for a selected date.
+- You can see the selected date's total water intake.
+- You can add and archive activity entries for a selected date.
+- Added Tracker API routes under /api/tracker.
+- Added a new Alembic migration for water_entries and activity_entries.
+- The dashboard now shows real tracker summary data instead of a placeholder.
+- README.md now describes the tracker module, API, dashboard integration, and Windows Docker workflow.
 
-How to test it on Windows:
+How I test it on Windows:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
 3. Run `docker compose up --build -d`.
@@ -16,22 +19,20 @@ How to test it on Windows:
 6. Run `docker compose exec backend pytest`.
 7. Run `docker compose exec frontend npm run build`.
 
-What to check:
-- Home: http://localhost:3000
-- Notes: http://localhost:3000/notes
-- Tasks: http://localhost:3000/tasks
-- Backend health: http://localhost:8000/health
-- Database health: http://localhost:8000/health/db
-
-Success looks like:
-- Daily tasks can be created, edited, completed, uncompleted, and archived.
-- Weekly tasks can be created, edited, assigned weekdays, completed for valid dates, uncompleted, and archived.
-- Weekly tasks not scheduled for the selected date show as not completable.
+What success looks like:
+- Home: http://localhost:3000 shows tracker totals on the dashboard.
+- Tracker works at http://localhost:3000/tracker.
+- Notes still works at http://localhost:3000/notes.
+- Tasks still works at http://localhost:3000/tasks.
+- Calendar still works at http://localhost:3000/calendar.
+- Backend health works at http://localhost:8000/health.
+- Database health works at http://localhost:8000/health/db.
 - Backend tests and frontend build pass.
 
 Known limits:
-- Weekly recurrence is still intentionally simple: weekday templates only.
-- No priorities, subtasks, labels, reminders, notifications, calendar, tracker, AI, widgets, or sheets yet.
+- Tracker is simple daily water and activity logging only.
+- No charts, advanced analytics, wearable integrations, nutrition tracking, or custom tracker builder yet.
+- No auth, AI, workers, sheets, widgets, drag-and-drop, reminders, or notifications yet.
 
 Next recommended phase:
-- Phase 5: fixed dashboard.
+- Phase 8: hardening pass.

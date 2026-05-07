@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, notes with nested folders, and MVP daily/weekly tasks.
+COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, and basic water/activity tracking.
 
 ## Project Structure
 
@@ -70,9 +70,11 @@ The first build can take a few minutes while Docker downloads images and install
 
 Open these in your browser:
 
-- Frontend: `http://localhost:3000`
+- Dashboard home: `http://localhost:3000`
 - Notes page: `http://localhost:3000/notes`
 - Tasks page: `http://localhost:3000/tasks`
+- Calendar page: `http://localhost:3000/calendar`
+- Tracker page: `http://localhost:3000/tracker`
 - Backend health: `http://localhost:8000/health`
 - Backend database health: `http://localhost:8000/health/db`
 
@@ -82,15 +84,17 @@ Or check them from PowerShell:
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tasks).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/calendar).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/tracker).StatusCode
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
 
-Success looks like:
-
-- The frontend page says `COlendar is running`.
+- The dashboard shows today's overview, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary, and recent notes.
 - The Notes page lets you create folders and notes.
 - The Tasks page lets you create daily and weekly tasks.
+- The Calendar page lets you create, edit, view, and archive simple internal events.
+- The Tracker page lets you log water and lightweight activity for a selected date.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
 - Docker Desktop shows the frontend, backend, and database containers running.
@@ -107,9 +111,166 @@ The backend database foundation is split like this:
 
 Future modules should define their own SQLAlchemy models inside their module folders, then import those model modules in `backend/app/db/model_registry.py` so Alembic can detect them.
 
+## Dashboard
+
+The dashboard is now the default home screen at `http://localhost:3000`.
+
+It is intentionally fixed and practical in this phase. It currently shows:
+
+- Today/date overview using the browser's local date on first load
+- Incomplete daily task count for the selected date
+- Incomplete weekly task count for the selected date
+- Daily tasks for the selected date, with complete/incomplete checkboxes
+- Weekly recurring tasks scheduled for the selected date, with complete/incomplete checkboxes
+- Upcoming active calendar events from the selected date onward
+- Tracker summary for the selected date
+- Recent active notes with short previews
+- Quick links to Notes, Tasks, Calendar, and Tracker
+- Loading, empty, and error states
+
+The dashboard is not customizable yet. It is also not the future sheet/grid UI. The frontend is split into reusable section components such as `TodayOverviewSection`, `DailyTasksSection`, `WeeklyTasksSection`, and `RecentNotesSection` so those sections can later become formal widgets.
+
+The backend dashboard module composes data owned by the Notes, Tasks, Calendar, and Tracker modules. It does not own dashboard tables or duplicate module data.
+
+The module lives mainly in:
+
+- `backend/app/modules/dashboard/router.py`
+- `backend/app/modules/dashboard/service.py`
+- `backend/app/modules/dashboard/schemas.py`
+- `frontend/app/page.tsx`
+- `frontend/src/features/dashboard/`
+
+## Dashboard API Overview
+
+```text
+GET /api/dashboard/summary?date=YYYY-MM-DD
+```
+
+The response includes:
+
+- selected date
+- daily tasks for that date
+- weekly tasks scheduled for that date and their completion state
+- upcoming active calendar events from the selected date onward
+- tracker summary for that date
+- recent active notes
+- simple dashboard counts
+
+## Calendar Module
+
+The calendar module is a simple internal event system. It is not external calendar sync, not a shared calendar, and not a recurrence engine.
+
+Calendar events support:
+
+- Title
+- Optional description
+- Event date
+- Optional start time
+- Optional end time
+- Optional location
+- Soft archive/delete through `is_archived`
+- Created and updated timestamps
+
+Time handling is intentionally simple for the MVP. Event dates and times are local app values, with no complex time zone model. If both start and end times are set, the end time cannot be before the start time.
+
+The browser UI at `http://localhost:3000/calendar` currently provides:
+
+- A selected-date event list
+- An upcoming events list
+- Event creation
+- Event editing
+- Event archive/delete
+- Loading, empty, success, and error states
+
+The dashboard at `http://localhost:3000` now shows real upcoming calendar events from the selected date onward. The dashboard still only composes calendar data; event ownership remains in the Calendar module.
+
+The module lives mainly in:
+
+- `backend/app/modules/calendar/models.py`
+- `backend/app/modules/calendar/schemas.py`
+- `backend/app/modules/calendar/router.py`
+- `frontend/app/calendar/page.tsx`
+- `frontend/src/features/calendar/`
+
+## Calendar API Overview
+
+```text
+GET    /api/calendar/events
+GET    /api/calendar/events?date=YYYY-MM-DD
+GET    /api/calendar/events?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD
+GET    /api/calendar/events?upcoming=true
+GET    /api/calendar/events?upcoming=true&from_date=YYYY-MM-DD
+POST   /api/calendar/events
+GET    /api/calendar/events/{event_id}
+PATCH  /api/calendar/events/{event_id}
+DELETE /api/calendar/events/{event_id}
+```
+
+Deletes are soft archives in this phase. Normal list and detail endpoints only return active, non-archived events.
+
+## Tracker Module
+
+The tracker module is a basic daily tracker for water intake and lightweight activity. It is not a health analytics app, a wearable integration, or a custom tracker builder.
+
+Water entries support:
+
+- Entry date
+- Amount in milliliters
+- Optional note
+- Soft archive/delete through `is_archived`
+- Created and updated timestamps
+
+Activity entries support:
+
+- Entry date
+- Activity type
+- Optional duration in minutes
+- Optional quantity
+- Optional note
+- Soft archive/delete through `is_archived`
+- Created and updated timestamps
+
+The browser UI at `http://localhost:3000/tracker` currently provides:
+
+- A selected date
+- Daily water total
+- Water entry list
+- Water entry creation
+- Water entry archive/delete
+- Activity entry list
+- Activity entry creation
+- Activity entry archive/delete
+- Loading, empty, success, and error states
+
+The dashboard at `http://localhost:3000` now shows the selected date's water total, activity count, and activity minutes. The dashboard still only composes tracker data; tracker entry ownership remains in the Tracker module.
+
+The module lives mainly in:
+
+- `backend/app/modules/tracker/models.py`
+- `backend/app/modules/tracker/schemas.py`
+- `backend/app/modules/tracker/router.py`
+- `frontend/app/tracker/page.tsx`
+- `frontend/src/features/tracker/`
+
+## Tracker API Overview
+
+```text
+GET    /api/tracker/water?date=YYYY-MM-DD
+POST   /api/tracker/water
+DELETE /api/tracker/water/{entry_id}
+
+GET    /api/tracker/activity?date=YYYY-MM-DD
+POST   /api/tracker/activity
+DELETE /api/tracker/activity/{entry_id}
+
+GET    /api/tracker/summary?date=YYYY-MM-DD
+```
+
+Deletes are soft archives in this phase. Normal list and summary endpoints only return active, non-archived entries.
+
 ## Notes And Folders Module
 
-The notes module is the first real product feature.
+The notes module supports note capture and organization.
 
 It supports:
 
@@ -254,7 +415,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`.
 
 ## Create A New Migration
 
@@ -284,7 +445,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders and tasks behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, and weekly task archive.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, and dashboard behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity CRUD/archive/summary behavior, and dashboard summaries for selected dates.
 
 You can also run the frontend production build through Docker:
 
@@ -352,11 +513,13 @@ Then open `http://localhost:3000`.
 
 This phase does not include:
 
-- Calendar events, tracker entries, or dashboard data
 - Authentication or users
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
+- Dashboard customization or formal widget records
+- External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
+- Advanced tracker analytics, charts, wearable integrations, nutrition features, or a custom tracker builder
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
 - Searching or filtering notes beyond selecting a folder
