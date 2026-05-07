@@ -16,6 +16,7 @@ import { todayIsoDate } from "@/lib/date";
 
 const navItems = [
   ["Home", "/"],
+  ["Search", "/search"],
   ["Notes", "/notes"],
   ["Tasks", "/tasks"],
   ["Calendar", "/calendar"],

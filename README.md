@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and a lightweight dashboard-section foundation for future widgets.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, Global Search, and a lightweight dashboard-section foundation for future widgets.
 
 ## Project Structure
 
@@ -79,6 +79,7 @@ Open these in your browser:
 - Notes page: `http://localhost:3000/notes`
 - Tasks page: `http://localhost:3000/tasks`
 - Calendar page: `http://localhost:3000/calendar`
+- Search page: `http://localhost:3000/search`
 - Planning page: `http://localhost:3000/planning`
 - Tracker page: `http://localhost:3000/tracker`
 - Backend health: `http://localhost:8000/health`
@@ -91,6 +92,7 @@ Or check them from PowerShell:
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tasks).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/calendar).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/search).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/planning).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tracker).StatusCode
 Invoke-RestMethod http://localhost:8000/health
@@ -99,6 +101,7 @@ Invoke-RestMethod http://localhost:8000/health/db
 
 - The dashboard shows today's overview, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
+- The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page lets you create folders and notes.
 - The Tasks page lets you create daily and weekly tasks.
 - The Calendar page lets you create, edit, view, and archive simple internal events.
@@ -207,6 +210,51 @@ POST /api/tracker/calories
 ```
 
 It does not add backend routes, tables, migrations, widgets, sheets, command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
+
+## Global Search
+
+Global Search is a lightweight keyword search page at `http://localhost:3000/search`. It is available from the app shell navigation and is meant to make the existing modules feel connected without introducing AI, semantic search, pgvector, or command-palette infrastructure.
+
+Search includes active, non-archived records from:
+
+- Notes: title and content
+- Folders: folder name
+- Daily tasks: title and description
+- Weekly tasks: title and description
+- Calendar events: title, description, and location
+
+Tracker entries are intentionally not included yet. Tracker data is date-log oriented, and searching it globally is less useful than searching notes, tasks, folders, and events in the current MVP.
+
+The backend search module composes existing module data and owns no tables:
+
+- `backend/app/modules/search/router.py`
+- `backend/app/modules/search/service.py`
+- `backend/app/modules/search/schemas.py`
+- `frontend/app/search/page.tsx`
+- `frontend/src/features/search/`
+
+## Search API Overview
+
+```text
+GET /api/search?q=keyword
+```
+
+The response is grouped by source:
+
+```json
+{
+  "query": "gym",
+  "results": {
+    "notes": [],
+    "folders": [],
+    "daily_tasks": [],
+    "weekly_tasks": [],
+    "calendar_events": []
+  }
+}
+```
+
+Each result includes an `id`, `type`, `title`, optional `subtitle`, optional `preview`, optional `date`, and `target_url`. Empty or whitespace-only queries return a validation error. Matching is case-insensitive and uses simple database `LIKE` behavior, not full-text, fuzzy, semantic, or AI search.
 
 ## Calendar Module
 
@@ -572,7 +620,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, and dashboard behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, planning daily/weekly composition, and dashboard summaries for selected dates.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, planning daily/weekly composition, dashboard summaries for selected dates, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 
@@ -651,7 +699,7 @@ This phase does not include:
 - Editable planning engine, time blocking, planning tables, or planning-specific reminders
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
-- Searching or filtering notes beyond selecting a folder
+- Search deep links to module pages instead of opening specific result detail views
 - Choosing a folder from Quick Add note creation
 - Advanced task recurrence rules, subtasks, priorities, labels, dependencies, reminders, or notifications
 

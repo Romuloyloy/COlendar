@@ -1,43 +1,49 @@
-Hi! This added Global Quick Add.
+Hi! This added Global Search.
 
 What changed:
-- Added a global Quick Add button in the app navigation.
-- Quick Add is available from Dashboard, Notes, Tasks, Calendar, Planning, and Tracker.
-- `Ctrl+K` also opens Quick Add on Windows.
-- Quick Add can create daily tasks, notes, calendar events, water entries, activity entries, and calorie entries.
-- It reuses the existing module APIs and adds no new backend routes, tables, or migrations.
-- The current page refreshes its existing data after a successful Quick Add create.
-- README.md now documents Quick Add, supported item types, APIs used, limitations, and Windows PowerShell commands.
-
-What success looks like:
-- You can open Quick Add from the top navigation.
-- You can create each supported item type from the same panel.
-- Created items show up in the existing pages and dashboard summaries after the current data refresh.
-- Notes created through Quick Add are saved without a folder.
+- Added a read-only backend search module at `backend/app/modules/search/`.
+- Added `GET /api/search?q=...`.
+- Search returns grouped results for notes, folders, daily tasks, weekly tasks, and calendar events.
+- Search is case-insensitive and excludes archived records.
+- Empty or whitespace-only search queries return a validation error.
+- Added a `/search` frontend page with query input, loading, empty, error, and grouped result states.
+- Added Search to the app shell navigation.
+- Result clicks go to the relevant module page: Notes, Tasks, or Calendar.
+- Added backend tests for note title search, note content search, folder search, daily task search, weekly task search, calendar event search, archived exclusions, empty query handling, and case-insensitive matching.
+- Updated README.md with the Global Search overview, searchable data, API shape, run/test commands, known limitations, and intentional exclusions.
 
 How to test it on Windows:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
 3. Run `docker compose up --build -d`.
 4. Run `docker compose exec backend alembic upgrade head`.
-5. Run `docker compose exec backend alembic current`.
-6. Run `docker compose exec backend pytest`.
-7. Run `docker compose exec frontend npm run build`.
+5. Run `docker compose exec backend pytest`.
+6. Run `docker compose exec frontend npm run build`.
+7. Open `http://localhost:3000/search`.
+8. Create sample notes, folders, daily tasks, weekly tasks, and calendar events, then search for words from their titles/descriptions/content/location.
 
 What success looks like:
-- Home: http://localhost:3000 shows calorie total in the tracker summary.
-- Tracker works with calories at http://localhost:3000/tracker.
-- Planning works at http://localhost:3000/planning.
-- Notes, Tasks, and Calendar still work.
-- Backend health works at http://localhost:8000/health.
-- Database health works at http://localhost:8000/health/db.
+- Frontend loads at `http://localhost:3000`.
+- Existing pages still load: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, and `/planning`.
+- Search is reachable from the top navigation.
+- Searching for note titles and note content returns note results.
+- Searching for daily and weekly task text returns task results.
+- Searching for calendar event title, description, or location returns calendar results.
+- Folder name search returns folder results.
+- Archived notes, folders, tasks, and calendar events do not appear.
+- Results are grouped by type.
+- Clicking a result takes you to the relevant app area.
+- Backend health works at `http://localhost:8000/health`.
+- Database health works at `http://localhost:8000/health/db`.
 - Backend tests and frontend build pass.
 
 Known limits:
-- Quick Add is practical quick-create, not a full command palette.
-- No folder picker for Quick Add notes yet.
-- No auth, AI, widgets, sheets, drag-and-drop, reminders, notifications, or external integrations.
-- No advanced recurrence, analytics, or planning automation.
+- This is practical keyword search, not AI search.
+- No semantic search, pgvector, fuzzy matching, saved searches, filters, or command palette yet.
+- Tracker entries are not included.
+- Result links currently go to module pages instead of deep-linking to a specific note, task, folder, or event.
+- Each backend group is capped to a small practical result set.
+- No auth, widgets, sheets, drag-and-drop, reminders, notifications, external integrations, or advanced analytics were added.
 
-Next recommended phase:
-- Add focused usability refinements, such as better Quick Add post-create navigation or a small folder picker for notes, before any formal widget/sheet work.
+Recommended next phase:
+- Add simple deep-link handling inside Notes, Tasks, and Calendar so search results can open or highlight the exact matching item.
