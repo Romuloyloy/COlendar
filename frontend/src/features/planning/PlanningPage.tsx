@@ -176,6 +176,21 @@ export function PlanningPage() {
       .finally(() => setIsLoading(false));
   }, [selectedDate]);
 
+  useEffect(() => {
+    function refreshAfterQuickAdd() {
+      Promise.all([getDailyPlan(selectedDate), getWeeklyPlan(selectedDate)])
+        .then(([daily, weekly]) => {
+          setDailyPlan(daily);
+          setWeeklyPlan(weekly);
+        })
+        .catch((caught: Error) => setError(caught.message));
+    }
+
+    window.addEventListener("quick-add:created", refreshAfterQuickAdd);
+    return () =>
+      window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
+  }, [selectedDate]);
+
   return (
     <main className="min-h-screen px-6 py-8 text-neutral-900">
       <section className="mx-auto max-w-6xl space-y-6">

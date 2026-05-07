@@ -48,6 +48,16 @@ export function DashboardPage() {
       .finally(() => setIsLoading(false));
   }, [selectedDate]);
 
+  useEffect(() => {
+    function refreshAfterQuickAdd() {
+      void loadSummary().catch((caught: Error) => setError(caught.message));
+    }
+
+    window.addEventListener("quick-add:created", refreshAfterQuickAdd);
+    return () =>
+      window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
+  }, [selectedDate]);
+
   async function runTaskAction(action: () => Promise<void>) {
     setIsSaving(true);
     setError(null);

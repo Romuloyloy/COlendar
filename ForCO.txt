@@ -1,20 +1,19 @@
-Hi! This phase was an MVP hardening and widget-foundation preparation pass.
+Hi! This added Global Quick Add.
 
 What changed:
-- Added shared frontend UI primitives for page headers, cards, loading, empty, error, notice, and date selector states.
-- Centralized frontend API request/error handling in one shared helper.
-- Centralized frontend date helpers.
-- Refactored the dashboard into reusable widget-like section components.
-- Added lightweight dashboard section metadata for future widget work.
-- Smoothed navigation and selected-date/status handling across major pages.
-- Kept backend APIs stable after reviewing archive, date, and error behavior.
-- Updated README.md with the current MVP, shared UI approach, dashboard section approach, limitations, and Windows Docker commands.
+- Added a global Quick Add button in the app navigation.
+- Quick Add is available from Dashboard, Notes, Tasks, Calendar, Planning, and Tracker.
+- `Ctrl+K` also opens Quick Add on Windows.
+- Quick Add can create daily tasks, notes, calendar events, water entries, activity entries, and calorie entries.
+- It reuses the existing module APIs and adds no new backend routes, tables, or migrations.
+- The current page refreshes its existing data after a successful Quick Add create.
+- README.md now documents Quick Add, supported item types, APIs used, limitations, and Windows PowerShell commands.
 
-What the app should feel like now:
-- Still simple and desktop-first.
-- More coherent across Dashboard, Notes, Tasks, Calendar, Tracker, and Planning.
-- Less like separate test pages.
-- Better prepared for future widgets and sheets without implementing them yet.
+What success looks like:
+- You can open Quick Add from the top navigation.
+- You can create each supported item type from the same panel.
+- Created items show up in the existing pages and dashboard summaries after the current data refresh.
+- Notes created through Quick Add are saved without a folder.
 
 How to test it on Windows:
 1. Start Docker Desktop.
@@ -35,10 +34,10 @@ What success looks like:
 - Backend tests and frontend build pass.
 
 Known limits:
-- No auth, AI, Redis/workers, formal widgets, sheets, drag-and-drop, dashboard customization, reminders, notifications, or external integrations.
-- Planning remains read-only.
-- Tracker remains simple water/activity/calorie logging.
-- The dashboard is still fixed and non-customizable.
+- Quick Add is practical quick-create, not a full command palette.
+- No folder picker for Quick Add notes yet.
+- No auth, AI, widgets, sheets, drag-and-drop, reminders, notifications, or external integrations.
+- No advanced recurrence, analytics, or planning automation.
 
 Next recommended phase:
-- Begin the next major phase only when ready: formal widget/sheet design, starting with a careful architecture plan before implementing database tables or drag-and-drop.
+- Add focused usability refinements, such as better Quick Add post-create navigation or a small folder picker for notes, before any formal widget/sheet work.

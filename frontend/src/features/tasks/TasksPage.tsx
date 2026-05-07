@@ -101,6 +101,16 @@ export function TasksPage() {
   }, [selectedDate, weeklyFilter]);
 
   useEffect(() => {
+    function refreshAfterQuickAdd() {
+      void loadData().catch((caught: Error) => setError(caught.message));
+    }
+
+    window.addEventListener("quick-add:created", refreshAfterQuickAdd);
+    return () =>
+      window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
+  }, [selectedDate, weeklyFilter]);
+
+  useEffect(() => {
     if (selectedDailyTask) {
       setDailyTitle(selectedDailyTask.title);
       setDailyDescription(selectedDailyTask.description);

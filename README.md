@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, and a lightweight dashboard-section foundation for future widgets.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and a lightweight dashboard-section foundation for future widgets.
 
 ## Project Structure
 
@@ -98,6 +98,7 @@ Invoke-RestMethod http://localhost:8000/health/db
 ```
 
 - The dashboard shows today's overview, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
+- The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
 - The Notes page lets you create folders and notes.
 - The Tasks page lets you create daily and weekly tasks.
 - The Calendar page lets you create, edit, view, and archive simple internal events.
@@ -171,6 +172,41 @@ The response includes:
 - tracker summary for that date, including calorie total
 - recent active notes
 - simple dashboard counts
+
+## Global Quick Add
+
+Quick Add is a simple app-shell create panel available from every main page:
+
+- Dashboard
+- Notes
+- Tasks
+- Calendar
+- Planning
+- Tracker
+
+Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K` also opens it.
+
+Quick Add can create:
+
+- Daily task: title, optional description, date
+- Note: title and content, saved without a folder
+- Calendar event: title, date, optional start time, optional end time, optional location, optional description
+- Water entry: date, amount in ml, optional note
+- Activity entry: date, activity type, optional duration, optional quantity, optional note
+- Calorie entry: date, amount in kcal, optional label, optional note
+
+Quick Add uses the existing module APIs:
+
+```text
+POST /api/tasks/daily
+POST /api/notes
+POST /api/calendar/events
+POST /api/tracker/water
+POST /api/tracker/activity
+POST /api/tracker/calories
+```
+
+It does not add backend routes, tables, migrations, widgets, sheets, command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
 
 ## Calendar Module
 
@@ -609,12 +645,14 @@ This phase does not include:
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
 - Dashboard customization or formal widget records
+- A formal command palette engine
 - External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
 - Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder
 - Editable planning engine, time blocking, planning tables, or planning-specific reminders
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
 - Searching or filtering notes beyond selecting a folder
+- Choosing a folder from Quick Add note creation
 - Advanced task recurrence rules, subtasks, priorities, labels, dependencies, reminders, or notifications
 
 Those belong in later phases from the roadmap.

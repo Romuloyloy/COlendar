@@ -131,6 +131,16 @@ export function NotesPage() {
   }, []);
 
   useEffect(() => {
+    function refreshAfterQuickAdd() {
+      void loadData().catch((caught: Error) => setError(caught.message));
+    }
+
+    window.addEventListener("quick-add:created", refreshAfterQuickAdd);
+    return () =>
+      window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
+  }, [selectedFolderId, selectedNoteId]);
+
+  useEffect(() => {
     if (selectedFolder) {
       setEditFolderName(selectedFolder.name);
       setEditFolderParentId(selectedFolder.parent_folder_id?.toString() ?? "");

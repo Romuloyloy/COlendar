@@ -121,6 +121,16 @@ export function CalendarPage() {
   }, [selectedDate]);
 
   useEffect(() => {
+    function refreshAfterQuickAdd() {
+      void loadData().catch((caught: Error) => setError(caught.message));
+    }
+
+    window.addEventListener("quick-add:created", refreshAfterQuickAdd);
+    return () =>
+      window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
+  }, [selectedDate]);
+
+  useEffect(() => {
     setEventDate(selectedDate);
     setSelectedEventId(null);
     resetForm(selectedDate);
