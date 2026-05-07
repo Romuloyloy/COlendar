@@ -1,99 +1,98 @@
-Hi! This added Sheet/Grid Hardening v2.
+Hi! This added Sheet Workspace Shell v1.
 
 What changed:
-- Added task categories:
-  - `task_categories`
-  - optional `category_id` on daily tasks
-  - optional `category_id` on weekly tasks
-- Added migration `20260507_0009_add_task_categories_and_sheet_slot_config.py`.
-- Added task category APIs:
-  - `GET /api/tasks/categories`
-  - `POST /api/tasks/categories`
-  - `PATCH /api/tasks/categories/{category_id}`
-  - `DELETE /api/tasks/categories/{category_id}`
-- Category names are validated as non-empty and unique among active categories.
-- Archiving a category leaves existing task references intact, but archived categories cannot be assigned to new or updated tasks.
-- Daily and weekly task APIs now accept `category_id` and can filter by `category_id`.
-- Tracker is intentionally unaffected by categories.
-- Updated sheet slots so each occupied slot is a widget instance:
-  - `widget_key`
-  - `slot_index`
-  - `config_json`
-- Multiple slots on one sheet can now use the same `widget_key`.
-- Task widget slot config supports:
-  - no category filter
-  - `category_id`
-  - optional `title_override`
-- Added validation for unknown widget keys, invalid slot indexes, and invalid task widget category config.
-- Added compact sheet-friendly widget rendering.
-- Dashboard widgets still render normally on `/`.
-- `/sheets` renders widgets in compact mode.
-- Updated the `/sheets` slot editor so each slot can choose a widget type, category filter, optional title override, or be cleared.
-- Updated the Tasks page with simple category management, category assignment, and category filters.
-- Updated backend tests for categories, task filtering, duplicate sheet widget instances, per-slot configs, and tracker independence.
-- Updated README.md with task categories, sheet widget instances/configs, duplicate widgets, compact sheet widgets, limitations, and test commands.
+- Reworked `/sheets` into a workspace-first page with one visible sheet at a time.
+- Made the primary sheet surface a fixed desktop-first 4 columns x 2 rows grid.
+- Reduced normal page scrolling on `/sheets` by making the sheet workspace fill the available viewport below the app shell.
+- Kept each slot visually contained with internal clipping/scrolling for overflowing widget content.
+- Added a top-center Workspace trigger and dropdown/control panel.
+- Added dropdown links to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search.
+- Wired the dropdown Quick Add button to the existing global Quick Add modal.
+- Added sheet controls in the dropdown:
+  - previous sheet
+  - next sheet
+  - current sheet selector
+  - create sheet
+  - rename sheet
+  - delete sheet
+  - reset default sheet
+  - customize slots
+- Kept previous/next controls visible in the main sheet workspace header.
+- Kept delete safe by disabling last-sheet deletion in the UI and preserving the backend last-sheet protection.
+- Replaced the old long side editor with a focused slot editor panel.
+- The slot editor now clearly shows the active sheet and active slot.
+- The slot editor lets you select a widget type, clear the slot, set task category filters, set task widget title overrides, and save all slots.
+- Multiple instances of the same widget type remain supported because every slot still persists its own `widget_key` and `config_json`.
+- Tightened compact widget rendering for the 4x2 grid:
+  - daily task widgets show concise counts and short task lists
+  - weekly task widgets show concise counts and scheduled task lists
+  - calendar widgets show concise upcoming events
+  - notes widgets show recent titles and previews
+  - tracker widgets show water/activity/calorie summaries
+  - empty/loading states stay short
+- Left the normal dashboard widgets and dashboard customization behavior intact.
+- No backend schema or migration was added.
+- Updated README.md with the Sheet Workspace Shell v1 overview, top-center dropdown behavior, sheet navigation, slot editing behavior, limitations, future direction, and Windows PowerShell commands.
 
-How to test it on Windows:
+How I test it:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
 3. Run `docker compose up --build -d`.
-4. Run `docker compose exec backend alembic upgrade head`.
-5. Run `docker compose exec backend alembic current`.
-6. Run `docker compose exec backend pytest`.
-7. Run `docker compose exec frontend npm run build`.
-8. Open `http://localhost:3000/tasks`.
-9. Create categories such as School, Gym, Health, and Work.
-10. Create a daily task and assign a category.
-11. Create a weekly task and assign a category.
-12. Filter daily tasks by category.
-13. Filter weekly tasks by category.
-14. Open `http://localhost:3000/sheets`.
-15. Add Daily Tasks to multiple slots with different category filters.
-16. Add Weekly Tasks to multiple slots with different category filters.
-17. Add title overrides such as School Tasks or Health Weekly.
-18. Save the slot layout and refresh `/sheets`.
-19. Confirm slot widget configs persisted.
-20. Check existing pages: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
-21. Confirm Quick Add still works.
+4. Run `docker compose exec backend alembic current`.
+5. Run `docker compose exec backend pytest`.
+6. Run `docker compose exec frontend npm run build`.
+7. Check backend health at `http://localhost:8000/health`.
+8. Check DB health at `http://localhost:8000/health/db`.
+9. Open `http://localhost:3000/sheets`.
+10. Confirm the 4x2 workspace fills the page area and does not turn into a long scrolling page.
+11. Open the top-center Workspace dropdown.
+12. Use its links to navigate to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search.
+13. Use Quick Add from the dropdown and confirm the existing modal opens.
+14. Create a second sheet, navigate previous/next, and use the sheet selector.
+15. Rename a sheet.
+16. Confirm deleting the last remaining sheet is not allowed.
+17. Open Customize slots.
+18. Pick a slot, choose Daily Tasks or Weekly Tasks, set a category filter and title override, and save.
+19. Add duplicate Daily Tasks or Weekly Tasks widgets with different configs.
+20. Refresh `/sheets` and confirm configs persisted.
+21. Check existing pages: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
 22. Confirm Global Search still works.
-23. Confirm dashboard customization still works.
-24. Check backend health at `http://localhost:8000/health`.
-25. Check DB health at `http://localhost:8000/health/db`.
+23. Confirm dashboard customization still works on `/`.
+24. Confirm task category filtering still works on `/tasks`.
 
 What success looks like:
-- Frontend loads at `http://localhost:3000`.
-- Existing pages still load.
-- Task categories can be created, edited, and archived.
-- Daily tasks can be assigned to categories.
-- Weekly tasks can be assigned to categories.
-- Daily and weekly task lists can filter by category.
-- Tracker remains category-free.
-- `/sheets` allows duplicate widget types on one sheet.
-- Multiple Daily Tasks instances can use different category filters.
-- Multiple Weekly Tasks instances can use different category filters.
-- Per-slot widget config persists after refresh.
-- Sheet widgets render compactly enough for the 4x2 grid.
-- Dashboard customization still works independently on `/`.
+- Docker Compose starts cleanly.
 - Backend health and DB health return healthy responses.
-- Alembic upgrades to head and `alembic current` reports the latest revision.
+- Alembic reports the current head revision.
 - Backend tests pass.
 - Frontend build passes.
+- `/sheets` feels like a contained workspace instead of a normal long management page.
+- The sheet grid remains a stable 4x2 layout.
+- Widget overflow stays inside cells.
+- The top-center dropdown works reliably by click, not hover only.
+- Main app areas are reachable from the sheet dropdown.
+- Quick Add still opens from the sheet dropdown.
+- Sheet previous/next, selector, create, rename, delete protection, and reset behavior work.
+- Slot editing is clear, focused, and persists after refresh.
+- Duplicate widget types with different task configs still work.
+- The normal dashboard remains separate and stable.
 
 Limitations:
 - No drag-and-drop.
 - No widget resizing.
-- No `x/y/w/h` grid placement.
-- No final no-scroll workspace.
-- No top-center dropdown system.
-- No advanced per-widget config beyond task category and title override.
-- No auth or user-specific sheets/categories.
+- No `x/y/w/h` layout.
+- No final animation system.
+- No full command palette.
+- No auth or user-specific sheets.
 - No AI, semantic search, or pgvector.
-- No database-defined widgets.
-- No plugin system.
-- No categories for tracker.
 - No external integrations.
 - No notifications or reminders.
+- No tracker categories.
+- No database-defined widgets or plugin system.
+- Mobile is still not heavily optimized.
+- The no-scroll feeling is practical rather than absolute; very small viewports may still need browser-level scrolling.
 
 Recommended next phase:
-- Add a short sheet/widget contract document that defines compact widget mode, supported config schemas per widget type, and future migration path toward real widget instances.
-- After that, improve compact widgets one by one before considering drag-and-drop, resizing, or a final no-scroll shell.
+- Write a short sheet/widget contract doc that defines compact rendering rules and supported `config_json` by widget type.
+- Add a small visual QA pass for `/sheets` across common desktop sizes.
+- Then consider Sheet Layout v2 with explicit edit/view modes before starting drag-and-drop, resizing, or `x/y/w/h` placement.

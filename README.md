@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet/Grid Prototype v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -60,7 +60,7 @@ Do not commit `.env`. The default passwords are only for local development.
 From the repository root in PowerShell:
 
 ```powershell
-docker compose up --build
+docker compose up --build -d
 ```
 
 This starts:
@@ -245,21 +245,59 @@ The widget layout endpoints use this simple shape:
 
 `GET /api/dashboard/widgets` returns the current layout and creates or normalizes the default preferences when needed. `PUT /api/dashboard/widgets` stores the submitted widget array order and visibility, rejects unknown or duplicate widget keys, and appends omitted known widgets safely. `POST /api/dashboard/widgets/reset` restores the default order and sets all widgets visible.
 
-## Sheet/Grid Prototype
+## Sheet Workspace Shell v1
 
-The Sheets prototype lives at `http://localhost:3000/sheets`. It is the first controlled prototype of the long-term sheet-based GUI idea, but it does not replace the normal dashboard at `http://localhost:3000`.
+The Sheets workspace lives at `http://localhost:3000/sheets`. Sheet Workspace Shell v1 is a UX polish pass on top of the existing Sheet/Grid Prototype v1: it makes `/sheets` feel closer to the long-term sheet-based GUI idea, but it does not replace the normal dashboard at `http://localhost:3000`.
 
 The dashboard and sheets are different:
 
 - Dashboard is the stable home route with saved show/hide and ordering preferences.
-- Sheets is an experimental workspace route with multiple named sheets and fixed 4 columns x 2 rows slots.
+- Sheets is an experimental workspace route with one visible named sheet and fixed 4 columns x 2 rows slots.
 - Both use the same code-defined dashboard widget registry and `WidgetRenderer` where possible.
 - Dashboard preferences do not control sheet slots, and sheet slots do not control the dashboard.
 
-Current sheet behavior:
+Workspace shell behavior:
 
 - one sheet is shown at a time
-- previous/next buttons navigate between sheets
+- the primary surface is a desktop-first 4 columns x 2 rows grid
+- the sheet area fills the available viewport below the app shell as much as practical
+- normal long page scrolling is avoided on `/sheets`
+- each cell is visually contained
+- widget content is clipped or internally scrollable inside its own cell
+- top-level error, notice, and loading states stay compact
+
+Top-center dropdown behavior:
+
+- a small top-center Workspace trigger is always clickable on `/sheets`
+- clicking it opens a simple dropdown/control panel
+- the dropdown links to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search
+- the dropdown includes a Quick Add button wired to the existing global Quick Add modal
+- the dropdown includes the widget date selector for the sheet widgets
+- the dropdown includes current sheet controls, not a full command palette
+
+Sheet navigation behavior:
+
+- previous/next buttons are available in both the workspace header and dropdown
+- previous/next are disabled at the first or last sheet
+- the current sheet name is shown in the workspace header and dropdown trigger
+- the dropdown includes a sheet selector for jumping between sheets
+- sheets can be created and renamed
+- sheets can be deleted, except the last remaining sheet is protected with a clear message
+- reset restores a single default sheet with the current registry widgets in order
+
+Slot editing behavior:
+
+- Customize slots opens a focused slot editor panel
+- the editor clearly shows the sheet name and active slot number
+- the user selects one of the 8 slots, then chooses a widget type or Empty
+- Clear slot empties the active slot
+- Daily Tasks and Weekly Tasks expose category filter controls
+- Daily Tasks and Weekly Tasks expose `title_override`
+- Save changes persists all 8 slot definitions
+- duplicate widgets on the same sheet remain supported because each slot is its own widget instance
+
+Current persisted sheet behavior:
+
 - sheets can be created and renamed
 - sheets can be deleted, except the last remaining sheet is protected
 - each sheet has exactly 8 slot positions, indexed 0 through 7
@@ -268,7 +306,6 @@ Current sheet behavior:
 - duplicate widgets on the same sheet are allowed
 - task widget instances can store `category_id` and `title_override` in `config_json`
 - slot layout persists after refresh
-- reset restores a single default sheet with the current registry widgets in order
 
 Examples:
 
@@ -277,18 +314,26 @@ Examples:
 - another Daily Tasks widget can show only `Gym`
 - Weekly Tasks widgets can do the same for categories such as `Health` or `Work`
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Daily and weekly task widgets show concise task counts and short lists, calendar widgets show upcoming events, notes show recent titles/previews, and tracker widgets show water/activity/calorie totals. Cells still allow internal scrolling when content is too long.
 
 Current sheet limitations:
 
 - no drag-and-drop
 - no widget resizing
 - no `x/y/w/h` grid placement
-- no top-center dropdown system
-- no final no-scroll workspace behavior
+- no final animation system
+- no full command palette
+- no final no-scroll workspace guarantee on every viewport
 - no widget config beyond the current simple `category_id` and `title_override`
 - no database-defined widgets, plugin system, auth, AI, external integrations, notifications, or reminders
-- some current dashboard widgets remain naturally larger than a 1x1 cell, so compact mode and internal scroll are still a prototype compromise
+- mobile is not heavily optimized yet
+
+Future direction:
+
+- keep the dashboard stable while iterating on `/sheets`
+- document a stronger sheet/widget contract for compact rendering and widget config schemas
+- later add drag-and-drop, resizing, and `x/y/w/h` placement as a separate phase
+- later evolve from code-defined dashboard widgets toward richer widget instances only when the UX contract is stable
 
 The backend sheet module owns only sheet and slot persistence:
 
@@ -771,7 +816,7 @@ Deletes are soft archives in this phase.
 Start the stack first:
 
 ```powershell
-docker compose up --build
+docker compose up --build -d
 ```
 
 In a second PowerShell window, apply migrations:
@@ -907,7 +952,7 @@ If `docker compose` is not recognized, install or update Docker Desktop and reop
 
 If Docker cannot connect to `dockerDesktopLinuxEngine`, start Docker Desktop and wait until it says the engine is running.
 
-If ports are already in use, edit `.env` and change `FRONTEND_PORT`, `BACKEND_PORT`, or `POSTGRES_PORT`, then run `docker compose up --build` again.
+If ports are already in use, edit `.env` and change `FRONTEND_PORT`, `BACKEND_PORT`, or `POSTGRES_PORT`, then run `docker compose up --build -d` again.
 
 If `/health/db` fails, check that the `db` container is running and healthy in Docker Desktop. Then try:
 
@@ -926,13 +971,13 @@ If containers behave strangely after dependency changes, rebuild:
 
 ```powershell
 docker compose down
-docker compose up --build
+docker compose up --build -d
 ```
 
 If the database is in a broken local state and you do not need its data:
 
 ```powershell
 docker compose down -v
-docker compose up --build
+docker compose up --build -d
 docker compose exec backend alembic upgrade head
 ```

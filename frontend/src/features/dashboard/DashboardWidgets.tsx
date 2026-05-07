@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type { DashboardSummary, DashboardWeeklyTask } from "./types";
 import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types";
@@ -56,6 +57,30 @@ function ManageLink({ href }: { href: string }) {
   );
 }
 
+function CompactWidgetCard({
+  title,
+  meta,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-md bg-white p-3">
+      <div className="shrink-0">
+        <h2 className="truncate text-sm font-semibold text-neutral-950">{title}</h2>
+        {meta ? <p className="mt-1 text-xs text-neutral-600">{meta}</p> : null}
+      </div>
+      <div className="mt-3 min-h-0 flex-1 overflow-auto">{children}</div>
+    </section>
+  );
+}
+
+function CompactEmpty({ message }: { message: string }) {
+  return <p className="text-sm text-neutral-500">{message}</p>;
+}
+
 function StatCell({
   label,
   value,
@@ -89,14 +114,14 @@ export function TodayOverviewWidget({
 
   if (renderMode === "compact") {
     return (
-      <SectionCard title={formatDisplayDate(selectedDate)}>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <StatCell label="Daily Left" value={dailyOpen} />
-          <StatCell label="Weekly Left" value={weeklyOpen} />
-          <StatCell label="Upcoming" value={upcomingEvents} />
-          <StatCell label="Day" value={weekday} />
+      <CompactWidgetCard title={formatDisplayDate(selectedDate)} meta={weekday}>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <CompactMetric label="Daily" value={dailyOpen} />
+          <CompactMetric label="Weekly" value={weeklyOpen} />
+          <CompactMetric label="Events" value={upcomingEvents} />
+          <CompactMetric label="Day" value={weekday} />
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -133,8 +158,8 @@ export function QuickActionsWidget({
 
   if (renderMode === "compact") {
     return (
-      <SectionCard title="Quick Actions">
-        <div className="mt-3 grid gap-2">
+      <CompactWidgetCard title="Quick Actions">
+        <div className="grid gap-2">
           <button
             className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
             onClick={openQuickAdd}
@@ -149,7 +174,7 @@ export function QuickActionsWidget({
             Search
           </Link>
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -201,16 +226,13 @@ export function DailyTasksWidget({
 
   if (renderMode === "compact") {
     return (
-      <SectionCard title={title}>
-        <p className="mt-2 text-xs text-neutral-600">
-          {openTasks.length} open of {tasks.length}
-        </p>
-        <div className="mt-3 space-y-2">
+      <CompactWidgetCard title={title} meta={`${openTasks.length} open of ${tasks.length}`}>
+        <div className="space-y-2">
           {tasks.length === 0 ? (
-            <EmptyState message="No daily tasks." />
+            <CompactEmpty message="No daily tasks." />
           ) : (
             tasks.slice(0, 5).map((task) => (
-              <label className="flex items-start gap-2 text-sm" key={task.id}>
+              <label className="flex min-w-0 items-start gap-2 text-sm" key={task.id}>
                 <input
                   checked={task.is_completed}
                   className="mt-1"
@@ -218,14 +240,18 @@ export function DailyTasksWidget({
                   onChange={() => onToggleDailyTask(task)}
                   type="checkbox"
                 />
-                <span className={task.is_completed ? "text-neutral-500 line-through" : ""}>
+                <span
+                  className={`min-w-0 flex-1 truncate ${
+                    task.is_completed ? "text-neutral-500 line-through" : ""
+                  }`}
+                >
                   {task.title}
                 </span>
               </label>
             ))
           )}
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -306,16 +332,16 @@ export function WeeklyTasksWidget({
 
   if (renderMode === "compact") {
     return (
-      <SectionCard title={title}>
-        <p className="mt-2 text-xs text-neutral-600">
-          {openTasks.length} open of {tasks.length} for {weekday}
-        </p>
-        <div className="mt-3 space-y-2">
+      <CompactWidgetCard
+        title={title}
+        meta={`${openTasks.length} open of ${tasks.length} for ${weekday}`}
+      >
+        <div className="space-y-2">
           {tasks.length === 0 ? (
-            <EmptyState message="No weekly tasks." />
+            <CompactEmpty message="No weekly tasks." />
           ) : (
             tasks.slice(0, 5).map((task) => (
-              <label className="flex items-start gap-2 text-sm" key={task.id}>
+              <label className="flex min-w-0 items-start gap-2 text-sm" key={task.id}>
                 <input
                   checked={task.is_completed}
                   className="mt-1"
@@ -323,14 +349,18 @@ export function WeeklyTasksWidget({
                   onChange={() => onToggleWeeklyTask(task)}
                   type="checkbox"
                 />
-                <span className={task.is_completed ? "text-neutral-500 line-through" : ""}>
+                <span
+                  className={`min-w-0 flex-1 truncate ${
+                    task.is_completed ? "text-neutral-500 line-through" : ""
+                  }`}
+                >
                   {task.title}
                 </span>
               </label>
             ))
           )}
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -383,19 +413,24 @@ export function RecentNotesWidget({
 }: DashboardWidgetProps) {
   if (renderMode === "compact") {
     return (
-      <SectionCard title="Recent Notes">
-        <div className="mt-3 space-y-2">
+      <CompactWidgetCard title="Recent Notes" meta={`${summary.recent_notes.length} recent`}>
+        <div className="space-y-2">
           {summary.recent_notes.length === 0 ? (
-            <EmptyState message="No recent notes." />
+            <CompactEmpty message="No recent notes." />
           ) : (
             summary.recent_notes.slice(0, 5).map((note) => (
-              <p className="truncate text-sm font-medium text-neutral-900" key={note.id}>
-                {note.title}
-              </p>
+              <div className="min-w-0" key={note.id}>
+                <p className="truncate text-sm font-medium text-neutral-900">
+                  {note.title}
+                </p>
+                <p className="truncate text-xs text-neutral-600">
+                  {notePreview(note.content)}
+                </p>
+              </div>
             ))
           )}
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -425,13 +460,16 @@ export function UpcomingEventsWidget({
 }: DashboardWidgetProps) {
   if (renderMode === "compact") {
     return (
-      <SectionCard title="Upcoming Events">
-        <div className="mt-3 space-y-2">
+      <CompactWidgetCard
+        title="Upcoming Events"
+        meta={`${summary.upcoming_events.length} upcoming`}
+      >
+        <div className="space-y-2">
           {summary.upcoming_events.length === 0 ? (
-            <EmptyState message="No upcoming events." />
+            <CompactEmpty message="No upcoming events." />
           ) : (
             summary.upcoming_events.slice(0, 4).map((event) => (
-              <div key={event.id}>
+              <div className="min-w-0" key={event.id}>
                 <p className="truncate text-sm font-medium text-neutral-900">
                   {event.title}
                 </p>
@@ -442,7 +480,7 @@ export function UpcomingEventsWidget({
             ))
           )}
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -481,22 +519,13 @@ export function TrackerSummaryWidget({
 
   if (renderMode === "compact") {
     return (
-      <SectionCard title="Daily Tracking">
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-          <div>
-            <p className="text-xs font-semibold uppercase text-neutral-500">Water</p>
-            <p className="font-semibold">{trackerSummary.total_water_ml} ml</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase text-neutral-500">Move</p>
-            <p className="font-semibold">{trackerSummary.activity_count}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase text-neutral-500">Kcal</p>
-            <p className="font-semibold">{trackerSummary.total_calories_kcal}</p>
-          </div>
+      <CompactWidgetCard title="Daily Tracking" meta={hasTrackerData ? undefined : "No entries yet"}>
+        <div className="grid grid-cols-3 gap-2 text-center text-sm">
+          <CompactMetric label="Water" value={`${trackerSummary.total_water_ml} ml`} />
+          <CompactMetric label="Move" value={trackerSummary.activity_count} />
+          <CompactMetric label="Kcal" value={trackerSummary.total_calories_kcal} />
         </div>
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -526,12 +555,12 @@ export function PlanningSummaryWidget({
 }: DashboardWidgetProps) {
   if (renderMode === "compact") {
     return (
-      <SectionCard title="Plan Review">
-        <p className="mt-3 text-sm leading-6 text-neutral-700">
+      <CompactWidgetCard title="Plan Review">
+        <p className="text-sm leading-6 text-neutral-700">
           Plan for {formatDisplayDate(selectedDate)}.
         </p>
         <ManageLink href="/planning" />
-      </SectionCard>
+      </CompactWidgetCard>
     );
   }
 
@@ -542,5 +571,22 @@ export function PlanningSummaryWidget({
         {formatDisplayDate(selectedDate)}.
       </p>
     </SectionCard>
+  );
+}
+
+function CompactMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2">
+      <p className="truncate text-xs font-semibold uppercase tracking-normal text-neutral-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-semibold text-neutral-950">{value}</p>
+    </div>
   );
 }
