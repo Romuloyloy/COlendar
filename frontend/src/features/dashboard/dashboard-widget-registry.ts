@@ -1,0 +1,78 @@
+import {
+  DailyTasksWidget,
+  PlanningSummaryWidget,
+  QuickActionsWidget,
+  RecentNotesWidget,
+  TodayOverviewWidget,
+  TrackerSummaryWidget,
+  UpcomingEventsWidget,
+  WeeklyTasksWidget,
+} from "./DashboardWidgets";
+import type { DashboardWidgetDefinition } from "./widget-types";
+
+export const DASHBOARD_WIDGET_REGISTRY: DashboardWidgetDefinition[] = [
+  {
+    id: "today-overview",
+    displayName: "Today Overview",
+    description: "Selected-date counts for the fixed dashboard.",
+    category: "overview",
+    defaultSize: "wide",
+    component: TodayOverviewWidget,
+  },
+  {
+    id: "quick-actions",
+    displayName: "Quick Actions",
+    description: "Shortcuts into create, search, planning, and core modules.",
+    category: "navigation",
+    defaultSize: "wide",
+    component: QuickActionsWidget,
+  },
+  {
+    id: "daily-tasks",
+    displayName: "Daily Tasks",
+    description: "Daily task occurrences for the selected date.",
+    category: "tasks",
+    defaultSize: "standard",
+    component: DailyTasksWidget,
+  },
+  {
+    id: "weekly-tasks",
+    displayName: "Weekly Tasks",
+    description: "Weekly recurring task occurrences for the selected date.",
+    category: "tasks",
+    defaultSize: "standard",
+    component: WeeklyTasksWidget,
+  },
+  {
+    id: "recent-notes",
+    displayName: "Recent Notes",
+    description: "Recently updated active notes.",
+    category: "notes",
+    defaultSize: "standard",
+    component: RecentNotesWidget,
+  },
+  {
+    id: "upcoming-events",
+    displayName: "Upcoming Events",
+    description: "Upcoming active calendar events from the selected date.",
+    category: "calendar",
+    defaultSize: "standard",
+    component: UpcomingEventsWidget,
+  },
+  {
+    id: "tracker-summary",
+    displayName: "Daily Tracking",
+    description: "Water, activity, and calorie totals for the selected date.",
+    category: "tracker",
+    defaultSize: "standard",
+    component: TrackerSummaryWidget,
+  },
+  {
+    id: "planning-summary",
+    displayName: "Plan Review",
+    description: "Navigation into planning views composed from tasks and calendar.",
+    category: "navigation",
+    defaultSize: "standard",
+    component: PlanningSummaryWidget,
+  },
+];

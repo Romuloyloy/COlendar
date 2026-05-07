@@ -3,16 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getDashboardSummary } from "./api";
-import {
-  DailyTasksSection,
-  PlanningSummarySection,
-  RecentNotesSection,
-  TodayOverviewSection,
-  TrackerSummarySection,
-  UpcomingEventsSection,
-  WeeklyTasksSection,
-} from "./DashboardSections";
+import { DASHBOARD_WIDGET_REGISTRY } from "./dashboard-widget-registry";
+import { WidgetRenderer } from "./WidgetRenderer";
 import type { DashboardSummary, DashboardWeeklyTask } from "./types";
+import type { DashboardWidgetProps } from "./widget-types";
 import type { DailyTask } from "@/features/tasks/types";
 import {
   completeDailyTask,
@@ -113,26 +107,22 @@ export function DashboardPage() {
           </SectionCard>
         ) : summary ? (
           <div className="grid gap-5 lg:grid-cols-2">
-            <TodayOverviewSection
-              onDateChange={setSelectedDate}
-              selectedDate={selectedDate}
-              summary={summary}
-            />
-            <DailyTasksSection
-              isSaving={isSaving}
-              onToggle={toggleDailyTask}
-              tasks={summary.daily_tasks}
-            />
-            <WeeklyTasksSection
-              isSaving={isSaving}
-              onToggle={toggleWeeklyTask}
-              selectedDate={selectedDate}
-              tasks={summary.weekly_tasks}
-            />
-            <RecentNotesSection notes={summary.recent_notes} />
-            <UpcomingEventsSection events={summary.upcoming_events} />
-            <TrackerSummarySection summary={summary.tracker_summary} />
-            <PlanningSummarySection selectedDate={selectedDate} />
+            {DASHBOARD_WIDGET_REGISTRY.map((definition) => (
+              <WidgetRenderer
+                definition={definition}
+                key={definition.id}
+                props={
+                  {
+                    isSaving,
+                    onDateChange: setSelectedDate,
+                    onToggleDailyTask: toggleDailyTask,
+                    onToggleWeeklyTask: toggleWeeklyTask,
+                    selectedDate,
+                    summary,
+                  } satisfies DashboardWidgetProps
+                }
+              />
+            ))}
           </div>
         ) : (
           <SectionCard>

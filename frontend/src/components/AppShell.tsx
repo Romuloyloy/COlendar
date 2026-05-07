@@ -103,9 +103,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         setIsQuickAddOpen(true);
       }
     }
+    function handleQuickAddOpen() {
+      setIsQuickAddOpen(true);
+    }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("quick-add:open", handleQuickAddOpen);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("quick-add:open", handleQuickAddOpen);
+    };
   }, []);
 
   return (

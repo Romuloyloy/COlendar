@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, Global Search, and a lightweight dashboard-section foundation for future widgets.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard with Widget Foundation v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -99,7 +99,7 @@ Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
 
-- The dashboard shows today's overview, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
+- The dashboard shows today's overview, quick actions, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page lets you create folders and notes.
@@ -130,6 +130,7 @@ The dashboard is now the default home screen at `http://localhost:3000`.
 It is intentionally fixed and practical in this phase. It currently shows:
 
 - Today/date overview using the browser's local date on first load
+- Quick actions for Quick Add, Search, Planning, and core modules
 - Incomplete daily task count for the selected date
 - Incomplete weekly task count for the selected date
 - Daily tasks for the selected date, with complete/incomplete checkboxes
@@ -137,18 +138,37 @@ It is intentionally fixed and practical in this phase. It currently shows:
 - Upcoming active calendar events from the selected date onward
 - Tracker summary for the selected date, including water, activity, and calories
 - Recent active notes with short previews
-- Quick links to Notes, Tasks, Calendar, Planning, and Tracker
 - Loading, empty, and error states
 
-The dashboard is not customizable yet. It is also not the future sheet/grid UI. The frontend is split into reusable section components such as `TodayOverviewSection`, `DailyTasksSection`, `WeeklyTasksSection`, `UpcomingEventsSection`, `RecentNotesSection`, `TrackerSummarySection`, and `PlanningSummarySection` so those sections can later become formal widgets.
+The dashboard is not customizable yet. It is also not the future sheet/grid UI. Widget Foundation v1 keeps the user-facing dashboard fixed while making the internals widget-like and easier to extend.
 
-The current dashboard section foundation lives in:
+The current frontend widget foundation lives in:
 
 - `frontend/src/features/dashboard/DashboardPage.tsx`
-- `frontend/src/features/dashboard/DashboardSections.tsx`
+- `frontend/src/features/dashboard/DashboardWidgets.tsx`
+- `frontend/src/features/dashboard/WidgetRenderer.tsx`
+- `frontend/src/features/dashboard/dashboard-widget-registry.ts`
 - `frontend/src/features/dashboard/widget-types.ts`
 
-`widget-types.ts` intentionally contains only section metadata and future widget type names. It does not implement formal widgets, widget instances, sheet persistence, drag-and-drop, dashboard customization, or a widget renderer.
+The dashboard widget registry is code-only. Each widget definition has an id, display name, description, category, default size hint, and component reference. The current widgets are:
+
+- `TodayOverviewWidget`
+- `QuickActionsWidget`
+- `DailyTasksWidget`
+- `WeeklyTasksWidget`
+- `RecentNotesWidget`
+- `UpcomingEventsWidget`
+- `TrackerSummaryWidget`
+- `PlanningSummaryWidget`
+
+There are no widget database records, widget APIs, widget migrations, persisted layouts, drag-and-drop controls, dashboard customization settings, or sheet/grid layouts yet.
+
+Future direction:
+
+- replace the fixed render order with configurable widget instances
+- add a fuller `WidgetRenderer` contract
+- introduce customizable dashboards only when the core modules are stable
+- later connect widgets to the postponed sheet/grid system
 
 The backend dashboard module composes data owned by the Notes, Tasks, Calendar, and Tracker modules. It does not own dashboard tables or duplicate module data.
 
@@ -187,7 +207,7 @@ Quick Add is a simple app-shell create panel available from every main page:
 - Planning
 - Tracker
 
-Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K` also opens it.
+Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K` also opens it. The dashboard Quick Actions widget can also open the same app-shell Quick Add panel.
 
 Quick Add can create:
 
@@ -360,8 +380,8 @@ This pass focused on consistency and preparation rather than new feature expansi
 - Navigation spacing and hover states are more consistent.
 - Date selectors and status messages use shared UI primitives where practical.
 - Frontend API error handling is centralized instead of duplicated per feature.
-- Dashboard sections were extracted into independently reusable components.
-- A lightweight dashboard section registry documents the future widget path.
+- Dashboard sections now render through code-defined widget definitions and a lightweight widget renderer.
+- Widget Foundation v1 prepares the dashboard for future configurable widgets while keeping the dashboard fixed.
 - Backend module behavior was reviewed for archive/date/error consistency; stable APIs were left intact.
 
 The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker, and they still do not own persistence tables.
@@ -692,7 +712,7 @@ This phase does not include:
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
-- Dashboard customization or formal widget records
+- Dashboard customization, persisted widget instances, widget APIs, or formal widget records
 - A formal command palette engine
 - External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
 - Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder

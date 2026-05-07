@@ -1,49 +1,56 @@
-Hi! This added Global Search.
+Hi! This added Widget Foundation v1.
 
 What changed:
-- Added a read-only backend search module at `backend/app/modules/search/`.
-- Added `GET /api/search?q=...`.
-- Search returns grouped results for notes, folders, daily tasks, weekly tasks, and calendar events.
-- Search is case-insensitive and excludes archived records.
-- Empty or whitespace-only search queries return a validation error.
-- Added a `/search` frontend page with query input, loading, empty, error, and grouped result states.
-- Added Search to the app shell navigation.
-- Result clicks go to the relevant module page: Notes, Tasks, or Calendar.
-- Added backend tests for note title search, note content search, folder search, daily task search, weekly task search, calendar event search, archived exclusions, empty query handling, and case-insensitive matching.
-- Updated README.md with the Global Search overview, searchable data, API shape, run/test commands, known limitations, and intentional exclusions.
+- Refactored the fixed dashboard so it renders through code-defined widget definitions.
+- Added formal widget-like dashboard components:
+  - `TodayOverviewWidget`
+  - `QuickActionsWidget`
+  - `DailyTasksWidget`
+  - `WeeklyTasksWidget`
+  - `RecentNotesWidget`
+  - `UpcomingEventsWidget`
+  - `TrackerSummaryWidget`
+  - `PlanningSummaryWidget`
+- Added lightweight shared widget types in `frontend/src/features/dashboard/widget-types.ts`.
+- Added a code-only widget registry in `frontend/src/features/dashboard/dashboard-widget-registry.ts`.
+- Added a small `WidgetRenderer` in `frontend/src/features/dashboard/WidgetRenderer.tsx`.
+- Kept the dashboard fixed and non-customizable.
+- Kept dashboard task completion behavior wired through the existing task APIs.
+- Added a dashboard Quick Actions widget with links to Search, Tasks, Notes, Calendar, Planning, and Tracker.
+- Quick Actions can also open the existing app-shell Quick Add panel.
+- Updated README.md with the Widget Foundation v1 overview, current limits, future direction, and Windows PowerShell commands.
 
 How to test it on Windows:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
 3. Run `docker compose up --build -d`.
-4. Run `docker compose exec backend alembic upgrade head`.
+4. Run `docker compose exec backend alembic current`.
 5. Run `docker compose exec backend pytest`.
 6. Run `docker compose exec frontend npm run build`.
-7. Open `http://localhost:3000/search`.
-8. Create sample notes, folders, daily tasks, weekly tasks, and calendar events, then search for words from their titles/descriptions/content/location.
+7. Open `http://localhost:3000`.
+8. Check existing pages: `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, and `/search`.
+9. Use dashboard checkboxes for daily tasks and scheduled weekly task occurrences.
+10. Use dashboard Quick Actions to open Quick Add and navigate to Search.
 
 What success looks like:
 - Frontend loads at `http://localhost:3000`.
-- Existing pages still load: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, and `/planning`.
-- Search is reachable from the top navigation.
-- Searching for note titles and note content returns note results.
-- Searching for daily and weekly task text returns task results.
-- Searching for calendar event title, description, or location returns calendar results.
-- Folder name search returns folder results.
-- Archived notes, folders, tasks, and calendar events do not appear.
-- Results are grouped by type.
-- Clicking a result takes you to the relevant app area.
+- Existing pages still load and behave normally.
+- Dashboard visually still feels like the same fixed dashboard.
+- The dashboard now has a clear widget registry and renderer internally.
+- Quick Add still works from the app shell, `Ctrl+K`, and the dashboard Quick Actions widget.
+- Global Search still works at `/search`.
 - Backend health works at `http://localhost:8000/health`.
 - Database health works at `http://localhost:8000/health/db`.
 - Backend tests and frontend build pass.
 
-Known limits:
-- This is practical keyword search, not AI search.
-- No semantic search, pgvector, fuzzy matching, saved searches, filters, or command palette yet.
-- Tracker entries are not included.
-- Result links currently go to module pages instead of deep-linking to a specific note, task, folder, or event.
-- Each backend group is capped to a small practical result set.
-- No auth, widgets, sheets, drag-and-drop, reminders, notifications, external integrations, or advanced analytics were added.
+What remains intentionally postponed:
+- No backend widget APIs.
+- No widget tables or migrations.
+- No persisted widget instances.
+- No dashboard customization.
+- No sheets or no-scroll 4x2 sheet UI.
+- No drag-and-drop or resizable dashboard layout.
+- No auth, AI, semantic search, pgvector, external integrations, reminders, notifications, or advanced analytics.
 
 Recommended next phase:
-- Add simple deep-link handling inside Notes, Tasks, and Calendar so search results can open or highlight the exact matching item.
+- Add simple result deep links/highlighting for Search, or add a small widget contract document before starting any persisted dashboard customization work.
