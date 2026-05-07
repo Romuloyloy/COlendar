@@ -1,4 +1,9 @@
-import type { ActivityEntry, TrackerSummary, WaterEntry } from "./types";
+import type {
+  ActivityEntry,
+  CalorieEntry,
+  TrackerSummary,
+  WaterEntry,
+} from "./types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -84,4 +89,20 @@ export function createActivityEntry(input: {
 
 export function archiveActivityEntry(entryId: number): Promise<void> {
   return request<void>(`/api/tracker/activity/${entryId}`, { method: "DELETE" });
+}
+
+export function createCalorieEntry(input: {
+  entry_date: string;
+  amount_kcal: number;
+  label: string;
+  note: string;
+}): Promise<CalorieEntry> {
+  return request<CalorieEntry>("/api/tracker/calories", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function archiveCalorieEntry(entryId: number): Promise<void> {
+  return request<void>(`/api/tracker/calories/${entryId}`, { method: "DELETE" });
 }

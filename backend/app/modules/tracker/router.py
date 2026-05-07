@@ -4,19 +4,23 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.tracker.models import ActivityEntry, WaterEntry
+from app.modules.tracker.models import ActivityEntry, CalorieEntry, WaterEntry
 from app.modules.tracker.schemas import (
     ActivityEntryCreate,
     ActivityEntryRead,
+    CalorieEntryCreate,
+    CalorieEntryRead,
     TrackerSummary,
     WaterEntryCreate,
     WaterEntryRead,
 )
 from app.modules.tracker.service import (
     get_active_activity_entry_or_404,
+    get_active_calorie_entry_or_404,
     get_active_water_entry_or_404,
     get_tracker_summary,
     list_active_activity_entries,
+    list_active_calorie_entries,
     list_active_water_entries,
 )
 
@@ -92,6 +96,43 @@ def create_activity_entry(
 @router.delete("/activity/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_activity_entry(entry_id: int, db: Session = Depends(get_db)) -> Response:
     entry = get_active_activity_entry_or_404(db, entry_id)
+    entry.is_archived = True
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/calories", response_model=list[CalorieEntryRead])
+def list_calorie_entries(
+    date: date = Query(...),
+    db: Session = Depends(get_db),
+) -> list[CalorieEntry]:
+    return list_active_calorie_entries(db, date)
+
+
+@router.post(
+    "/calories",
+    response_model=CalorieEntryRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_calorie_entry(
+    payload: CalorieEntryCreate,
+    db: Session = Depends(get_db),
+) -> CalorieEntry:
+    entry = CalorieEntry(
+        entry_date=payload.entry_date,
+        amount_kcal=payload.amount_kcal,
+        label=payload.label.strip(),
+        note=payload.note,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.delete("/calories/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def archive_calorie_entry(entry_id: int, db: Session = Depends(get_db)) -> Response:
+    entry = get_active_calorie_entry_or_404(db, entry_id)
     entry.is_archived = True
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

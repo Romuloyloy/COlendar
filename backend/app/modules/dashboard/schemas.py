@@ -29,6 +29,7 @@ class DashboardCounts(BaseModel):
     upcoming_event_count: int
     total_water_ml: int
     activity_count: int
+    total_calories_kcal: int
 
 
 class DashboardSummary(BaseModel):

@@ -168,6 +168,12 @@ function TodayOverviewSection({
         >
           Open Calendar
         </Link>
+        <Link
+          className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+          href="/planning"
+        >
+          Open Planning
+        </Link>
       </div>
     </DashboardSection>
   );
@@ -381,7 +387,9 @@ function TrackerSummarySection({
   summary: DashboardSummary["tracker_summary"];
 }) {
   const hasTrackerData =
-    summary.total_water_ml > 0 || summary.activity_entries.length > 0;
+    summary.total_water_ml > 0 ||
+    summary.activity_entries.length > 0 ||
+    summary.total_calories_kcal > 0;
 
   return (
     <DashboardSection
@@ -396,7 +404,7 @@ function TrackerSummarySection({
       eyebrow="Tracker"
       title="Daily Tracking"
     >
-      <div className="mt-4 grid border-y border-neutral-200 sm:grid-cols-2 sm:divide-x sm:divide-neutral-200">
+      <div className="mt-4 grid border-y border-neutral-200 sm:grid-cols-3 sm:divide-x sm:divide-neutral-200">
         <div className="px-3 py-3">
           <p className="text-xs font-semibold uppercase text-neutral-500">Water</p>
           <p className="mt-1 text-lg font-semibold">{summary.total_water_ml} ml</p>
@@ -412,10 +420,18 @@ function TrackerSummarySection({
             {summary.total_activity_minutes} minutes
           </p>
         </div>
+        <div className="border-t border-neutral-200 px-3 py-3 sm:border-t-0">
+          <p className="text-xs font-semibold uppercase text-neutral-500">
+            Calories
+          </p>
+          <p className="mt-1 text-lg font-semibold">
+            {summary.total_calories_kcal} kcal
+          </p>
+        </div>
       </div>
       {!hasTrackerData ? (
         <p className="mt-4 text-sm text-neutral-600">
-          No water or activity entries for this date yet.
+          No water, activity, or calorie entries for this date yet.
         </p>
       ) : null}
     </DashboardSection>

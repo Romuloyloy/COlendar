@@ -1,14 +1,15 @@
-Hi! This was Phase 7: the basic tracker.
+Hi! This added calorie tracking and a simple Planning page.
 
 What changed:
-- Added a Tracker page at http://localhost:3000/tracker.
-- You can add and archive water entries for a selected date.
-- You can see the selected date's total water intake.
-- You can add and archive activity entries for a selected date.
-- Added Tracker API routes under /api/tracker.
-- Added a new Alembic migration for water_entries and activity_entries.
-- The dashboard now shows real tracker summary data instead of a placeholder.
-- README.md now describes the tracker module, API, dashboard integration, and Windows Docker workflow.
+- Tracker now supports calorie entries in addition to water and activity.
+- You can add and archive calorie entries for a selected date.
+- Tracker summary now includes daily calorie total.
+- The dashboard tracker card now shows water, activity, and calories.
+- Added a Planning page at http://localhost:3000/planning.
+- Planning shows a Daily Plan and a seven-day Weekly Plan composed from Tasks and Calendar.
+- Added Planning API routes under /api/planning.
+- Added a new Alembic migration for calorie_entries.
+- README.md now describes calories, Planning, APIs, and the Windows Docker workflow.
 
 How I test it on Windows:
 1. Start Docker Desktop.
@@ -20,18 +21,18 @@ How I test it on Windows:
 7. Run `docker compose exec frontend npm run build`.
 
 What success looks like:
-- Home: http://localhost:3000 shows tracker totals on the dashboard.
-- Tracker works at http://localhost:3000/tracker.
-- Notes still works at http://localhost:3000/notes.
-- Tasks still works at http://localhost:3000/tasks.
-- Calendar still works at http://localhost:3000/calendar.
+- Home: http://localhost:3000 shows calorie total in the tracker summary.
+- Tracker works with calories at http://localhost:3000/tracker.
+- Planning works at http://localhost:3000/planning.
+- Notes, Tasks, and Calendar still work.
 - Backend health works at http://localhost:8000/health.
 - Database health works at http://localhost:8000/health/db.
 - Backend tests and frontend build pass.
 
 Known limits:
-- Tracker is simple daily water and activity logging only.
-- No charts, advanced analytics, wearable integrations, nutrition tracking, or custom tracker builder yet.
+- Calories are simple kcal entries only.
+- No macros, food database, barcode scanning, nutrition database, meal planning, charts, or advanced analytics yet.
+- Planning is read-only and composes Tasks and Calendar data.
 - No auth, AI, workers, sheets, widgets, drag-and-drop, reminders, or notifications yet.
 
 Next recommended phase:

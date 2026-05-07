@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.tracker.models import ActivityEntry, WaterEntry
+from app.modules.tracker.models import ActivityEntry, CalorieEntry, WaterEntry
 from app.modules.tracker.schemas import TrackerSummary
 
 
@@ -38,6 +38,21 @@ def get_active_activity_entry_or_404(db: Session, entry_id: int) -> ActivityEntr
     return entry
 
 
+def get_active_calorie_entry_or_404(db: Session, entry_id: int) -> CalorieEntry:
+    entry = db.scalar(
+        select(CalorieEntry).where(
+            CalorieEntry.id == entry_id,
+            CalorieEntry.is_archived.is_(False),
+        )
+    )
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Calorie entry not found",
+        )
+    return entry
+
+
 def list_active_water_entries(db: Session, selected_date: date) -> list[WaterEntry]:
     return list(
         db.scalars(
@@ -67,17 +82,33 @@ def list_active_activity_entries(
     )
 
 
+def list_active_calorie_entries(db: Session, selected_date: date) -> list[CalorieEntry]:
+    return list(
+        db.scalars(
+            select(CalorieEntry)
+            .where(
+                CalorieEntry.entry_date == selected_date,
+                CalorieEntry.is_archived.is_(False),
+            )
+            .order_by(CalorieEntry.id.asc())
+        )
+    )
+
+
 def get_tracker_summary(db: Session, selected_date: date) -> TrackerSummary:
     water_entries = list_active_water_entries(db, selected_date)
     activity_entries = list_active_activity_entries(db, selected_date)
+    calorie_entries = list_active_calorie_entries(db, selected_date)
 
     return TrackerSummary(
         selected_date=selected_date,
         water_entries=water_entries,
         activity_entries=activity_entries,
+        calorie_entries=calorie_entries,
         total_water_ml=sum(entry.amount_ml for entry in water_entries),
         activity_count=len(activity_entries),
         total_activity_minutes=sum(
             entry.duration_minutes or 0 for entry in activity_entries
         ),
+        total_calories_kcal=sum(entry.amount_kcal for entry in calorie_entries),
     )

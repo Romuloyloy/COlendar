@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, and basic water/activity tracking.
+COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, and a simple planning page.
 
 ## Project Structure
 
@@ -74,6 +74,7 @@ Open these in your browser:
 - Notes page: `http://localhost:3000/notes`
 - Tasks page: `http://localhost:3000/tasks`
 - Calendar page: `http://localhost:3000/calendar`
+- Planning page: `http://localhost:3000/planning`
 - Tracker page: `http://localhost:3000/tracker`
 - Backend health: `http://localhost:8000/health`
 - Backend database health: `http://localhost:8000/health/db`
@@ -85,16 +86,18 @@ Or check them from PowerShell:
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tasks).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/calendar).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/planning).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tracker).StatusCode
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
 
-- The dashboard shows today's overview, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary, and recent notes.
+- The dashboard shows today's overview, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
 - The Notes page lets you create folders and notes.
 - The Tasks page lets you create daily and weekly tasks.
 - The Calendar page lets you create, edit, view, and archive simple internal events.
-- The Tracker page lets you log water and lightweight activity for a selected date.
+- The Planning page shows a read-only daily plan and weekly plan from Tasks and Calendar.
+- The Tracker page lets you log water, lightweight activity, and calories for a selected date.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
 - Docker Desktop shows the frontend, backend, and database containers running.
@@ -123,9 +126,9 @@ It is intentionally fixed and practical in this phase. It currently shows:
 - Daily tasks for the selected date, with complete/incomplete checkboxes
 - Weekly recurring tasks scheduled for the selected date, with complete/incomplete checkboxes
 - Upcoming active calendar events from the selected date onward
-- Tracker summary for the selected date
+- Tracker summary for the selected date, including water, activity, and calories
 - Recent active notes with short previews
-- Quick links to Notes, Tasks, Calendar, and Tracker
+- Quick links to Notes, Tasks, Calendar, Planning, and Tracker
 - Loading, empty, and error states
 
 The dashboard is not customizable yet. It is also not the future sheet/grid UI. The frontend is split into reusable section components such as `TodayOverviewSection`, `DailyTasksSection`, `WeeklyTasksSection`, and `RecentNotesSection` so those sections can later become formal widgets.
@@ -152,7 +155,7 @@ The response includes:
 - daily tasks for that date
 - weekly tasks scheduled for that date and their completion state
 - upcoming active calendar events from the selected date onward
-- tracker summary for that date
+- tracker summary for that date, including calorie total
 - recent active notes
 - simple dashboard counts
 
@@ -208,9 +211,44 @@ DELETE /api/calendar/events/{event_id}
 
 Deletes are soft archives in this phase. Normal list and detail endpoints only return active, non-archived events.
 
+## Planning Module
+
+The planning module is a simple read-only planning view. It does not own planning tables and does not duplicate task or calendar data.
+
+It composes:
+
+- Daily tasks
+- Weekly recurring tasks scheduled for the relevant dates
+- Calendar events
+
+The browser UI at `http://localhost:3000/planning` currently provides:
+
+- A selected date
+- Daily Plan for that date
+- Weekly Plan for the week containing that date
+- Links to Tasks and Calendar for editing or creation
+- Loading, empty, and error states
+
+The module lives mainly in:
+
+- `backend/app/modules/planning/router.py`
+- `backend/app/modules/planning/service.py`
+- `backend/app/modules/planning/schemas.py`
+- `frontend/app/planning/page.tsx`
+- `frontend/src/features/planning/`
+
+## Planning API Overview
+
+```text
+GET /api/planning/daily?date=YYYY-MM-DD
+GET /api/planning/weekly?date=YYYY-MM-DD
+```
+
+The daily endpoint returns the selected date, daily tasks, weekly task occurrences, and calendar events for that date. The weekly endpoint returns week start/end plus seven grouped day summaries.
+
 ## Tracker Module
 
-The tracker module is a basic daily tracker for water intake and lightweight activity. It is not a health analytics app, a wearable integration, or a custom tracker builder.
+The tracker module is a basic daily tracker for water intake, lightweight activity, and calories. It is not a health analytics app, a wearable integration, a food database, or a custom tracker builder.
 
 Water entries support:
 
@@ -230,6 +268,15 @@ Activity entries support:
 - Soft archive/delete through `is_archived`
 - Created and updated timestamps
 
+Calorie entries support:
+
+- Entry date
+- Amount in kcal
+- Optional label
+- Optional note
+- Soft archive/delete through `is_archived`
+- Created and updated timestamps
+
 The browser UI at `http://localhost:3000/tracker` currently provides:
 
 - A selected date
@@ -240,9 +287,13 @@ The browser UI at `http://localhost:3000/tracker` currently provides:
 - Activity entry list
 - Activity entry creation
 - Activity entry archive/delete
+- Daily calorie total
+- Calorie entry list
+- Calorie entry creation
+- Calorie entry archive/delete
 - Loading, empty, success, and error states
 
-The dashboard at `http://localhost:3000` now shows the selected date's water total, activity count, and activity minutes. The dashboard still only composes tracker data; tracker entry ownership remains in the Tracker module.
+The dashboard at `http://localhost:3000` now shows the selected date's water total, activity count, activity minutes, and calorie total. The dashboard still only composes tracker data; tracker entry ownership remains in the Tracker module.
 
 The module lives mainly in:
 
@@ -262,6 +313,10 @@ DELETE /api/tracker/water/{entry_id}
 GET    /api/tracker/activity?date=YYYY-MM-DD
 POST   /api/tracker/activity
 DELETE /api/tracker/activity/{entry_id}
+
+GET    /api/tracker/calories?date=YYYY-MM-DD
+POST   /api/tracker/calories
+DELETE /api/tracker/calories/{entry_id}
 
 GET    /api/tracker/summary?date=YYYY-MM-DD
 ```
@@ -415,7 +470,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`.
 
 ## Create A New Migration
 
@@ -445,7 +500,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, and dashboard behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity CRUD/archive/summary behavior, and dashboard summaries for selected dates.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, and dashboard behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, planning daily/weekly composition, and dashboard summaries for selected dates.
 
 You can also run the frontend production build through Docker:
 
@@ -519,7 +574,8 @@ This phase does not include:
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
 - Dashboard customization or formal widget records
 - External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
-- Advanced tracker analytics, charts, wearable integrations, nutrition features, or a custom tracker builder
+- Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder
+- Editable planning engine, time blocking, planning tables, or planning-specific reminders
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
 - Searching or filtering notes beyond selecting a folder

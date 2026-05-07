@@ -109,5 +109,6 @@ def get_dashboard_summary(
             upcoming_event_count=len(upcoming_events),
             total_water_ml=tracker_summary.total_water_ml,
             activity_count=tracker_summary.activity_count,
+            total_calories_kcal=tracker_summary.total_calories_kcal,
         ),
     )

@@ -33,6 +33,9 @@ export default function RootLayout({
               <Link className="text-neutral-700 hover:text-teal-700" href="/calendar">
                 Calendar
               </Link>
+              <Link className="text-neutral-700 hover:text-teal-700" href="/planning">
+                Planning
+              </Link>
               <Link className="text-neutral-700 hover:text-teal-700" href="/tracker">
                 Tracker
               </Link>

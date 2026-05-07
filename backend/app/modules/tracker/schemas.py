@@ -51,10 +51,32 @@ class ActivityEntryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CalorieEntryCreate(BaseModel):
+    entry_date: date
+    amount_kcal: int = Field(gt=0)
+    label: str = Field(default="", max_length=250)
+    note: str = ""
+
+
+class CalorieEntryRead(BaseModel):
+    id: int
+    entry_date: date
+    amount_kcal: int
+    label: str
+    note: str
+    is_archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TrackerSummary(BaseModel):
     selected_date: date
     water_entries: list[WaterEntryRead]
     activity_entries: list[ActivityEntryRead]
+    calorie_entries: list[CalorieEntryRead]
     total_water_ml: int
     activity_count: int
     total_activity_minutes: int
+    total_calories_kcal: int

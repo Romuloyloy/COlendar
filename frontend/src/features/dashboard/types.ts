@@ -24,6 +24,7 @@ export type DashboardCounts = {
   upcoming_event_count: number;
   total_water_ml: number;
   activity_count: number;
+  total_calories_kcal: number;
 };
 
 export type DashboardSummary = {

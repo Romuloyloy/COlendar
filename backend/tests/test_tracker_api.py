@@ -155,6 +155,97 @@ def test_archive_activity_entry(client: TestClient) -> None:
     assert missing_response.status_code == 404
 
 
+def test_create_calorie_entry(client: TestClient) -> None:
+    response = client.post(
+        "/api/tracker/calories",
+        json={
+            "entry_date": "2026-05-07",
+            "amount_kcal": 450,
+            "label": "Lunch",
+            "note": "Rice bowl",
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["entry_date"] == "2026-05-07"
+    assert data["amount_kcal"] == 450
+    assert data["label"] == "Lunch"
+    assert data["note"] == "Rice bowl"
+    assert data["is_archived"] is False
+
+
+def test_reject_non_positive_calorie_amount(client: TestClient) -> None:
+    zero_response = client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 0},
+    )
+    negative_response = client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": -50},
+    )
+
+    assert zero_response.status_code == 422
+    assert negative_response.status_code == 422
+
+
+def test_list_calorie_entries_by_date(client: TestClient) -> None:
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 350},
+    )
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-08", "amount_kcal": 700},
+    )
+
+    response = client.get("/api/tracker/calories?date=2026-05-07")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["amount_kcal"] == 350
+
+
+def test_tracker_summary_calculates_daily_calorie_total(client: TestClient) -> None:
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 350},
+    )
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 450},
+    )
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-08", "amount_kcal": 1000},
+    )
+
+    response = client.get("/api/tracker/summary?date=2026-05-07")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_calories_kcal"] == 800
+    assert len(data["calorie_entries"]) == 2
+
+
+def test_archive_calorie_entry(client: TestClient) -> None:
+    entry = client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 300},
+    ).json()
+
+    archive_response = client.delete(f"/api/tracker/calories/{entry['id']}")
+    list_response = client.get("/api/tracker/calories?date=2026-05-07")
+    summary_response = client.get("/api/tracker/summary?date=2026-05-07")
+    missing_response = client.delete(f"/api/tracker/calories/{entry['id']}")
+
+    assert archive_response.status_code == 204
+    assert list_response.json() == []
+    assert summary_response.json()["total_calories_kcal"] == 0
+    assert missing_response.status_code == 404
+
+
 def test_tracker_summary_includes_activity_totals(client: TestClient) -> None:
     client.post(
         "/api/tracker/activity",
@@ -163,6 +254,10 @@ def test_tracker_summary_includes_activity_totals(client: TestClient) -> None:
             "activity_type": "Walk",
             "duration_minutes": 30,
         },
+    )
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 550},
     )
     client.post(
         "/api/tracker/activity",
@@ -199,6 +294,10 @@ def test_dashboard_summary_includes_tracker_data(client: TestClient) -> None:
             "duration_minutes": 20,
         },
     )
+    client.post(
+        "/api/tracker/calories",
+        json={"entry_date": "2026-05-07", "amount_kcal": 550},
+    )
 
     response = client.get("/api/dashboard/summary?date=2026-05-07")
 
@@ -207,5 +306,7 @@ def test_dashboard_summary_includes_tracker_data(client: TestClient) -> None:
     assert data["tracker_summary"]["total_water_ml"] == 250
     assert data["tracker_summary"]["activity_count"] == 1
     assert data["tracker_summary"]["total_activity_minutes"] == 20
+    assert data["tracker_summary"]["total_calories_kcal"] == 550
     assert data["counts"]["total_water_ml"] == 250
     assert data["counts"]["activity_count"] == 1
+    assert data["counts"]["total_calories_kcal"] == 550
