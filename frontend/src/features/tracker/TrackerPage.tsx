@@ -313,6 +313,14 @@ export function TrackerPage() {
                 </div>
                 <div className="border-b border-neutral-200 px-1 pb-3">
                   <p className="text-xs font-semibold uppercase text-neutral-500">
+                    Calories
+                  </p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {summary?.total_calories_kcal ?? 0} kcal
+                  </p>
+                </div>
+                <div className="border-b border-neutral-200 px-1 pb-3">
+                  <p className="text-xs font-semibold uppercase text-neutral-500">
                     Activity
                   </p>
                   <p className="mt-1 text-xl font-semibold">
@@ -320,14 +328,6 @@ export function TrackerPage() {
                   </p>
                   <p className="mt-1 text-xs text-neutral-600">
                     {summary?.total_activity_minutes ?? 0} logged minutes
-                  </p>
-                </div>
-                <div className="border-b border-neutral-200 px-1 pb-3">
-                  <p className="text-xs font-semibold uppercase text-neutral-500">
-                    Calories
-                  </p>
-                  <p className="mt-1 text-xl font-semibold">
-                    {summary?.total_calories_kcal ?? 0} kcal
                   </p>
                 </div>
               </div>
@@ -389,6 +389,73 @@ export function TrackerPage() {
                 type="submit"
               >
                 Add Water
+              </button>
+            </form>
+          </section>
+
+          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold">
+              Calories On {formatDisplayDate(selectedDate)}
+            </h2>
+            <div className="mt-4 space-y-2">
+              {isLoading ? (
+                <p className="text-sm text-neutral-600">
+                  Loading calorie entries...
+                </p>
+              ) : summary?.calorie_entries.length === 0 ? (
+                <p className="text-sm text-neutral-600">
+                  No calorie entries for this date.
+                </p>
+              ) : (
+                summary?.calorie_entries.map((entry) => (
+                  <CalorieEntryCard
+                    entry={entry}
+                    isSaving={isSaving}
+                    key={entry.id}
+                    onArchive={handleArchiveCalorieEntry}
+                  />
+                ))
+              )}
+            </div>
+            <form
+              className="mt-5 space-y-3 border-t border-neutral-200 pt-4"
+              onSubmit={handleCreateCalorieEntry}
+            >
+              <h3 className="text-sm font-semibold">Add Calories</h3>
+              <label className="block text-sm font-medium">
+                Amount in kcal
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  min="1"
+                  onChange={(event) => setCalorieAmount(event.target.value)}
+                  required
+                  type="number"
+                  value={calorieAmount}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Label
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setCalorieLabel(event.target.value)}
+                  type="text"
+                  value={calorieLabel}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Note
+                <textarea
+                  className="mt-1 min-h-24 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setCalorieNote(event.target.value)}
+                  value={calorieNote}
+                />
+              </label>
+              <button
+                className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
+                disabled={isSaving}
+                type="submit"
+              >
+                Add Calories
               </button>
             </form>
           </section>
@@ -469,73 +536,6 @@ export function TrackerPage() {
                 type="submit"
               >
                 Add Activity
-              </button>
-            </form>
-          </section>
-
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold">
-              Calories On {formatDisplayDate(selectedDate)}
-            </h2>
-            <div className="mt-4 space-y-2">
-              {isLoading ? (
-                <p className="text-sm text-neutral-600">
-                  Loading calorie entries...
-                </p>
-              ) : summary?.calorie_entries.length === 0 ? (
-                <p className="text-sm text-neutral-600">
-                  No calorie entries for this date.
-                </p>
-              ) : (
-                summary?.calorie_entries.map((entry) => (
-                  <CalorieEntryCard
-                    entry={entry}
-                    isSaving={isSaving}
-                    key={entry.id}
-                    onArchive={handleArchiveCalorieEntry}
-                  />
-                ))
-              )}
-            </div>
-            <form
-              className="mt-5 space-y-3 border-t border-neutral-200 pt-4"
-              onSubmit={handleCreateCalorieEntry}
-            >
-              <h3 className="text-sm font-semibold">Add Calories</h3>
-              <label className="block text-sm font-medium">
-                Amount in kcal
-                <input
-                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                  min="1"
-                  onChange={(event) => setCalorieAmount(event.target.value)}
-                  required
-                  type="number"
-                  value={calorieAmount}
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                Label
-                <input
-                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                  onChange={(event) => setCalorieLabel(event.target.value)}
-                  type="text"
-                  value={calorieLabel}
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                Note
-                <textarea
-                  className="mt-1 min-h-24 w-full rounded border border-neutral-300 px-3 py-2"
-                  onChange={(event) => setCalorieNote(event.target.value)}
-                  value={calorieNote}
-                />
-              </label>
-              <button
-                className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
-                disabled={isSaving}
-                type="submit"
-              >
-                Add Calories
               </button>
             </form>
           </section>
