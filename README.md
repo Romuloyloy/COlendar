@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, and a simple planning page.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, and a lightweight dashboard-section foundation for future widgets.
 
 ## Project Structure
 
@@ -16,6 +16,11 @@ COlendar is a local-first personal productivity dashboard in early development. 
 |   `-- tests/            Backend tests
 |-- docs/                 Product and architecture planning documents
 |-- frontend/             Next.js + TypeScript + Tailwind app
+|   |-- app/              App Router routes and global shell
+|   `-- src/
+|       |-- components/   Shared reusable UI primitives
+|       |-- features/     Product feature modules
+|       `-- lib/          Shared frontend helpers such as API/date utilities
 |-- docker-compose.yml
 |-- .env.example
 `-- ForCO.txt
@@ -131,7 +136,15 @@ It is intentionally fixed and practical in this phase. It currently shows:
 - Quick links to Notes, Tasks, Calendar, Planning, and Tracker
 - Loading, empty, and error states
 
-The dashboard is not customizable yet. It is also not the future sheet/grid UI. The frontend is split into reusable section components such as `TodayOverviewSection`, `DailyTasksSection`, `WeeklyTasksSection`, and `RecentNotesSection` so those sections can later become formal widgets.
+The dashboard is not customizable yet. It is also not the future sheet/grid UI. The frontend is split into reusable section components such as `TodayOverviewSection`, `DailyTasksSection`, `WeeklyTasksSection`, `UpcomingEventsSection`, `RecentNotesSection`, `TrackerSummarySection`, and `PlanningSummarySection` so those sections can later become formal widgets.
+
+The current dashboard section foundation lives in:
+
+- `frontend/src/features/dashboard/DashboardPage.tsx`
+- `frontend/src/features/dashboard/DashboardSections.tsx`
+- `frontend/src/features/dashboard/widget-types.ts`
+
+`widget-types.ts` intentionally contains only section metadata and future widget type names. It does not implement formal widgets, widget instances, sheet persistence, drag-and-drop, dashboard customization, or a widget renderer.
 
 The backend dashboard module composes data owned by the Notes, Tasks, Calendar, and Tracker modules. It does not own dashboard tables or duplicate module data.
 
@@ -245,6 +258,29 @@ GET /api/planning/weekly?date=YYYY-MM-DD
 ```
 
 The daily endpoint returns the selected date, daily tasks, weekly task occurrences, and calendar events for that date. The weekly endpoint returns week start/end plus seven grouped day summaries.
+
+## Shared Frontend UI And Data Layer
+
+The frontend now has a small shared foundation to keep the MVP pages from feeling like disconnected test screens:
+
+- `frontend/src/components/ui.tsx`: shared `PageHeader`, `SectionCard`, `EmptyState`, `LoadingState`, `ErrorState`, `NoticeState`, and `DateSelector`.
+- `frontend/src/lib/api.ts`: shared API request wrapper, environment-backed API base URL, consistent JSON headers, `204 No Content` handling, and validation/error message formatting.
+- `frontend/src/lib/date.ts`: shared local ISO date, display-date, and weekday helpers.
+
+Feature modules still own their product-specific API functions and page behavior. The shared layer is intentionally small and practical; it is not a design system, component library, or state framework.
+
+## MVP Hardening Notes
+
+This pass focused on consistency and preparation rather than new feature expansion:
+
+- Navigation spacing and hover states are more consistent.
+- Date selectors and status messages use shared UI primitives where practical.
+- Frontend API error handling is centralized instead of duplicated per feature.
+- Dashboard sections were extracted into independently reusable components.
+- A lightweight dashboard section registry documents the future widget path.
+- Backend module behavior was reviewed for archive/date/error consistency; stable APIs were left intact.
+
+The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker, and they still do not own persistence tables.
 
 ## Tracker Module
 

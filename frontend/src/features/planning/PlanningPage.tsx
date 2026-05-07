@@ -12,22 +12,20 @@ import type {
 } from "./types";
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
+import {
+  DateSelector,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SectionCard,
+} from "@/components/ui";
+import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
-function todayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatDisplayDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
-}
+const SHORT_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+};
 
 function formatEventTime(event: CalendarEvent) {
   if (!event.start_time && !event.end_time) {
@@ -123,7 +121,9 @@ function WeeklyDayCard({ day }: { day: WeeklyPlanDay }) {
   return (
     <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold">{formatDisplayDate(day.date)}</h3>
+        <h3 className="text-base font-semibold">
+          {formatDisplayDate(day.date, SHORT_DATE_FORMAT)}
+        </h3>
         <span className="text-xs font-semibold text-neutral-500">
           {itemCount} items
         </span>
@@ -179,23 +179,15 @@ export function PlanningPage() {
   return (
     <main className="min-h-screen px-6 py-8 text-neutral-900">
       <section className="mx-auto max-w-6xl space-y-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold text-neutral-950">Planning</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-700">
-              A simple read-only plan composed from tasks and calendar events.
-            </p>
-          </div>
+        <PageHeader
+          actions={
           <div className="flex flex-wrap items-end gap-3">
-            <label className="block text-sm font-medium">
-              Date
-              <input
-                className="ml-2 rounded border border-neutral-300 px-3 py-2"
-                onChange={(event) => setSelectedDate(event.target.value)}
-                type="date"
-                value={selectedDate}
-              />
-            </label>
+            <DateSelector
+              className="min-w-48"
+              label="Date"
+              onChange={setSelectedDate}
+              value={selectedDate}
+            />
             <Link
               className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
               href="/tasks"
@@ -209,18 +201,19 @@ export function PlanningPage() {
               Open Calendar
             </Link>
           </div>
-        </header>
+          }
+          description="A simple read-only plan composed from tasks and calendar events."
+          title="Planning"
+        />
 
         {error ? (
-          <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
-          </p>
+          <ErrorState message={error} />
         ) : null}
 
         {isLoading ? (
-          <section className="rounded border border-neutral-300 bg-white p-5 shadow-sm">
-            <p className="text-sm text-neutral-600">Loading planning data...</p>
-          </section>
+          <SectionCard>
+            <LoadingState message="Loading planning data..." />
+          </SectionCard>
         ) : dailyPlan && weeklyPlan ? (
           <>
             <section className="rounded border border-neutral-300 bg-white p-5 shadow-sm">
@@ -256,8 +249,8 @@ export function PlanningPage() {
                   Weekly Plan
                 </p>
                 <h2 className="mt-1 text-xl font-semibold">
-                  {formatDisplayDate(weeklyPlan.week_start)} -{" "}
-                  {formatDisplayDate(weeklyPlan.week_end)}
+                  {formatDisplayDate(weeklyPlan.week_start, SHORT_DATE_FORMAT)} -{" "}
+                  {formatDisplayDate(weeklyPlan.week_end, SHORT_DATE_FORMAT)}
                 </h2>
               </div>
               <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">

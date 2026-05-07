@@ -1,17 +1,22 @@
-Hi! This added calorie tracking and a simple Planning page.
+Hi! This phase was an MVP hardening and widget-foundation preparation pass.
 
 What changed:
-- Tracker now supports calorie entries in addition to water and activity.
-- You can add and archive calorie entries for a selected date.
-- Tracker summary now includes daily calorie total.
-- The dashboard tracker card now shows water, activity, and calories.
-- Added a Planning page at http://localhost:3000/planning.
-- Planning shows a Daily Plan and a seven-day Weekly Plan composed from Tasks and Calendar.
-- Added Planning API routes under /api/planning.
-- Added a new Alembic migration for calorie_entries.
-- README.md now describes calories, Planning, APIs, and the Windows Docker workflow.
+- Added shared frontend UI primitives for page headers, cards, loading, empty, error, notice, and date selector states.
+- Centralized frontend API request/error handling in one shared helper.
+- Centralized frontend date helpers.
+- Refactored the dashboard into reusable widget-like section components.
+- Added lightweight dashboard section metadata for future widget work.
+- Smoothed navigation and selected-date/status handling across major pages.
+- Kept backend APIs stable after reviewing archive, date, and error behavior.
+- Updated README.md with the current MVP, shared UI approach, dashboard section approach, limitations, and Windows Docker commands.
 
-How I test it on Windows:
+What the app should feel like now:
+- Still simple and desktop-first.
+- More coherent across Dashboard, Notes, Tasks, Calendar, Tracker, and Planning.
+- Less like separate test pages.
+- Better prepared for future widgets and sheets without implementing them yet.
+
+How to test it on Windows:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
 3. Run `docker compose up --build -d`.
@@ -30,10 +35,10 @@ What success looks like:
 - Backend tests and frontend build pass.
 
 Known limits:
-- Calories are simple kcal entries only.
-- No macros, food database, barcode scanning, nutrition database, meal planning, charts, or advanced analytics yet.
-- Planning is read-only and composes Tasks and Calendar data.
-- No auth, AI, workers, sheets, widgets, drag-and-drop, reminders, or notifications yet.
+- No auth, AI, Redis/workers, formal widgets, sheets, drag-and-drop, dashboard customization, reminders, notifications, or external integrations.
+- Planning remains read-only.
+- Tracker remains simple water/activity/calorie logging.
+- The dashboard is still fixed and non-customizable.
 
 Next recommended phase:
-- Phase 8: hardening pass.
+- Begin the next major phase only when ready: formal widget/sheet design, starting with a careful architecture plan before implementing database tables or drag-and-drop.

@@ -18,6 +18,8 @@ import {
   updateWeeklyTask,
 } from "./api";
 import type { DailyTask, WeeklyTask, WeeklyTaskCompletion } from "./types";
+import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
+import { todayIsoDate, weekdayFromIsoDate } from "@/lib/date";
 
 const WEEKDAYS = [
   { value: 0, label: "Mon" },
@@ -29,21 +31,8 @@ const WEEKDAYS = [
   { value: 6, label: "Sun" },
 ];
 
-function todayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function weekdayLabel(value: number) {
   return WEEKDAYS.find((weekday) => weekday.value === value)?.label ?? `${value}`;
-}
-
-function weekdayFromIsoDate(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  return (date.getDay() + 6) % 7;
 }
 
 export function TasksPage() {
@@ -280,24 +269,17 @@ export function TasksPage() {
             Plan one-off daily tasks and simple weekly recurring tasks.
           </p>
           <div className="mt-4 flex flex-wrap items-end gap-4">
-            <label className="block text-sm font-medium">
-              Working date
-              <input
-                className="mt-1 rounded border border-neutral-300 px-3 py-2"
-                onChange={(event) => setSelectedDate(event.target.value)}
-                type="date"
-                value={selectedDate}
-              />
-            </label>
+            <DateSelector
+              className="min-w-48"
+              label="Working date"
+              onChange={setSelectedDate}
+              value={selectedDate}
+            />
             {error ? (
-              <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-                {error}
-              </p>
+              <ErrorState message={error} />
             ) : null}
             {notice ? (
-              <p className="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
-                {notice}
-              </p>
+              <NoticeState message={notice} />
             ) : null}
           </div>
         </header>

@@ -10,23 +10,8 @@ import {
   updateCalendarEvent,
 } from "./api";
 import type { CalendarEvent } from "./types";
-
-function todayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatDisplayDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
-}
+import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
+import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 function formatEventTime(event: CalendarEvent) {
   if (!event.start_time && !event.end_time) {
@@ -72,7 +57,7 @@ function EventCard({
         {event.title}
       </span>
       <span className="mt-1 block text-xs text-neutral-600">
-        {formatDisplayDate(event.event_date)} · {formatEventTime(event)}
+        {formatDisplayDate(event.event_date)} - {formatEventTime(event)}
       </span>
       {event.location ? (
         <span className="mt-1 block text-xs text-neutral-600">
@@ -235,24 +220,21 @@ export function CalendarPage() {
             <p className="mt-2 text-sm leading-6 text-neutral-700">
               Create simple internal events and see what is coming up.
             </p>
-            <label className="mt-4 block text-sm font-medium">
-              Selected date
-              <input
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                onChange={(event) => setSelectedDate(event.target.value)}
-                type="date"
-                value={selectedDate}
-              />
-            </label>
+            <DateSelector
+              className="mt-4"
+              label="Selected date"
+              onChange={setSelectedDate}
+              value={selectedDate}
+            />
             {error ? (
-              <p className="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-                {error}
-              </p>
+              <div className="mt-4">
+                <ErrorState message={error} />
+              </div>
             ) : null}
             {notice ? (
-              <p className="mt-4 rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
-                {notice}
-              </p>
+              <div className="mt-4">
+                <NoticeState message={notice} />
+              </div>
             ) : null}
           </section>
 
