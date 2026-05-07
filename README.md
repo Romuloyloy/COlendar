@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in early development. The current app is still foundation work: a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, and Alembic migrations.
+COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, and the first real product module: notes with nested folders.
 
 ## Project Structure
 
@@ -9,11 +9,11 @@ COlendar is a local-first personal productivity dashboard in early development. 
 |-- backend/              FastAPI backend
 |   |-- alembic/          Migration environment and migration files
 |   |-- app/
-|   |   |-- api/          HTTP routes, currently health checks only
+|   |   |-- api/          Shared HTTP routes, currently health checks
 |   |   |-- core/         Settings and database connection setup
 |   |   |-- db/           Declarative Base, mixins, and model registry
-|   |   `-- modules/      Future feature modules
-|   `-- tests/            Small backend foundation tests
+|   |   `-- modules/      Product modules, including notes
+|   `-- tests/            Backend tests
 |-- docs/                 Product and architecture planning documents
 |-- frontend/             Next.js + TypeScript + Tailwind app
 |-- docker-compose.yml
@@ -71,6 +71,7 @@ The first build can take a few minutes while Docker downloads images and install
 Open these in your browser:
 
 - Frontend: `http://localhost:3000`
+- Notes page: `http://localhost:3000/notes`
 - Backend health: `http://localhost:8000/health`
 - Backend database health: `http://localhost:8000/health/db`
 
@@ -78,6 +79,7 @@ Or check them from PowerShell:
 
 ```powershell
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
@@ -85,6 +87,7 @@ Invoke-RestMethod http://localhost:8000/health/db
 Success looks like:
 
 - The frontend page says `COlendar is running`.
+- The Notes page lets you create folders and notes.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
 - Docker Desktop shows the frontend, backend, and database containers running.
@@ -100,6 +103,65 @@ The backend database foundation is split like this:
 - `backend/alembic/`: Alembic migration environment.
 
 Future modules should define their own SQLAlchemy models inside their module folders, then import those model modules in `backend/app/db/model_registry.py` so Alembic can detect them.
+
+## Notes And Folders Module
+
+The notes module is the first real product feature.
+
+It supports:
+
+- Root folders
+- Nested folders through `parent_folder_id`
+- Folder rename
+- Notes with optional `folder_id`
+- Notes without a folder
+- Moving notes between folders
+- Editing note title and content
+- Soft archiving notes
+- Soft archiving empty folders
+
+Folder archive is intentionally conservative: a folder must be empty before it can be archived. If it contains active notes or child folders, the backend returns `409 Conflict`. This avoids accidentally hiding a whole subtree before a fuller folder-management UI exists.
+
+The browser UI at `http://localhost:3000/notes` currently provides:
+
+- A simple indented folder list
+- Root and nested folder creation
+- Folder rename
+- Empty-folder archive
+- Note list by all notes or selected folder
+- Note creation, editing, folder movement, and archive
+- Loading, empty, success, and error states
+
+The module lives mainly in:
+
+- `backend/app/modules/notes/models.py`
+- `backend/app/modules/notes/schemas.py`
+- `backend/app/modules/notes/router.py`
+- `frontend/app/notes/page.tsx`
+- `frontend/src/features/notes/`
+
+## Notes API Overview
+
+Folders:
+
+```text
+GET    /api/folders
+POST   /api/folders
+PATCH  /api/folders/{folder_id}
+DELETE /api/folders/{folder_id}
+```
+
+Notes:
+
+```text
+GET    /api/notes
+POST   /api/notes
+GET    /api/notes/{note_id}
+PATCH  /api/notes/{note_id}
+DELETE /api/notes/{note_id}
+```
+
+Deletes are soft archives in this phase.
 
 ## Run Migrations
 
@@ -121,7 +183,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. It verifies that Alembic can connect to the database and create its migration tracking table without adding product feature tables too early.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables.
 
 ## Create A New Migration
 
@@ -151,7 +213,13 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The current tests are intentionally small. They check that the health endpoint works and that the shared timestamp mixin produces the expected columns.
+The tests check the database foundation plus practical notes/folders behavior: root folders, nested folders, invalid parent handling, blank name/title rejection, missing folder rejection, note creation, note editing, note moving, note archiving, and safe folder archiving.
+
+You can also run the frontend production build through Docker:
+
+```powershell
+docker compose exec frontend npm run build
+```
 
 ## Stop The App
 
@@ -211,14 +279,16 @@ Then open `http://localhost:3000`.
 
 ## Intentionally Not Implemented Yet
 
-This foundation does not include:
+This phase does not include:
 
-- Notes, folders, tasks, calendar events, tracker entries, or dashboard data
+- Tasks, calendar events, tracker entries, or dashboard data
 - Authentication or users
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
-- Product feature database tables
+- Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
+- Recursive folder archive/delete
+- Searching or filtering notes beyond selecting a folder
 
 Those belong in later phases from the roadmap.
 

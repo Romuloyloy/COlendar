@@ -1,32 +1,39 @@
-Hi! Phase 2 added the database and migration foundation.
+Hi! This was a Phase 3 hardening pass for Notes and Folders.
 
-What changed:
-- SQLAlchemy now has a clean shared Base, timestamp mixin, engine, session factory, and DB connection helper.
-- Alembic is configured for migrations and uses the same DATABASE_URL settings as the backend.
-- There is an initial empty migration, on purpose, so the database can be stamped without adding feature tables yet.
-- A couple of small backend tests were added.
+What got fixed:
+- The Notes page now has a clearer folder tree.
+- You can rename folders from the UI.
+- You can archive empty folders from the UI.
+- You can select a folder and see notes in that folder.
+- API errors are shown more clearly in the frontend.
+- Backend tests now cover blank names/titles, missing folders, note moves, note archives, and safe folder archive behavior.
 
 How to test it on Windows:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
-3. Run `docker compose up --build`.
-4. In a second PowerShell window, run `docker compose exec backend alembic upgrade head`.
-5. Run `docker compose exec backend pytest`.
+3. Run `docker compose up --build -d`.
+4. Run `docker compose exec backend alembic upgrade head`.
+5. Run `docker compose exec backend alembic current`.
+6. Run `docker compose exec backend pytest`.
+7. Optional: run `docker compose exec frontend npm run build`.
 
-What to check in the browser:
-- Frontend: http://localhost:3000
+What to check:
+- Home: http://localhost:3000
+- Notes: http://localhost:3000/notes
 - Backend health: http://localhost:8000/health
 - Database health: http://localhost:8000/health/db
 
 Success looks like:
-- The frontend still loads.
-- /health says the backend is ok.
-- /health/db says the database is connected.
-- Alembic applies the migration without errors.
-- Pytest passes.
+- You can create a root folder and nested folder.
+- You can rename an empty or non-empty folder.
+- You can create, edit, move, and archive a note.
+- Empty folders can be archived.
+- Folders with notes or child folders show a safe error instead of being archived.
+- Backend tests pass.
 
-Next logical stage:
-- Phase 3: implement notes and nested folders with real SQLAlchemy models, an Alembic migration, API routes, and focused tests.
+Known limits:
+- No rich text editor, tags, backlinks, attachments, search, AI, tasks, calendar, tracker, widgets, or sheets yet.
+- Folder archive is intentionally not recursive.
 
-Reminder:
-- No notes, tasks, calendar, tracker, auth, AI, widgets, or sheet/grid UI were added yet.
+Next recommended phase:
+- Phase 4: daily and weekly tasks.

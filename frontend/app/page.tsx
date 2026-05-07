@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const modules = ["Dashboard", "Notes", "Tasks", "Calendar", "Tracker"];
 
 export default function Home() {
@@ -6,14 +8,19 @@ export default function Home() {
       <section className="mx-auto flex max-w-5xl flex-col gap-8">
         <header className="border-b border-neutral-300 pb-6">
           <p className="text-sm font-medium uppercase tracking-wide text-teal-700">
-            Initial project skeleton
+            First product module
           </p>
           <h1 className="mt-3 text-4xl font-semibold">COlendar is running</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-neutral-700">
-            This is the first app shell for the personal productivity dashboard.
-            Product modules are reserved for later; today this page only proves
-            that the frontend is alive.
+            The app shell is alive, and the first real module is ready: notes
+            with nested folders.
           </p>
+          <Link
+            className="mt-5 inline-flex rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            href="/notes"
+          >
+            Open Notes
+          </Link>
         </header>
 
         <section>
