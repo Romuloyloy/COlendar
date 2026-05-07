@@ -1,7 +1,128 @@
 from fastapi.testclient import TestClient
 
+DEFAULT_WIDGET_KEYS = [
+    "today-overview",
+    "quick-actions",
+    "daily-tasks",
+    "weekly-tasks",
+    "recent-notes",
+    "upcoming-events",
+    "tracker-summary",
+    "planning-summary",
+]
+
 
 def test_dashboard_summary_returns_selected_date(client: TestClient) -> None:
+    response = client.get("/api/dashboard/summary?date=2026-05-07")
+
+    assert response.status_code == 200
+    assert response.json()["selected_date"] == "2026-05-07"
+
+
+def test_dashboard_widgets_returns_default_layout(client: TestClient) -> None:
+    response = client.get("/api/dashboard/widgets")
+
+    assert response.status_code == 200
+    widgets = response.json()["widgets"]
+    assert [widget["widget_key"] for widget in widgets] == DEFAULT_WIDGET_KEYS
+    assert [widget["sort_order"] for widget in widgets] == list(
+        range(len(DEFAULT_WIDGET_KEYS))
+    )
+    assert all(widget["is_visible"] is True for widget in widgets)
+    assert all(widget["config_json"] == {} for widget in widgets)
+
+
+def test_dashboard_widgets_updates_widget_visibility(client: TestClient) -> None:
+    payload = {
+        "widgets": [
+            {"widget_key": widget_key, "is_visible": widget_key != "daily-tasks"}
+            for widget_key in DEFAULT_WIDGET_KEYS
+        ]
+    }
+
+    response = client.put("/api/dashboard/widgets", json=payload)
+
+    assert response.status_code == 200
+    widgets_by_key = {
+        widget["widget_key"]: widget for widget in response.json()["widgets"]
+    }
+    assert widgets_by_key["daily-tasks"]["is_visible"] is False
+    assert widgets_by_key["weekly-tasks"]["is_visible"] is True
+
+
+def test_dashboard_widgets_reorders_widgets(client: TestClient) -> None:
+    reversed_keys = list(reversed(DEFAULT_WIDGET_KEYS))
+    payload = {
+        "widgets": [
+            {"widget_key": widget_key, "is_visible": True}
+            for widget_key in reversed_keys
+        ]
+    }
+
+    response = client.put("/api/dashboard/widgets", json=payload)
+
+    assert response.status_code == 200
+    widgets = response.json()["widgets"]
+    assert [widget["widget_key"] for widget in widgets] == reversed_keys
+    assert [widget["sort_order"] for widget in widgets] == list(range(len(reversed_keys)))
+
+
+def test_dashboard_widgets_rejects_unknown_widget_key(client: TestClient) -> None:
+    response = client.put(
+        "/api/dashboard/widgets",
+        json={"widgets": [{"widget_key": "mystery-widget", "is_visible": True}]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown dashboard widget key: mystery-widget"
+
+
+def test_dashboard_widgets_rejects_duplicate_widget_keys(client: TestClient) -> None:
+    response = client.put(
+        "/api/dashboard/widgets",
+        json={
+            "widgets": [
+                {"widget_key": "daily-tasks", "is_visible": True},
+                {"widget_key": "daily-tasks", "is_visible": False},
+            ]
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_dashboard_widgets_reset_restores_default_layout(client: TestClient) -> None:
+    client.put(
+        "/api/dashboard/widgets",
+        json={
+            "widgets": [
+                {"widget_key": widget_key, "is_visible": widget_key != "recent-notes"}
+                for widget_key in reversed(DEFAULT_WIDGET_KEYS)
+            ]
+        },
+    )
+
+    response = client.post("/api/dashboard/widgets/reset")
+
+    assert response.status_code == 200
+    widgets = response.json()["widgets"]
+    assert [widget["widget_key"] for widget in widgets] == DEFAULT_WIDGET_KEYS
+    assert all(widget["is_visible"] is True for widget in widgets)
+
+
+def test_dashboard_summary_still_loads_after_customized_layout(
+    client: TestClient,
+) -> None:
+    client.put(
+        "/api/dashboard/widgets",
+        json={
+            "widgets": [
+                {"widget_key": "quick-actions", "is_visible": False},
+                {"widget_key": "today-overview", "is_visible": True},
+            ]
+        },
+    )
+
     response = client.get("/api/dashboard/summary?date=2026-05-07")
 
     assert response.status_code == 200

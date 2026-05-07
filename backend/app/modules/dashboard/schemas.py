@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.calendar.schemas import CalendarEventRead
 from app.modules.notes.schemas import NoteRead
@@ -42,3 +42,47 @@ class DashboardSummary(BaseModel):
     counts: DashboardCounts
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardWidgetPreferenceRead(BaseModel):
+    id: int
+    widget_key: str
+    sort_order: int
+    is_visible: bool
+    config_json: dict
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardWidgetPreferenceUpdate(BaseModel):
+    widget_key: str = Field(min_length=1, max_length=100)
+    is_visible: bool = True
+    config_json: dict = Field(default_factory=dict)
+
+    @field_validator("widget_key")
+    @classmethod
+    def widget_key_cannot_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Widget key cannot be empty")
+        return value.strip()
+
+
+class DashboardWidgetLayoutRead(BaseModel):
+    widgets: list[DashboardWidgetPreferenceRead]
+
+
+class DashboardWidgetLayoutUpdate(BaseModel):
+    widgets: list[DashboardWidgetPreferenceUpdate]
+
+    @field_validator("widgets")
+    @classmethod
+    def widget_keys_must_be_unique(
+        cls,
+        value: list[DashboardWidgetPreferenceUpdate],
+    ) -> list[DashboardWidgetPreferenceUpdate]:
+        widget_keys = [widget.widget_key for widget in value]
+        if len(widget_keys) != len(set(widget_keys)):
+            raise ValueError("Dashboard widget keys must be unique")
+        return value

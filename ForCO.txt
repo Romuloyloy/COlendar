@@ -1,56 +1,82 @@
-Hi! This added Widget Foundation v1.
+Hi! This added Dashboard Customization v1.
 
 What changed:
-- Refactored the fixed dashboard so it renders through code-defined widget definitions.
-- Added formal widget-like dashboard components:
-  - `TodayOverviewWidget`
-  - `QuickActionsWidget`
-  - `DailyTasksWidget`
-  - `WeeklyTasksWidget`
-  - `RecentNotesWidget`
-  - `UpcomingEventsWidget`
-  - `TrackerSummaryWidget`
-  - `PlanningSummaryWidget`
-- Added lightweight shared widget types in `frontend/src/features/dashboard/widget-types.ts`.
-- Added a code-only widget registry in `frontend/src/features/dashboard/dashboard-widget-registry.ts`.
-- Added a small `WidgetRenderer` in `frontend/src/features/dashboard/WidgetRenderer.tsx`.
-- Kept the dashboard fixed and non-customizable.
-- Kept dashboard task completion behavior wired through the existing task APIs.
-- Added a dashboard Quick Actions widget with links to Search, Tasks, Notes, Calendar, Planning, and Tracker.
-- Quick Actions can also open the existing app-shell Quick Add panel.
-- Updated README.md with the Widget Foundation v1 overview, current limits, future direction, and Windows PowerShell commands.
+- Added a small backend dashboard layout preference model/table:
+  - `dashboard_widget_preferences`
+  - `widget_key`
+  - `sort_order`
+  - `is_visible`
+  - `config_json`
+  - timestamps
+- Added migration `20260507_0007_add_dashboard_widget_preferences.py`.
+- Added backend widget layout endpoints:
+  - `GET /api/dashboard/widgets`
+  - `PUT /api/dashboard/widgets`
+  - `POST /api/dashboard/widgets/reset`
+- Kept dashboard widgets code-defined. The database stores only layout preferences.
+- Added backend validation for unknown and duplicate widget keys.
+- Added safe layout normalization so missing known widgets are appended and unknown/deprecated keys do not break the returned dashboard layout.
+- Added practical backend tests for default layout, visibility changes, reordering, invalid keys, duplicate keys, reset, and dashboard summary compatibility.
+- Added a simple dashboard customization modal on the home dashboard.
+- The modal lets the user show/hide widgets, move widgets up/down, save layout, and reset to defaults.
+- Dashboard rendering now respects saved visibility and order while still using:
+  - `DashboardWidgets.tsx`
+  - `dashboard-widget-registry.ts`
+  - `WidgetRenderer.tsx`
+  - `widget-types.ts`
+- Existing widget behavior is intentionally unchanged.
+- Updated README.md with Dashboard Customization v1, API overview, migration/test commands, Windows PowerShell commands, limitations, and future direction.
 
 How to test it on Windows:
 1. Start Docker Desktop.
 2. Open PowerShell in the repo root.
 3. Run `docker compose up --build -d`.
-4. Run `docker compose exec backend alembic current`.
-5. Run `docker compose exec backend pytest`.
-6. Run `docker compose exec frontend npm run build`.
-7. Open `http://localhost:3000`.
-8. Check existing pages: `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, and `/search`.
-9. Use dashboard checkboxes for daily tasks and scheduled weekly task occurrences.
-10. Use dashboard Quick Actions to open Quick Add and navigate to Search.
+4. Run `docker compose exec backend alembic upgrade head`.
+5. Run `docker compose exec backend alembic current`.
+6. Run `docker compose exec backend pytest`.
+7. Run `docker compose exec frontend npm run build`.
+8. Open `http://localhost:3000`.
+9. Open Customize Dashboard.
+10. Hide a widget and save.
+11. Show it again and save.
+12. Move widgets up/down and save.
+13. Reset the dashboard layout to default.
+14. Check existing pages: `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, and `/search`.
+15. Use Quick Add from the app shell and dashboard Quick Actions.
+16. Use Global Search at `/search`.
+17. Check backend health at `http://localhost:8000/health`.
+18. Check DB health at `http://localhost:8000/health/db`.
 
 What success looks like:
 - Frontend loads at `http://localhost:3000`.
+- The dashboard renders through saved/customized widget layout.
+- Hidden widgets disappear from the dashboard.
+- Hidden widgets can be shown again.
+- Visible widgets appear in saved order.
+- Reset restores the default widget order with all widgets visible.
+- Existing dashboard checkboxes still complete/incomplete daily tasks and weekly task occurrences.
+- Recent notes, upcoming events, tracker summary, planning link, search link, and Quick Add still behave normally.
 - Existing pages still load and behave normally.
-- Dashboard visually still feels like the same fixed dashboard.
-- The dashboard now has a clear widget registry and renderer internally.
-- Quick Add still works from the app shell, `Ctrl+K`, and the dashboard Quick Actions widget.
-- Global Search still works at `/search`.
-- Backend health works at `http://localhost:8000/health`.
-- Database health works at `http://localhost:8000/health/db`.
-- Backend tests and frontend build pass.
+- Backend health and DB health return healthy responses.
+- Alembic upgrades to head and `alembic current` reports the latest revision.
+- Backend tests pass.
+- Frontend build passes.
 
 What remains intentionally postponed:
-- No backend widget APIs.
-- No widget tables or migrations.
-- No persisted widget instances.
-- No dashboard customization.
-- No sheets or no-scroll 4x2 sheet UI.
-- No drag-and-drop or resizable dashboard layout.
-- No auth, AI, semantic search, pgvector, external integrations, reminders, notifications, or advanced analytics.
+- No auth or user-specific layouts.
+- No AI, semantic search, or pgvector.
+- No sheets.
+- No no-scroll 4x2 sheet UI.
+- No drag-and-drop.
+- No grid x/y/w/h positioning.
+- No widget resizing.
+- No database-defined widgets.
+- No plugin system.
+- No advanced per-widget settings.
+- No external integrations.
+- No notifications or reminders.
+- No redesign of stable modules.
 
 Recommended next phase:
-- Add simple result deep links/highlighting for Search, or add a small widget contract document before starting any persisted dashboard customization work.
+- Add a tiny dashboard layout architecture note that defines how v1 preferences could later become sheet-scoped widget instances.
+- After that, the next product step can be either search result deep links/highlighting or the first controlled sheet-planning document. Avoid implementing the 4x2 grid until the desired sheet contract is written down.

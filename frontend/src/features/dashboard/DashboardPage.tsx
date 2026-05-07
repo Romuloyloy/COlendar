@@ -2,11 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getDashboardSummary } from "./api";
-import { DASHBOARD_WIDGET_REGISTRY } from "./dashboard-widget-registry";
+import { getDashboardSummary, getDashboardWidgetLayout } from "./api";
+import {
+  DEFAULT_DASHBOARD_WIDGET_DEFINITIONS,
+  getDashboardWidgetDefinition,
+} from "./dashboard-widget-registry";
+import { DashboardCustomizeModal } from "./DashboardCustomizeModal";
 import { WidgetRenderer } from "./WidgetRenderer";
-import type { DashboardSummary, DashboardWeeklyTask } from "./types";
-import type { DashboardWidgetProps } from "./widget-types";
+import type {
+  DashboardSummary,
+  DashboardWeeklyTask,
+  DashboardWidgetLayout,
+} from "./types";
+import type { DashboardWidgetDefinition, DashboardWidgetProps } from "./widget-types";
 import type { DailyTask } from "@/features/tasks/types";
 import {
   completeDailyTask,
@@ -14,19 +22,32 @@ import {
   incompleteDailyTask,
   incompleteWeeklyTask,
 } from "@/features/tasks/api";
-import { ErrorState, LoadingState, PageHeader, SectionCard } from "@/components/ui";
+import {
+  ErrorState,
+  LoadingState,
+  NoticeState,
+  PageHeader,
+  SectionCard,
+} from "@/components/ui";
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState(todayIsoDate());
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [layout, setLayout] = useState<DashboardWidgetLayout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [layoutWarning, setLayoutWarning] = useState<string | null>(null);
 
   const selectedDateLabel = useMemo(
     () => formatDisplayDate(selectedDate),
     [selectedDate],
+  );
+  const visibleWidgetDefinitions = useMemo(
+    () => resolveVisibleWidgetDefinitions(layout),
+    [layout],
   );
 
   async function loadSummary() {
@@ -35,9 +56,34 @@ export function DashboardPage() {
     setSummary(data);
   }
 
+  async function loadDashboardData() {
+    setError(null);
+    setLayoutWarning(null);
+
+    const [summaryResult, layoutResult] = await Promise.allSettled([
+      getDashboardSummary(selectedDate),
+      getDashboardWidgetLayout(),
+    ]);
+
+    if (summaryResult.status === "rejected") {
+      throw summaryResult.reason;
+    }
+
+    setSummary(summaryResult.value);
+
+    if (layoutResult.status === "fulfilled") {
+      setLayout(layoutResult.value);
+    } else {
+      setLayout(null);
+      setLayoutWarning(
+        "Saved dashboard layout could not be loaded. Showing the default layout.",
+      );
+    }
+  }
+
   useEffect(() => {
     setIsLoading(true);
-    loadSummary()
+    loadDashboardData()
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setIsLoading(false));
   }, [selectedDate]);
@@ -91,12 +137,26 @@ export function DashboardPage() {
         <div className="mb-6">
           <PageHeader
             description={`A practical home base for ${selectedDateLabel}.`}
-            eyebrow="Fixed Dashboard"
+            eyebrow="Dashboard"
+            actions={
+              <button
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                onClick={() => setIsCustomizeOpen(true)}
+                type="button"
+              >
+                Customize Dashboard
+              </button>
+            }
             title="COlendar"
           />
           {error ? (
             <div className="mt-4">
               <ErrorState message={error} />
+            </div>
+          ) : null}
+          {layoutWarning ? (
+            <div className="mt-4">
+              <NoticeState message={layoutWarning} />
             </div>
           ) : null}
         </div>
@@ -106,30 +166,85 @@ export function DashboardPage() {
             <LoadingState message="Loading dashboard..." />
           </SectionCard>
         ) : summary ? (
-          <div className="grid gap-5 lg:grid-cols-2">
-            {DASHBOARD_WIDGET_REGISTRY.map((definition) => (
-              <WidgetRenderer
-                definition={definition}
-                key={definition.id}
-                props={
-                  {
-                    isSaving,
-                    onDateChange: setSelectedDate,
-                    onToggleDailyTask: toggleDailyTask,
-                    onToggleWeeklyTask: toggleWeeklyTask,
-                    selectedDate,
-                    summary,
-                  } satisfies DashboardWidgetProps
-                }
-              />
-            ))}
-          </div>
+          visibleWidgetDefinitions.length > 0 ? (
+            <div className="grid gap-5 lg:grid-cols-2">
+              {visibleWidgetDefinitions.map((definition) => (
+                <WidgetRenderer
+                  definition={definition}
+                  key={definition.id}
+                  props={
+                    {
+                      isSaving,
+                      onDateChange: setSelectedDate,
+                      onToggleDailyTask: toggleDailyTask,
+                      onToggleWeeklyTask: toggleWeeklyTask,
+                      selectedDate,
+                      summary,
+                    } satisfies DashboardWidgetProps
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <SectionCard title="No visible widgets">
+              <p className="mt-3 text-sm leading-6 text-neutral-700">
+                All dashboard widgets are hidden.
+              </p>
+              <button
+                className="mt-4 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+                onClick={() => setIsCustomizeOpen(true)}
+                type="button"
+              >
+                Customize Dashboard
+              </button>
+            </SectionCard>
+          )
         ) : (
           <SectionCard>
             <LoadingState message="Dashboard data could not be loaded." />
           </SectionCard>
         )}
       </section>
+      <DashboardCustomizeModal
+        isOpen={isCustomizeOpen}
+        layout={layout}
+        onClose={() => setIsCustomizeOpen(false)}
+        onSaved={setLayout}
+      />
     </main>
   );
+}
+
+function resolveVisibleWidgetDefinitions(
+  layout: DashboardWidgetLayout | null,
+): DashboardWidgetDefinition[] {
+  if (!layout || layout.widgets.length === 0) {
+    return DEFAULT_DASHBOARD_WIDGET_DEFINITIONS;
+  }
+
+  const sortedLayout = [...layout.widgets].sort(
+    (left, right) => left.sort_order - right.sort_order,
+  );
+  const resolvedDefinitions: DashboardWidgetDefinition[] = [];
+  const savedWidgetKeys = new Set<string>();
+
+  for (const widget of sortedLayout) {
+    const definition = getDashboardWidgetDefinition(widget.widget_key);
+    if (!definition) {
+      continue;
+    }
+
+    savedWidgetKeys.add(definition.id);
+    if (widget.is_visible) {
+      resolvedDefinitions.push(definition);
+    }
+  }
+
+  for (const definition of DEFAULT_DASHBOARD_WIDGET_DEFINITIONS) {
+    if (!savedWidgetKeys.has(definition.id)) {
+      resolvedDefinitions.push(definition);
+    }
+  }
+
+  return resolvedDefinitions;
 }

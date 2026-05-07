@@ -4,8 +4,17 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.dashboard.schemas import DashboardSummary
-from app.modules.dashboard.service import get_dashboard_summary
+from app.modules.dashboard.schemas import (
+    DashboardSummary,
+    DashboardWidgetLayoutRead,
+    DashboardWidgetLayoutUpdate,
+)
+from app.modules.dashboard.service import (
+    get_dashboard_summary,
+    get_dashboard_widget_layout,
+    reset_dashboard_widget_layout,
+    update_dashboard_widget_layout,
+)
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -23,3 +32,21 @@ def dashboard_summary(
         recent_notes_limit=recent_notes_limit,
         upcoming_events_limit=upcoming_events_limit,
     )
+
+
+@router.get("/widgets", response_model=DashboardWidgetLayoutRead)
+def dashboard_widgets(db: Session = Depends(get_db)) -> DashboardWidgetLayoutRead:
+    return get_dashboard_widget_layout(db)
+
+
+@router.put("/widgets", response_model=DashboardWidgetLayoutRead)
+def update_dashboard_widgets(
+    payload: DashboardWidgetLayoutUpdate,
+    db: Session = Depends(get_db),
+) -> DashboardWidgetLayoutRead:
+    return update_dashboard_widget_layout(db, payload)
+
+
+@router.post("/widgets/reset", response_model=DashboardWidgetLayoutRead)
+def reset_dashboard_widgets(db: Session = Depends(get_db)) -> DashboardWidgetLayoutRead:
+    return reset_dashboard_widget_layout(db)

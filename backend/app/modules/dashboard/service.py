@@ -1,12 +1,22 @@
 from datetime import date
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.dashboard.models import DashboardWidgetPreference
 from app.modules.dashboard.schemas import (
     DashboardCounts,
     DashboardSummary,
+    DashboardWidgetLayoutRead,
+    DashboardWidgetLayoutUpdate,
+    DashboardWidgetPreferenceRead,
+    DashboardWidgetPreferenceUpdate,
     DashboardWeeklyTaskRead,
+)
+from app.modules.dashboard.widget_catalog import (
+    DEFAULT_DASHBOARD_WIDGET_KEYS,
+    VALID_DASHBOARD_WIDGET_KEYS,
 )
 from app.modules.calendar.service import upcoming_events_query
 from app.modules.notes.models import Note
@@ -112,3 +122,149 @@ def get_dashboard_summary(
             total_calories_kcal=tracker_summary.total_calories_kcal,
         ),
     )
+
+
+def get_dashboard_widget_layout(db: Session) -> DashboardWidgetLayoutRead:
+    preferences = _ensure_dashboard_widget_preferences(db)
+    return DashboardWidgetLayoutRead(widgets=_serialize_preferences(preferences))
+
+
+def update_dashboard_widget_layout(
+    db: Session,
+    payload: DashboardWidgetLayoutUpdate,
+) -> DashboardWidgetLayoutRead:
+    _validate_widget_keys([widget.widget_key for widget in payload.widgets])
+
+    existing_preferences = {
+        preference.widget_key: preference
+        for preference in db.scalars(select(DashboardWidgetPreference))
+    }
+    ordered_updates = _append_missing_widget_updates(payload.widgets)
+
+    for sort_order, widget_update in enumerate(ordered_updates):
+        preference = existing_preferences.get(widget_update.widget_key)
+        if preference is None:
+            preference = DashboardWidgetPreference(widget_key=widget_update.widget_key)
+            db.add(preference)
+
+        preference.sort_order = sort_order
+        preference.is_visible = widget_update.is_visible
+        preference.config_json = widget_update.config_json
+
+    db.commit()
+    preferences = _known_preferences_query(db)
+    return DashboardWidgetLayoutRead(widgets=_serialize_preferences(preferences))
+
+
+def reset_dashboard_widget_layout(db: Session) -> DashboardWidgetLayoutRead:
+    existing_preferences = {
+        preference.widget_key: preference
+        for preference in db.scalars(select(DashboardWidgetPreference))
+    }
+
+    for sort_order, widget_key in enumerate(DEFAULT_DASHBOARD_WIDGET_KEYS):
+        preference = existing_preferences.get(widget_key)
+        if preference is None:
+            preference = DashboardWidgetPreference(widget_key=widget_key)
+            db.add(preference)
+
+        preference.sort_order = sort_order
+        preference.is_visible = True
+        preference.config_json = {}
+
+    db.commit()
+    preferences = _known_preferences_query(db)
+    return DashboardWidgetLayoutRead(widgets=_serialize_preferences(preferences))
+
+
+def _ensure_dashboard_widget_preferences(
+    db: Session,
+) -> list[DashboardWidgetPreference]:
+    preferences = list(
+        db.scalars(
+            select(DashboardWidgetPreference).order_by(
+                DashboardWidgetPreference.sort_order.asc(),
+                DashboardWidgetPreference.id.asc(),
+            )
+        )
+    )
+    preferences_by_key = {preference.widget_key: preference for preference in preferences}
+    did_change = False
+
+    next_sort_order = len(preferences)
+    for widget_key in DEFAULT_DASHBOARD_WIDGET_KEYS:
+        if widget_key not in preferences_by_key:
+            preference = DashboardWidgetPreference(
+                widget_key=widget_key,
+                sort_order=next_sort_order,
+                is_visible=True,
+                config_json={},
+            )
+            preferences_by_key[widget_key] = preference
+            db.add(preference)
+            next_sort_order += 1
+            did_change = True
+
+    if did_change:
+        db.commit()
+
+    return _known_preferences_query(db)
+
+
+def _known_preferences_query(db: Session) -> list[DashboardWidgetPreference]:
+    return list(
+        db.scalars(
+            select(DashboardWidgetPreference)
+            .where(
+                DashboardWidgetPreference.widget_key.in_(
+                    list(VALID_DASHBOARD_WIDGET_KEYS)
+                )
+            )
+            .order_by(
+                DashboardWidgetPreference.sort_order.asc(),
+                DashboardWidgetPreference.id.asc(),
+            )
+        )
+    )
+
+
+def _serialize_preferences(
+    preferences: list[DashboardWidgetPreference],
+) -> list[DashboardWidgetPreferenceRead]:
+    return [
+        DashboardWidgetPreferenceRead.model_validate(preference)
+        for preference in preferences
+        if preference.widget_key in VALID_DASHBOARD_WIDGET_KEYS
+    ]
+
+
+def _validate_widget_keys(widget_keys: list[str]) -> None:
+    unknown_widget_keys = [
+        widget_key
+        for widget_key in widget_keys
+        if widget_key not in VALID_DASHBOARD_WIDGET_KEYS
+    ]
+    if unknown_widget_keys:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown dashboard widget key: {unknown_widget_keys[0]}",
+        )
+
+
+def _append_missing_widget_updates(
+    updates: list[DashboardWidgetPreferenceUpdate],
+) -> list[DashboardWidgetPreferenceUpdate]:
+    updates_by_key = {widget.widget_key: widget for widget in updates}
+    ordered_updates = list(updates)
+
+    for widget_key in DEFAULT_DASHBOARD_WIDGET_KEYS:
+        if widget_key not in updates_by_key:
+            ordered_updates.append(
+                DashboardWidgetPreferenceUpdate(
+                    widget_key=widget_key,
+                    is_visible=True,
+                    config_json={},
+                )
+            )
+
+    return ordered_updates

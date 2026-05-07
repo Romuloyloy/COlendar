@@ -36,3 +36,25 @@ export type DashboardSummary = {
   recent_notes: Note[];
   counts: DashboardCounts;
 };
+
+export type DashboardWidgetPreference = {
+  id: number;
+  widget_key: string;
+  sort_order: number;
+  is_visible: boolean;
+  config_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DashboardWidgetLayout = {
+  widgets: DashboardWidgetPreference[];
+};
+
+export type DashboardWidgetLayoutUpdate = {
+  widgets: {
+    widget_key: string;
+    is_visible: boolean;
+    config_json?: Record<string, unknown>;
+  }[];
+};

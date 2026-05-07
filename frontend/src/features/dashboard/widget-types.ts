@@ -37,6 +37,7 @@ export type DashboardWidgetDefinition = {
   displayName: string;
   description: string;
   category: DashboardWidgetCategory;
+  defaultOrder: number;
   defaultSize: WidgetSizeHint;
   component: ComponentType<DashboardWidgetProps>;
 };

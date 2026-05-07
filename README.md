@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, a fixed dashboard with Widget Foundation v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -127,7 +127,7 @@ Future modules should define their own SQLAlchemy models inside their module fol
 
 The dashboard is now the default home screen at `http://localhost:3000`.
 
-It is intentionally fixed and practical in this phase. It currently shows:
+It is intentionally simple and practical in this phase. It currently shows:
 
 - Today/date overview using the browser's local date on first load
 - Quick actions for Quick Add, Search, Planning, and core modules
@@ -140,17 +140,27 @@ It is intentionally fixed and practical in this phase. It currently shows:
 - Recent active notes with short previews
 - Loading, empty, and error states
 
-The dashboard is not customizable yet. It is also not the future sheet/grid UI. Widget Foundation v1 keeps the user-facing dashboard fixed while making the internals widget-like and easier to extend.
+Dashboard Customization v1 lets the user:
+
+- open a `Customize Dashboard` modal from the home dashboard
+- see all code-defined dashboard widgets and their descriptions
+- show or hide dashboard widgets
+- move dashboard widgets up or down
+- save the widget order and visibility
+- reset the dashboard layout to the default order with all widgets visible
+
+The dashboard still is not the future sheet/grid UI. Widget Foundation v1 keeps widget definitions code-defined while Dashboard Customization v1 persists only the user's layout preferences.
 
 The current frontend widget foundation lives in:
 
 - `frontend/src/features/dashboard/DashboardPage.tsx`
+- `frontend/src/features/dashboard/DashboardCustomizeModal.tsx`
 - `frontend/src/features/dashboard/DashboardWidgets.tsx`
 - `frontend/src/features/dashboard/WidgetRenderer.tsx`
 - `frontend/src/features/dashboard/dashboard-widget-registry.ts`
 - `frontend/src/features/dashboard/widget-types.ts`
 
-The dashboard widget registry is code-only. Each widget definition has an id, display name, description, category, default size hint, and component reference. The current widgets are:
+The dashboard widget registry is code-only. Each widget definition has an id, display name, description, category, default order, default size hint, and component reference. The current widgets are:
 
 - `TodayOverviewWidget`
 - `QuickActionsWidget`
@@ -161,22 +171,38 @@ The dashboard widget registry is code-only. Each widget definition has an id, di
 - `TrackerSummaryWidget`
 - `PlanningSummaryWidget`
 
-There are no widget database records, widget APIs, widget migrations, persisted layouts, drag-and-drop controls, dashboard customization settings, or sheet/grid layouts yet.
+The backend stores layout preferences in `dashboard_widget_preferences`:
+
+- `widget_key`
+- `sort_order`
+- `is_visible`
+- `config_json`, currently reserved and defaulting to an empty object
+- timestamps
+
+The database does not define widgets. It only stores preferences for the code-defined widget keys.
+
+What remains fixed:
+
+- widget implementation and metadata are still code-defined
+- widget content and behavior are unchanged
+- the dashboard still uses the existing registry and `WidgetRenderer`
+- there is no drag-and-drop, resizing, grid placement, sheet selection, auth, plugin system, or advanced widget configuration
 
 Future direction:
 
-- replace the fixed render order with configurable widget instances
+- evolve preferences into configurable widget instances when the sheet system is ready
 - add a fuller `WidgetRenderer` contract
-- introduce customizable dashboards only when the core modules are stable
-- later connect widgets to the postponed sheet/grid system
+- later connect widgets to the postponed no-scroll sheet system and fixed 4x2 grid
 
-The backend dashboard module composes data owned by the Notes, Tasks, Calendar, and Tracker modules. It does not own dashboard tables or duplicate module data.
+The backend dashboard module composes data owned by the Notes, Tasks, Calendar, and Tracker modules. It now owns only dashboard layout preferences and does not duplicate module data.
 
 The module lives mainly in:
 
+- `backend/app/modules/dashboard/models.py`
 - `backend/app/modules/dashboard/router.py`
 - `backend/app/modules/dashboard/service.py`
 - `backend/app/modules/dashboard/schemas.py`
+- `backend/app/modules/dashboard/widget_catalog.py`
 - `frontend/app/page.tsx`
 - `frontend/src/features/dashboard/`
 
@@ -184,6 +210,9 @@ The module lives mainly in:
 
 ```text
 GET /api/dashboard/summary?date=YYYY-MM-DD
+GET /api/dashboard/widgets
+PUT /api/dashboard/widgets
+POST /api/dashboard/widgets/reset
 ```
 
 The response includes:
@@ -195,6 +224,23 @@ The response includes:
 - tracker summary for that date, including calorie total
 - recent active notes
 - simple dashboard counts
+
+The widget layout endpoints use this simple shape:
+
+```json
+{
+  "widgets": [
+    {
+      "widget_key": "today-overview",
+      "sort_order": 0,
+      "is_visible": true,
+      "config_json": {}
+    }
+  ]
+}
+```
+
+`GET /api/dashboard/widgets` returns the current layout and creates or normalizes the default preferences when needed. `PUT /api/dashboard/widgets` stores the submitted widget array order and visibility, rejects unknown or duplicate widget keys, and appends omitted known widgets safely. `POST /api/dashboard/widgets/reset` restores the default order and sets all widgets visible.
 
 ## Global Quick Add
 
@@ -375,16 +421,17 @@ Feature modules still own their product-specific API functions and page behavior
 
 ## MVP Hardening Notes
 
-This pass focused on consistency and preparation rather than new feature expansion:
+This pass focused on consistency, preparation, and a small controlled customization layer:
 
 - Navigation spacing and hover states are more consistent.
 - Date selectors and status messages use shared UI primitives where practical.
 - Frontend API error handling is centralized instead of duplicated per feature.
 - Dashboard sections now render through code-defined widget definitions and a lightweight widget renderer.
 - Widget Foundation v1 prepares the dashboard for future configurable widgets while keeping the dashboard fixed.
+- Dashboard Customization v1 persists widget visibility and order without making widgets database-defined.
 - Backend module behavior was reviewed for archive/date/error consistency; stable APIs were left intact.
 
-The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker, and they still do not own persistence tables.
+The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker. The dashboard owns only its layout preference table.
 
 ## Tracker Module
 
@@ -610,7 +657,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1.
 
 ## Create A New Migration
 
@@ -640,7 +687,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, planning daily/weekly composition, dashboard summaries for selected dates, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 
@@ -712,7 +759,7 @@ This phase does not include:
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
-- Dashboard customization, persisted widget instances, widget APIs, or formal widget records
+- Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet widgets
 - A formal command palette engine
 - External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
 - Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder
