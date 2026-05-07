@@ -27,6 +27,9 @@ export default function RootLayout({
               <Link className="text-neutral-700 hover:text-teal-700" href="/notes">
                 Notes
               </Link>
+              <Link className="text-neutral-700 hover:text-teal-700" href="/tasks">
+                Tasks
+              </Link>
             </div>
           </nav>
         </header>

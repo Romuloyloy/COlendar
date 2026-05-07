@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, and the first real product module: notes with nested folders.
+COlendar is a local-first personal productivity dashboard in early development. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, notes with nested folders, and MVP daily/weekly tasks.
 
 ## Project Structure
 
@@ -12,7 +12,7 @@ COlendar is a local-first personal productivity dashboard in early development. 
 |   |   |-- api/          Shared HTTP routes, currently health checks
 |   |   |-- core/         Settings and database connection setup
 |   |   |-- db/           Declarative Base, mixins, and model registry
-|   |   `-- modules/      Product modules, including notes
+|   |   `-- modules/      Product modules, including notes and tasks
 |   `-- tests/            Backend tests
 |-- docs/                 Product and architecture planning documents
 |-- frontend/             Next.js + TypeScript + Tailwind app
@@ -72,6 +72,7 @@ Open these in your browser:
 
 - Frontend: `http://localhost:3000`
 - Notes page: `http://localhost:3000/notes`
+- Tasks page: `http://localhost:3000/tasks`
 - Backend health: `http://localhost:8000/health`
 - Backend database health: `http://localhost:8000/health/db`
 
@@ -80,6 +81,7 @@ Or check them from PowerShell:
 ```powershell
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/tasks).StatusCode
 Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
@@ -88,6 +90,7 @@ Success looks like:
 
 - The frontend page says `COlendar is running`.
 - The Notes page lets you create folders and notes.
+- The Tasks page lets you create daily and weekly tasks.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
 - Docker Desktop shows the frontend, backend, and database containers running.
@@ -163,6 +166,74 @@ DELETE /api/notes/{note_id}
 
 Deletes are soft archives in this phase.
 
+## Tasks Module
+
+The tasks module supports simple MVP planning without a complex recurrence engine.
+
+Daily tasks:
+
+- Belong to one specific date.
+- Have a title, optional description, completion state, and soft archive flag.
+- Can be created, edited, completed, marked incomplete, and archived.
+- Normal lists only return active, non-archived tasks.
+
+Weekly recurring tasks:
+
+- Are templates with a title, optional description, and one or more weekdays.
+- Use weekday integers internally: `0` is Monday and `6` is Sunday.
+- Can be created, edited, filtered by weekday, and archived.
+- Completion is tracked per occurrence date in `weekly_task_completions`.
+- Completing and uncompleting a weekly occurrence is idempotent.
+- A weekly occurrence can only be completed for a date whose weekday is included in that task template.
+
+The browser UI at `http://localhost:3000/tasks` currently provides:
+
+- A working date selector
+- Daily task list for that date
+- Daily task create/edit/archive
+- Daily task complete/incomplete
+- Weekly recurring task list
+- Weekday checkboxes for weekly tasks
+- Weekly occurrence complete/incomplete for the selected date when the task is scheduled for that weekday
+- Weekly task archive
+- Loading, empty, success, and error states
+
+The module lives mainly in:
+
+- `backend/app/modules/tasks/models.py`
+- `backend/app/modules/tasks/schemas.py`
+- `backend/app/modules/tasks/router.py`
+- `frontend/app/tasks/page.tsx`
+- `frontend/src/features/tasks/`
+
+## Tasks API Overview
+
+Daily tasks:
+
+```text
+GET    /api/tasks/daily?date=YYYY-MM-DD
+POST   /api/tasks/daily
+PATCH  /api/tasks/daily/{task_id}
+DELETE /api/tasks/daily/{task_id}
+POST   /api/tasks/daily/{task_id}/complete
+POST   /api/tasks/daily/{task_id}/incomplete
+```
+
+Weekly tasks:
+
+```text
+GET    /api/tasks/weekly
+GET    /api/tasks/weekly?weekday=0
+POST   /api/tasks/weekly
+PATCH  /api/tasks/weekly/{task_id}
+DELETE /api/tasks/weekly/{task_id}
+GET    /api/tasks/weekly/completions?completion_date=YYYY-MM-DD
+POST   /api/tasks/weekly/{task_id}/complete?completion_date=YYYY-MM-DD
+POST   /api/tasks/weekly/{task_id}/incomplete?completion_date=YYYY-MM-DD
+```
+
+Deletes are soft archives in this phase.
+
 ## Run Migrations
 
 Start the stack first:
@@ -183,7 +254,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`.
 
 ## Create A New Migration
 
@@ -213,7 +284,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders behavior: root folders, nested folders, invalid parent handling, blank name/title rejection, missing folder rejection, note creation, note editing, note moving, note archiving, and safe folder archiving.
+The tests check the database foundation plus practical notes/folders and tasks behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, and weekly task archive.
 
 You can also run the frontend production build through Docker:
 
@@ -281,7 +352,7 @@ Then open `http://localhost:3000`.
 
 This phase does not include:
 
-- Tasks, calendar events, tracker entries, or dashboard data
+- Calendar events, tracker entries, or dashboard data
 - Authentication or users
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
@@ -289,6 +360,7 @@ This phase does not include:
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
 - Searching or filtering notes beyond selecting a folder
+- Advanced task recurrence rules, subtasks, priorities, labels, dependencies, reminders, or notifications
 
 Those belong in later phases from the roadmap.
 

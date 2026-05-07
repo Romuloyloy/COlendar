@@ -17,6 +17,12 @@ export default function Home() {
           </p>
           <Link
             className="mt-5 inline-flex rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            href="/tasks"
+          >
+            Open Tasks
+          </Link>
+          <Link
+            className="ml-3 mt-5 inline-flex rounded border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
             href="/notes"
           >
             Open Notes

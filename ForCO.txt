@@ -1,12 +1,11 @@
-Hi! This was a Phase 3 hardening pass for Notes and Folders.
+Hi! This was a Phase 4 hardening pass for Tasks.
 
 What got fixed:
-- The Notes page now has a clearer folder tree.
-- You can rename folders from the UI.
-- You can archive empty folders from the UI.
-- You can select a folder and see notes in that folder.
-- API errors are shown more clearly in the frontend.
-- Backend tests now cover blank names/titles, missing folders, note moves, note archives, and safe folder archive behavior.
+- Weekly task occurrences can only be completed on dates matching the task's weekdays.
+- The Tasks page now disables weekly completion checkboxes when a task is not scheduled for the selected date.
+- The default Tasks date now uses your local browser date.
+- Task API calls encode date query values safely.
+- Backend tests now cover daily completion idempotency, weekly task editing, and invalid weekly occurrence dates.
 
 How to test it on Windows:
 1. Start Docker Desktop.
@@ -15,25 +14,24 @@ How to test it on Windows:
 4. Run `docker compose exec backend alembic upgrade head`.
 5. Run `docker compose exec backend alembic current`.
 6. Run `docker compose exec backend pytest`.
-7. Optional: run `docker compose exec frontend npm run build`.
+7. Run `docker compose exec frontend npm run build`.
 
 What to check:
 - Home: http://localhost:3000
 - Notes: http://localhost:3000/notes
+- Tasks: http://localhost:3000/tasks
 - Backend health: http://localhost:8000/health
 - Database health: http://localhost:8000/health/db
 
 Success looks like:
-- You can create a root folder and nested folder.
-- You can rename an empty or non-empty folder.
-- You can create, edit, move, and archive a note.
-- Empty folders can be archived.
-- Folders with notes or child folders show a safe error instead of being archived.
-- Backend tests pass.
+- Daily tasks can be created, edited, completed, uncompleted, and archived.
+- Weekly tasks can be created, edited, assigned weekdays, completed for valid dates, uncompleted, and archived.
+- Weekly tasks not scheduled for the selected date show as not completable.
+- Backend tests and frontend build pass.
 
 Known limits:
-- No rich text editor, tags, backlinks, attachments, search, AI, tasks, calendar, tracker, widgets, or sheets yet.
-- Folder archive is intentionally not recursive.
+- Weekly recurrence is still intentionally simple: weekday templates only.
+- No priorities, subtasks, labels, reminders, notifications, calendar, tracker, AI, widgets, or sheets yet.
 
 Next recommended phase:
-- Phase 4: daily and weekly tasks.
+- Phase 5: fixed dashboard.
