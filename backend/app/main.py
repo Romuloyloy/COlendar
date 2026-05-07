@@ -8,6 +8,7 @@ from app.modules.dashboard.router import router as dashboard_router
 from app.modules.notes.router import router as notes_router
 from app.modules.planning.router import router as planning_router
 from app.modules.search.router import router as search_router
+from app.modules.sheets.router import router as sheets_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.tracker.router import router as tracker_router
 
@@ -31,5 +32,6 @@ app.include_router(dashboard_router)
 app.include_router(notes_router)
 app.include_router(planning_router)
 app.include_router(search_router)
+app.include_router(sheets_router)
 app.include_router(tasks_router)
 app.include_router(tracker_router)

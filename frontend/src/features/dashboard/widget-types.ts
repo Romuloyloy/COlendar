@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 
 import type { DashboardSummary, DashboardWeeklyTask } from "./types";
-import type { DailyTask } from "@/features/tasks/types";
+import type { DailyTask, TaskCategory } from "@/features/tasks/types";
 
 export type DashboardWidgetId =
   | "today-overview"
@@ -27,9 +27,17 @@ export type DashboardWidgetProps = {
   selectedDate: string;
   summary: DashboardSummary;
   isSaving: boolean;
+  widgetConfig?: DashboardWidgetConfig;
+  renderMode?: "normal" | "compact";
+  taskCategories?: TaskCategory[];
   onDateChange: (date: string) => void;
   onToggleDailyTask: (task: DailyTask) => void;
   onToggleWeeklyTask: (task: DashboardWeeklyTask) => void;
+};
+
+export type DashboardWidgetConfig = {
+  category_id?: number | null;
+  title_override?: string;
 };
 
 export type DashboardWidgetDefinition = {

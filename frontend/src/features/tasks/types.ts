@@ -3,6 +3,7 @@ export type DailyTask = {
   title: string;
   description: string;
   task_date: string;
+  category_id: number | null;
   is_completed: boolean;
   completed_at: string | null;
   is_archived: boolean;
@@ -15,6 +16,16 @@ export type WeeklyTask = {
   title: string;
   description: string;
   weekdays: number[];
+  category_id: number | null;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaskCategory = {
+  id: number;
+  name: string;
+  color: string;
   is_archived: boolean;
   created_at: string;
   updated_at: string;

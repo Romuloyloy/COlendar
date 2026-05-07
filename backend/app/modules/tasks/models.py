@@ -6,6 +6,20 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin
 
 
+class TaskCategory(TimestampMixin, Base):
+    __tablename__ = "task_categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    color: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+
+
 class DailyTask(TimestampMixin, Base):
     __tablename__ = "daily_tasks"
 
@@ -13,6 +27,11 @@ class DailyTask(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(250), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     task_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("task_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_completed: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -26,6 +45,7 @@ class DailyTask(TimestampMixin, Base):
         default=False,
         server_default=false(),
     )
+    category: Mapped[TaskCategory | None] = relationship("TaskCategory")
 
 
 class WeeklyTask(TimestampMixin, Base):
@@ -35,6 +55,11 @@ class WeeklyTask(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(250), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     weekdays: Mapped[str] = mapped_column(String(20), nullable=False)
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("task_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_archived: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -46,6 +71,7 @@ class WeeklyTask(TimestampMixin, Base):
         "WeeklyTaskCompletion",
         back_populates="weekly_task",
     )
+    category: Mapped[TaskCategory | None] = relationship("TaskCategory")
 
 
 class WeeklyTaskCompletion(TimestampMixin, Base):

@@ -1,6 +1,19 @@
 from fastapi.testclient import TestClient
 
 
+def test_tracker_summary_is_not_affected_by_task_categories(client: TestClient) -> None:
+    client.post("/api/tasks/categories", json={"name": "Health", "color": "#14b8a6"})
+    client.post(
+        "/api/tracker/water",
+        json={"entry_date": "2026-05-07", "amount_ml": 250, "note": ""},
+    )
+
+    response = client.get("/api/tracker/summary?date=2026-05-07")
+
+    assert response.status_code == 200
+    assert response.json()["total_water_ml"] == 250
+
+
 def test_create_water_entry(client: TestClient) -> None:
     response = client.post(
         "/api/tracker/water",

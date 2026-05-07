@@ -28,6 +28,7 @@ class DailyTaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=250)
     description: str = ""
     task_date: date
+    category_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -41,6 +42,7 @@ class DailyTaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=250)
     description: str | None = None
     task_date: date | None = None
+    category_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -55,6 +57,7 @@ class DailyTaskRead(BaseModel):
     title: str
     description: str
     task_date: date
+    category_id: int | None
     is_completed: bool
     completed_at: datetime | None
     is_archived: bool
@@ -68,6 +71,7 @@ class WeeklyTaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=250)
     description: str = ""
     weekdays: list[int]
+    category_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -86,6 +90,7 @@ class WeeklyTaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=250)
     description: str | None = None
     weekdays: list[int] | None = None
+    category_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -107,6 +112,42 @@ class WeeklyTaskRead(BaseModel):
     title: str
     description: str
     weekdays: list[int]
+    category_id: int | None
+    is_archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaskCategoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    color: str = Field(default="", max_length=40)
+
+    @field_validator("name")
+    @classmethod
+    def name_cannot_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Category name cannot be empty")
+        return value.strip()
+
+
+class TaskCategoryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    color: str | None = Field(default=None, max_length=40)
+
+    @field_validator("name")
+    @classmethod
+    def name_cannot_be_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("Category name cannot be empty")
+        return value.strip() if value is not None else value
+
+
+class TaskCategoryRead(BaseModel):
+    id: int
+    name: str
+    color: str
     is_archived: bool
     created_at: datetime
     updated_at: datetime

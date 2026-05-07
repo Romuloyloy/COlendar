@@ -1,31 +1,37 @@
-Hi! This added Dashboard Customization v1.
+Hi! This added Sheet/Grid Hardening v2.
 
 What changed:
-- Added a small backend dashboard layout preference model/table:
-  - `dashboard_widget_preferences`
+- Added task categories:
+  - `task_categories`
+  - optional `category_id` on daily tasks
+  - optional `category_id` on weekly tasks
+- Added migration `20260507_0009_add_task_categories_and_sheet_slot_config.py`.
+- Added task category APIs:
+  - `GET /api/tasks/categories`
+  - `POST /api/tasks/categories`
+  - `PATCH /api/tasks/categories/{category_id}`
+  - `DELETE /api/tasks/categories/{category_id}`
+- Category names are validated as non-empty and unique among active categories.
+- Archiving a category leaves existing task references intact, but archived categories cannot be assigned to new or updated tasks.
+- Daily and weekly task APIs now accept `category_id` and can filter by `category_id`.
+- Tracker is intentionally unaffected by categories.
+- Updated sheet slots so each occupied slot is a widget instance:
   - `widget_key`
-  - `sort_order`
-  - `is_visible`
+  - `slot_index`
   - `config_json`
-  - timestamps
-- Added migration `20260507_0007_add_dashboard_widget_preferences.py`.
-- Added backend widget layout endpoints:
-  - `GET /api/dashboard/widgets`
-  - `PUT /api/dashboard/widgets`
-  - `POST /api/dashboard/widgets/reset`
-- Kept dashboard widgets code-defined. The database stores only layout preferences.
-- Added backend validation for unknown and duplicate widget keys.
-- Added safe layout normalization so missing known widgets are appended and unknown/deprecated keys do not break the returned dashboard layout.
-- Added practical backend tests for default layout, visibility changes, reordering, invalid keys, duplicate keys, reset, and dashboard summary compatibility.
-- Added a simple dashboard customization modal on the home dashboard.
-- The modal lets the user show/hide widgets, move widgets up/down, save layout, and reset to defaults.
-- Dashboard rendering now respects saved visibility and order while still using:
-  - `DashboardWidgets.tsx`
-  - `dashboard-widget-registry.ts`
-  - `WidgetRenderer.tsx`
-  - `widget-types.ts`
-- Existing widget behavior is intentionally unchanged.
-- Updated README.md with Dashboard Customization v1, API overview, migration/test commands, Windows PowerShell commands, limitations, and future direction.
+- Multiple slots on one sheet can now use the same `widget_key`.
+- Task widget slot config supports:
+  - no category filter
+  - `category_id`
+  - optional `title_override`
+- Added validation for unknown widget keys, invalid slot indexes, and invalid task widget category config.
+- Added compact sheet-friendly widget rendering.
+- Dashboard widgets still render normally on `/`.
+- `/sheets` renders widgets in compact mode.
+- Updated the `/sheets` slot editor so each slot can choose a widget type, category filter, optional title override, or be cleared.
+- Updated the Tasks page with simple category management, category assignment, and category filters.
+- Updated backend tests for categories, task filtering, duplicate sheet widget instances, per-slot configs, and tracker independence.
+- Updated README.md with task categories, sheet widget instances/configs, duplicate widgets, compact sheet widgets, limitations, and test commands.
 
 How to test it on Windows:
 1. Start Docker Desktop.
@@ -35,48 +41,59 @@ How to test it on Windows:
 5. Run `docker compose exec backend alembic current`.
 6. Run `docker compose exec backend pytest`.
 7. Run `docker compose exec frontend npm run build`.
-8. Open `http://localhost:3000`.
-9. Open Customize Dashboard.
-10. Hide a widget and save.
-11. Show it again and save.
-12. Move widgets up/down and save.
-13. Reset the dashboard layout to default.
-14. Check existing pages: `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, and `/search`.
-15. Use Quick Add from the app shell and dashboard Quick Actions.
-16. Use Global Search at `/search`.
-17. Check backend health at `http://localhost:8000/health`.
-18. Check DB health at `http://localhost:8000/health/db`.
+8. Open `http://localhost:3000/tasks`.
+9. Create categories such as School, Gym, Health, and Work.
+10. Create a daily task and assign a category.
+11. Create a weekly task and assign a category.
+12. Filter daily tasks by category.
+13. Filter weekly tasks by category.
+14. Open `http://localhost:3000/sheets`.
+15. Add Daily Tasks to multiple slots with different category filters.
+16. Add Weekly Tasks to multiple slots with different category filters.
+17. Add title overrides such as School Tasks or Health Weekly.
+18. Save the slot layout and refresh `/sheets`.
+19. Confirm slot widget configs persisted.
+20. Check existing pages: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
+21. Confirm Quick Add still works.
+22. Confirm Global Search still works.
+23. Confirm dashboard customization still works.
+24. Check backend health at `http://localhost:8000/health`.
+25. Check DB health at `http://localhost:8000/health/db`.
 
 What success looks like:
 - Frontend loads at `http://localhost:3000`.
-- The dashboard renders through saved/customized widget layout.
-- Hidden widgets disappear from the dashboard.
-- Hidden widgets can be shown again.
-- Visible widgets appear in saved order.
-- Reset restores the default widget order with all widgets visible.
-- Existing dashboard checkboxes still complete/incomplete daily tasks and weekly task occurrences.
-- Recent notes, upcoming events, tracker summary, planning link, search link, and Quick Add still behave normally.
-- Existing pages still load and behave normally.
+- Existing pages still load.
+- Task categories can be created, edited, and archived.
+- Daily tasks can be assigned to categories.
+- Weekly tasks can be assigned to categories.
+- Daily and weekly task lists can filter by category.
+- Tracker remains category-free.
+- `/sheets` allows duplicate widget types on one sheet.
+- Multiple Daily Tasks instances can use different category filters.
+- Multiple Weekly Tasks instances can use different category filters.
+- Per-slot widget config persists after refresh.
+- Sheet widgets render compactly enough for the 4x2 grid.
+- Dashboard customization still works independently on `/`.
 - Backend health and DB health return healthy responses.
 - Alembic upgrades to head and `alembic current` reports the latest revision.
 - Backend tests pass.
 - Frontend build passes.
 
-What remains intentionally postponed:
-- No auth or user-specific layouts.
-- No AI, semantic search, or pgvector.
-- No sheets.
-- No no-scroll 4x2 sheet UI.
+Limitations:
 - No drag-and-drop.
-- No grid x/y/w/h positioning.
 - No widget resizing.
+- No `x/y/w/h` grid placement.
+- No final no-scroll workspace.
+- No top-center dropdown system.
+- No advanced per-widget config beyond task category and title override.
+- No auth or user-specific sheets/categories.
+- No AI, semantic search, or pgvector.
 - No database-defined widgets.
 - No plugin system.
-- No advanced per-widget settings.
+- No categories for tracker.
 - No external integrations.
 - No notifications or reminders.
-- No redesign of stable modules.
 
 Recommended next phase:
-- Add a tiny dashboard layout architecture note that defines how v1 preferences could later become sheet-scoped widget instances.
-- After that, the next product step can be either search result deep links/highlighting or the first controlled sheet-planning document. Avoid implementing the 4x2 grid until the desired sheet contract is written down.
+- Add a short sheet/widget contract document that defines compact widget mode, supported config schemas per widget type, and future migration path toward real widget instances.
+- After that, improve compact widgets one by one before considering drag-and-drop, resizing, or a final no-scroll shell.

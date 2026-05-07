@@ -1,14 +1,57 @@
-import type { DailyTask, WeeklyTask, WeeklyTaskCompletion } from "./types";
+import type {
+  DailyTask,
+  TaskCategory,
+  WeeklyTask,
+  WeeklyTaskCompletion,
+} from "./types";
 import { apiRequest } from "@/lib/api";
 
-export function getDailyTasks(date: string): Promise<DailyTask[]> {
-  return apiRequest<DailyTask[]>(`/api/tasks/daily?date=${encodeURIComponent(date)}`);
+export function getTaskCategories(): Promise<TaskCategory[]> {
+  return apiRequest<TaskCategory[]>("/api/tasks/categories");
+}
+
+export function createTaskCategory(input: {
+  name: string;
+  color: string;
+}): Promise<TaskCategory> {
+  return apiRequest<TaskCategory>("/api/tasks/categories", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateTaskCategory(
+  categoryId: number,
+  input: Partial<Pick<TaskCategory, "name" | "color">>,
+): Promise<TaskCategory> {
+  return apiRequest<TaskCategory>(`/api/tasks/categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function archiveTaskCategory(categoryId: number): Promise<void> {
+  return apiRequest<void>(`/api/tasks/categories/${categoryId}`, {
+    method: "DELETE",
+  });
+}
+
+export function getDailyTasks(
+  date: string,
+  categoryId?: number,
+): Promise<DailyTask[]> {
+  const params = new URLSearchParams({ date });
+  if (categoryId !== undefined) {
+    params.set("category_id", String(categoryId));
+  }
+  return apiRequest<DailyTask[]>(`/api/tasks/daily?${params.toString()}`);
 }
 
 export function createDailyTask(input: {
   title: string;
   description: string;
   task_date: string;
+  category_id?: number | null;
 }): Promise<DailyTask> {
   return apiRequest<DailyTask>("/api/tasks/daily", {
     method: "POST",
@@ -18,7 +61,7 @@ export function createDailyTask(input: {
 
 export function updateDailyTask(
   taskId: number,
-  input: Partial<Pick<DailyTask, "title" | "description" | "task_date">>,
+  input: Partial<Pick<DailyTask, "title" | "description" | "task_date" | "category_id">>,
 ): Promise<DailyTask> {
   return apiRequest<DailyTask>(`/api/tasks/daily/${taskId}`, {
     method: "PATCH",
@@ -42,15 +85,26 @@ export function incompleteDailyTask(taskId: number): Promise<DailyTask> {
   });
 }
 
-export function getWeeklyTasks(weekday?: number): Promise<WeeklyTask[]> {
-  const query = weekday === undefined ? "" : `?weekday=${weekday}`;
-  return apiRequest<WeeklyTask[]>(`/api/tasks/weekly${query}`);
+export function getWeeklyTasks(
+  weekday?: number,
+  categoryId?: number,
+): Promise<WeeklyTask[]> {
+  const params = new URLSearchParams();
+  if (weekday !== undefined) {
+    params.set("weekday", String(weekday));
+  }
+  if (categoryId !== undefined) {
+    params.set("category_id", String(categoryId));
+  }
+  const query = params.toString();
+  return apiRequest<WeeklyTask[]>(`/api/tasks/weekly${query ? `?${query}` : ""}`);
 }
 
 export function createWeeklyTask(input: {
   title: string;
   description: string;
   weekdays: number[];
+  category_id?: number | null;
 }): Promise<WeeklyTask> {
   return apiRequest<WeeklyTask>("/api/tasks/weekly", {
     method: "POST",
@@ -60,7 +114,7 @@ export function createWeeklyTask(input: {
 
 export function updateWeeklyTask(
   taskId: number,
-  input: Partial<Pick<WeeklyTask, "title" | "description" | "weekdays">>,
+  input: Partial<Pick<WeeklyTask, "title" | "description" | "weekdays" | "category_id">>,
 ): Promise<WeeklyTask> {
   return apiRequest<WeeklyTask>(`/api/tasks/weekly/${taskId}`, {
     method: "PATCH",

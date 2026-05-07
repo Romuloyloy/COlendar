@@ -1,6 +1,58 @@
 from fastapi.testclient import TestClient
 
 
+def create_category(client: TestClient, name: str = "School") -> dict:
+    return client.post(
+        "/api/tasks/categories",
+        json={"name": name, "color": "#14b8a6"},
+    ).json()
+
+
+def test_create_task_category(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/categories",
+        json={"name": "School", "color": "#14b8a6"},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "School"
+    assert data["color"] == "#14b8a6"
+    assert data["is_archived"] is False
+
+
+def test_reject_blank_task_category_name(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/categories",
+        json={"name": "   ", "color": "#14b8a6"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_edit_task_category(client: TestClient) -> None:
+    category = create_category(client)
+
+    response = client.patch(
+        f"/api/tasks/categories/{category['id']}",
+        json={"name": "Gym", "color": "#f97316"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Gym"
+    assert response.json()["color"] == "#f97316"
+
+
+def test_archive_task_category(client: TestClient) -> None:
+    category = create_category(client)
+
+    archive_response = client.delete(f"/api/tasks/categories/{category['id']}")
+    list_response = client.get("/api/tasks/categories")
+
+    assert archive_response.status_code == 204
+    assert list_response.json() == []
+
+
 def test_create_daily_task(client: TestClient) -> None:
     response = client.post(
         "/api/tasks/daily",
@@ -12,6 +64,23 @@ def test_create_daily_task(client: TestClient) -> None:
     assert data["title"] == "Study"
     assert data["task_date"] == "2026-05-07"
     assert data["is_completed"] is False
+    assert data["category_id"] is None
+
+
+def test_create_daily_task_with_category(client: TestClient) -> None:
+    category = create_category(client)
+
+    response = client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Study",
+            "task_date": "2026-05-07",
+            "category_id": category["id"],
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["category_id"] == category["id"]
 
 
 def test_reject_blank_daily_task_title(client: TestClient) -> None:
@@ -36,6 +105,7 @@ def test_list_daily_tasks_by_date(client: TestClient) -> None:
 
 
 def test_update_daily_task(client: TestClient) -> None:
+    category = create_category(client)
     task = client.post(
         "/api/tasks/daily",
         json={"title": "Draft", "task_date": "2026-05-07"},
@@ -47,6 +117,7 @@ def test_update_daily_task(client: TestClient) -> None:
             "title": "Updated",
             "description": "Edited",
             "task_date": "2026-05-08",
+            "category_id": category["id"],
         },
     )
 
@@ -55,6 +126,47 @@ def test_update_daily_task(client: TestClient) -> None:
     assert data["title"] == "Updated"
     assert data["description"] == "Edited"
     assert data["task_date"] == "2026-05-08"
+    assert data["category_id"] == category["id"]
+
+
+def test_filter_daily_tasks_by_category(client: TestClient) -> None:
+    school = create_category(client, "School")
+    gym = create_category(client, "Gym")
+    client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Study",
+            "task_date": "2026-05-07",
+            "category_id": school["id"],
+        },
+    )
+    client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Lift",
+            "task_date": "2026-05-07",
+            "category_id": gym["id"],
+        },
+    )
+
+    response = client.get(f"/api/tasks/daily?date=2026-05-07&category_id={school['id']}")
+
+    assert response.status_code == 200
+    assert [task["title"] for task in response.json()] == ["Study"]
+
+
+def test_reject_invalid_daily_task_category_id(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Study",
+            "task_date": "2026-05-07",
+            "category_id": 999,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Task category not found"
 
 
 def test_complete_and_incomplete_daily_task(client: TestClient) -> None:
@@ -103,6 +215,19 @@ def test_create_weekly_task(client: TestClient) -> None:
     data = response.json()
     assert data["title"] == "Gym"
     assert data["weekdays"] == [1, 3]
+    assert data["category_id"] is None
+
+
+def test_create_weekly_task_with_category(client: TestClient) -> None:
+    category = create_category(client, "Health")
+
+    response = client.post(
+        "/api/tasks/weekly",
+        json={"title": "Gym", "weekdays": [1, 3], "category_id": category["id"]},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["category_id"] == category["id"]
 
 
 def test_reject_weekly_task_with_no_weekdays(client: TestClient) -> None:
@@ -137,7 +262,26 @@ def test_list_and_filter_weekly_tasks(client: TestClient) -> None:
     assert monday_response.json()[0]["title"] == "Monday"
 
 
+def test_filter_weekly_tasks_by_category(client: TestClient) -> None:
+    school = create_category(client, "School")
+    health = create_category(client, "Health")
+    client.post(
+        "/api/tasks/weekly",
+        json={"title": "Study", "weekdays": [0], "category_id": school["id"]},
+    )
+    client.post(
+        "/api/tasks/weekly",
+        json={"title": "Gym", "weekdays": [0], "category_id": health["id"]},
+    )
+
+    response = client.get(f"/api/tasks/weekly?weekday=0&category_id={health['id']}")
+
+    assert response.status_code == 200
+    assert [task["title"] for task in response.json()] == ["Gym"]
+
+
 def test_update_weekly_task(client: TestClient) -> None:
+    category = create_category(client, "School")
     task = client.post(
         "/api/tasks/weekly",
         json={"title": "Draft", "description": "", "weekdays": [0]},
@@ -145,7 +289,12 @@ def test_update_weekly_task(client: TestClient) -> None:
 
     response = client.patch(
         f"/api/tasks/weekly/{task['id']}",
-        json={"title": "Updated", "description": "Edited", "weekdays": [2, 4]},
+        json={
+            "title": "Updated",
+            "description": "Edited",
+            "weekdays": [2, 4],
+            "category_id": category["id"],
+        },
     )
 
     assert response.status_code == 200
@@ -153,6 +302,33 @@ def test_update_weekly_task(client: TestClient) -> None:
     assert data["title"] == "Updated"
     assert data["description"] == "Edited"
     assert data["weekdays"] == [2, 4]
+    assert data["category_id"] == category["id"]
+
+
+def test_reject_invalid_weekly_task_category_id(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={"title": "Gym", "weekdays": [1], "category_id": 999},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Task category not found"
+
+
+def test_archived_category_is_not_assignable(client: TestClient) -> None:
+    category = create_category(client)
+    client.delete(f"/api/tasks/categories/{category['id']}")
+
+    response = client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Study",
+            "task_date": "2026-05-07",
+            "category_id": category["id"],
+        },
+    )
+
+    assert response.status_code == 400
 
 
 def test_complete_and_incomplete_weekly_task_occurrence(client: TestClient) -> None:

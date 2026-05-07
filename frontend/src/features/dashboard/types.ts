@@ -8,6 +8,7 @@ export type DashboardWeeklyTask = {
   title: string;
   description: string;
   weekdays: number[];
+  category_id: number | null;
   is_completed: boolean;
   completion_id: number | null;
   is_archived: boolean;

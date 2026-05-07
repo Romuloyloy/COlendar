@@ -13,6 +13,7 @@ class DashboardWeeklyTaskRead(BaseModel):
     title: str
     description: str
     weekdays: list[int]
+    category_id: int | None
     is_completed: bool
     completion_id: int | None
     is_archived: bool

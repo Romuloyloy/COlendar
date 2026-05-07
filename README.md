@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet/Grid Prototype v1, notes with nested folders, MVP daily/weekly tasks, a simple internal calendar, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -76,6 +76,7 @@ The first build can take a few minutes while Docker downloads images and install
 Open these in your browser:
 
 - Dashboard home: `http://localhost:3000`
+- Sheets prototype: `http://localhost:3000/sheets`
 - Notes page: `http://localhost:3000/notes`
 - Tasks page: `http://localhost:3000/tasks`
 - Calendar page: `http://localhost:3000/calendar`
@@ -89,6 +90,7 @@ Or check them from PowerShell:
 
 ```powershell
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/sheets).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tasks).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/calendar).StatusCode
@@ -100,6 +102,7 @@ Invoke-RestMethod http://localhost:8000/health/db
 ```
 
 - The dashboard shows today's overview, quick actions, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
+- The Sheets page is an experimental 4x2 workspace prototype that renders code-defined dashboard widgets in persisted sheet slots.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page lets you create folders and notes.
@@ -242,11 +245,107 @@ The widget layout endpoints use this simple shape:
 
 `GET /api/dashboard/widgets` returns the current layout and creates or normalizes the default preferences when needed. `PUT /api/dashboard/widgets` stores the submitted widget array order and visibility, rejects unknown or duplicate widget keys, and appends omitted known widgets safely. `POST /api/dashboard/widgets/reset` restores the default order and sets all widgets visible.
 
+## Sheet/Grid Prototype
+
+The Sheets prototype lives at `http://localhost:3000/sheets`. It is the first controlled prototype of the long-term sheet-based GUI idea, but it does not replace the normal dashboard at `http://localhost:3000`.
+
+The dashboard and sheets are different:
+
+- Dashboard is the stable home route with saved show/hide and ordering preferences.
+- Sheets is an experimental workspace route with multiple named sheets and fixed 4 columns x 2 rows slots.
+- Both use the same code-defined dashboard widget registry and `WidgetRenderer` where possible.
+- Dashboard preferences do not control sheet slots, and sheet slots do not control the dashboard.
+
+Current sheet behavior:
+
+- one sheet is shown at a time
+- previous/next buttons navigate between sheets
+- sheets can be created and renamed
+- sheets can be deleted, except the last remaining sheet is protected
+- each sheet has exactly 8 slot positions, indexed 0 through 7
+- each slot can hold one known `widget_key` or be empty
+- each occupied slot is a widget instance with its own `widget_key` and `config_json`
+- duplicate widgets on the same sheet are allowed
+- task widget instances can store `category_id` and `title_override` in `config_json`
+- slot layout persists after refresh
+- reset restores a single default sheet with the current registry widgets in order
+
+Examples:
+
+- one Daily Tasks widget can show all daily tasks
+- another Daily Tasks widget can show only `School`
+- another Daily Tasks widget can show only `Gym`
+- Weekly Tasks widgets can do the same for categories such as `Health` or `Work`
+
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Cells still allow internal scrolling when content is too long.
+
+Current sheet limitations:
+
+- no drag-and-drop
+- no widget resizing
+- no `x/y/w/h` grid placement
+- no top-center dropdown system
+- no final no-scroll workspace behavior
+- no widget config beyond the current simple `category_id` and `title_override`
+- no database-defined widgets, plugin system, auth, AI, external integrations, notifications, or reminders
+- some current dashboard widgets remain naturally larger than a 1x1 cell, so compact mode and internal scroll are still a prototype compromise
+
+The backend sheet module owns only sheet and slot persistence:
+
+- `backend/app/modules/sheets/models.py`
+- `backend/app/modules/sheets/router.py`
+- `backend/app/modules/sheets/service.py`
+- `backend/app/modules/sheets/schemas.py`
+
+The frontend sheet prototype lives in:
+
+- `frontend/app/sheets/page.tsx`
+- `frontend/src/features/sheets/SheetsPage.tsx`
+- `frontend/src/features/sheets/api.ts`
+- `frontend/src/features/sheets/types.ts`
+
+## Sheets API Overview
+
+```text
+GET    /api/sheets
+POST   /api/sheets
+GET    /api/sheets/{sheet_id}
+PATCH  /api/sheets/{sheet_id}
+DELETE /api/sheets/{sheet_id}
+PUT    /api/sheets/{sheet_id}/slots
+POST   /api/sheets/reset-default
+```
+
+Slot updates use this simple shape:
+
+```json
+{
+  "slots": [
+    {
+      "slot_index": 0,
+      "widget_key": "daily-tasks",
+      "config_json": {
+        "category_id": 1,
+        "title_override": "School Tasks"
+      }
+    },
+    {
+      "slot_index": 1,
+      "widget_key": null,
+      "config_json": {}
+    }
+  ]
+}
+```
+
+`slot_index` must be from 0 to 7. `widget_key` must be one of the code-defined dashboard widget keys or `null` for an empty slot. `config_json` must be an object. For `daily-tasks` and `weekly-tasks`, `category_id` must reference an existing task category when provided.
+
 ## Global Quick Add
 
 Quick Add is a simple app-shell create panel available from every main page:
 
 - Dashboard
+- Sheets
 - Notes
 - Tasks
 - Calendar
@@ -275,7 +374,7 @@ POST /api/tracker/activity
 POST /api/tracker/calories
 ```
 
-It does not add backend routes, tables, migrations, widgets, sheets, command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
+It does not add command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
 
 ## Global Search
 
@@ -429,9 +528,10 @@ This pass focused on consistency, preparation, and a small controlled customizat
 - Dashboard sections now render through code-defined widget definitions and a lightweight widget renderer.
 - Widget Foundation v1 prepares the dashboard for future configurable widgets while keeping the dashboard fixed.
 - Dashboard Customization v1 persists widget visibility and order without making widgets database-defined.
+- Sheet/Grid Prototype v1 adds a separate `/sheets` route with persisted named sheets and fixed 4x2 widget slots.
 - Backend module behavior was reviewed for archive/date/error consistency; stable APIs were left intact.
 
-The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker. The dashboard owns only its layout preference table.
+The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker. The dashboard owns only its layout preference table, and Sheets owns only sheet/slot persistence.
 
 ## Tracker Module
 
@@ -573,18 +673,31 @@ Deletes are soft archives in this phase.
 
 The tasks module supports simple MVP planning without a complex recurrence engine.
 
+Task categories are a lightweight grouping layer for daily and weekly tasks. They are not tags, projects, or a tracker category system.
+
+Categories:
+
+- have a name and optional color string
+- must have a non-empty name
+- are unique among active categories by application validation
+- can be archived
+- remain referenced by existing tasks after archive for historical safety
+- cannot be assigned to new or updated tasks after archive
+
 Daily tasks:
 
 - Belong to one specific date.
 - Have a title, optional description, completion state, and soft archive flag.
+- Can optionally belong to one task category.
 - Can be created, edited, completed, marked incomplete, and archived.
-- Normal lists only return active, non-archived tasks.
+- Normal lists only return active, non-archived tasks and can filter by category.
 
 Weekly recurring tasks:
 
 - Are templates with a title, optional description, and one or more weekdays.
+- Can optionally belong to one task category.
 - Use weekday integers internally: `0` is Monday and `6` is Sunday.
-- Can be created, edited, filtered by weekday, and archived.
+- Can be created, edited, filtered by weekday/category, and archived.
 - Completion is tracked per occurrence date in `weekly_task_completions`.
 - Completing and uncompleting a weekly occurrence is idempotent.
 - A weekly occurrence can only be completed for a date whose weekday is included in that task template.
@@ -592,11 +705,16 @@ Weekly recurring tasks:
 The browser UI at `http://localhost:3000/tasks` currently provides:
 
 - A working date selector
+- Simple task category management
 - Daily task list for that date
+- Daily task category filtering
 - Daily task create/edit/archive
+- Daily task category assignment
 - Daily task complete/incomplete
 - Weekly recurring task list
+- Weekly task category filtering
 - Weekday checkboxes for weekly tasks
+- Weekly task category assignment
 - Weekly occurrence complete/incomplete for the selected date when the task is scheduled for that weekday
 - Weekly task archive
 - Loading, empty, success, and error states
@@ -615,6 +733,7 @@ Daily tasks:
 
 ```text
 GET    /api/tasks/daily?date=YYYY-MM-DD
+GET    /api/tasks/daily?date=YYYY-MM-DD&category_id=1
 POST   /api/tasks/daily
 PATCH  /api/tasks/daily/{task_id}
 DELETE /api/tasks/daily/{task_id}
@@ -627,12 +746,22 @@ Weekly tasks:
 ```text
 GET    /api/tasks/weekly
 GET    /api/tasks/weekly?weekday=0
+GET    /api/tasks/weekly?weekday=0&category_id=1
 POST   /api/tasks/weekly
 PATCH  /api/tasks/weekly/{task_id}
 DELETE /api/tasks/weekly/{task_id}
 GET    /api/tasks/weekly/completions?completion_date=YYYY-MM-DD
 POST   /api/tasks/weekly/{task_id}/complete?completion_date=YYYY-MM-DD
 POST   /api/tasks/weekly/{task_id}/incomplete?completion_date=YYYY-MM-DD
+```
+
+Task categories:
+
+```text
+GET    /api/tasks/categories
+POST   /api/tasks/categories
+PATCH  /api/tasks/categories/{category_id}
+DELETE /api/tasks/categories/{category_id}
 ```
 
 Deletes are soft archives in this phase.
@@ -657,7 +786,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`.
 
 ## Create A New Migration
 
@@ -687,7 +816,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive/category assignment/category filtering, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering/category assignment/category filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete behavior, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 
@@ -758,8 +887,8 @@ This phase does not include:
 - Authentication or users
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
-- Drag-and-drop, resizable widgets, or the future sheet/grid GUI
-- Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet widgets
+- Drag-and-drop, resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
+- Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet-scoped widget settings
 - A formal command palette engine
 - External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
 - Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder

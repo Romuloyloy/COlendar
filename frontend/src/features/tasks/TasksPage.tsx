@@ -3,21 +3,30 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
+  archiveTaskCategory,
   archiveDailyTask,
   archiveWeeklyTask,
   completeDailyTask,
   completeWeeklyTask,
+  createTaskCategory,
   createDailyTask,
   createWeeklyTask,
   getDailyTasks,
+  getTaskCategories,
   getWeeklyTaskCompletions,
   getWeeklyTasks,
   incompleteDailyTask,
   incompleteWeeklyTask,
+  updateTaskCategory,
   updateDailyTask,
   updateWeeklyTask,
 } from "./api";
-import type { DailyTask, WeeklyTask, WeeklyTaskCompletion } from "./types";
+import type {
+  DailyTask,
+  TaskCategory,
+  WeeklyTask,
+  WeeklyTaskCompletion,
+} from "./types";
 import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
 import { todayIsoDate, weekdayFromIsoDate } from "@/lib/date";
 
@@ -40,14 +49,22 @@ export function TasksPage() {
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>([]);
   const [weeklyCompletions, setWeeklyCompletions] = useState<WeeklyTaskCompletion[]>([]);
+  const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [selectedDailyTaskId, setSelectedDailyTaskId] = useState<number | null>(null);
   const [selectedWeeklyTaskId, setSelectedWeeklyTaskId] = useState<number | null>(null);
   const [dailyTitle, setDailyTitle] = useState("");
   const [dailyDescription, setDailyDescription] = useState("");
+  const [dailyCategoryId, setDailyCategoryId] = useState("");
+  const [dailyCategoryFilter, setDailyCategoryFilter] = useState("");
   const [weeklyTitle, setWeeklyTitle] = useState("");
   const [weeklyDescription, setWeeklyDescription] = useState("");
   const [weeklyWeekdays, setWeeklyWeekdays] = useState<number[]>([]);
   const [weeklyFilter, setWeeklyFilter] = useState("");
+  const [weeklyCategoryId, setWeeklyCategoryId] = useState("");
+  const [weeklyCategoryFilter, setWeeklyCategoryFilter] = useState("");
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryColor, setCategoryColor] = useState("#14b8a6");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,18 +83,28 @@ export function TasksPage() {
     [weeklyCompletions],
   );
   const selectedWeekday = weekdayFromIsoDate(selectedDate);
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId) ?? null,
+    [categories, selectedCategoryId],
+  );
 
   async function loadData() {
     setError(null);
     const weekday = weeklyFilter === "" ? undefined : Number(weeklyFilter);
-    const [dailyData, weeklyData, completionData] = await Promise.all([
-      getDailyTasks(selectedDate),
-      getWeeklyTasks(weekday),
+    const dailyCategory =
+      dailyCategoryFilter === "" ? undefined : Number(dailyCategoryFilter);
+    const weeklyCategory =
+      weeklyCategoryFilter === "" ? undefined : Number(weeklyCategoryFilter);
+    const [dailyData, weeklyData, completionData, categoryData] = await Promise.all([
+      getDailyTasks(selectedDate, dailyCategory),
+      getWeeklyTasks(weekday, weeklyCategory),
       getWeeklyTaskCompletions(selectedDate),
+      getTaskCategories(),
     ]);
     setDailyTasks(dailyData);
     setWeeklyTasks(weeklyData);
     setWeeklyCompletions(completionData);
+    setCategories(categoryData);
 
     if (
       selectedDailyTaskId !== null &&
@@ -98,7 +125,7 @@ export function TasksPage() {
     loadData()
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setIsLoading(false));
-  }, [selectedDate, weeklyFilter]);
+  }, [selectedDate, weeklyFilter, dailyCategoryFilter, weeklyCategoryFilter]);
 
   useEffect(() => {
     function refreshAfterQuickAdd() {
@@ -108,12 +135,13 @@ export function TasksPage() {
     window.addEventListener("quick-add:created", refreshAfterQuickAdd);
     return () =>
       window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
-  }, [selectedDate, weeklyFilter]);
+  }, [selectedDate, weeklyFilter, dailyCategoryFilter, weeklyCategoryFilter]);
 
   useEffect(() => {
     if (selectedDailyTask) {
       setDailyTitle(selectedDailyTask.title);
       setDailyDescription(selectedDailyTask.description);
+      setDailyCategoryId(selectedDailyTask.category_id?.toString() ?? "");
     }
   }, [selectedDailyTask]);
 
@@ -122,13 +150,22 @@ export function TasksPage() {
       setWeeklyTitle(selectedWeeklyTask.title);
       setWeeklyDescription(selectedWeeklyTask.description);
       setWeeklyWeekdays(selectedWeeklyTask.weekdays);
+      setWeeklyCategoryId(selectedWeeklyTask.category_id?.toString() ?? "");
     }
   }, [selectedWeeklyTask]);
+
+  useEffect(() => {
+    if (selectedCategory) {
+      setCategoryName(selectedCategory.name);
+      setCategoryColor(selectedCategory.color || "#14b8a6");
+    }
+  }, [selectedCategory]);
 
   function resetDailyForm() {
     setSelectedDailyTaskId(null);
     setDailyTitle("");
     setDailyDescription("");
+    setDailyCategoryId("");
   }
 
   function resetWeeklyForm() {
@@ -136,6 +173,13 @@ export function TasksPage() {
     setWeeklyTitle("");
     setWeeklyDescription("");
     setWeeklyWeekdays([]);
+    setWeeklyCategoryId("");
+  }
+
+  function resetCategoryForm() {
+    setSelectedCategoryId(null);
+    setCategoryName("");
+    setCategoryColor("#14b8a6");
   }
 
   async function runAction(action: () => Promise<void>) {
@@ -158,6 +202,7 @@ export function TasksPage() {
         title: dailyTitle,
         description: dailyDescription,
         task_date: selectedDate,
+        category_id: dailyCategoryId ? Number(dailyCategoryId) : null,
       });
       setSelectedDailyTaskId(task.id);
       setNotice("Daily task created.");
@@ -175,6 +220,7 @@ export function TasksPage() {
         title: dailyTitle,
         description: dailyDescription,
         task_date: selectedDate,
+        category_id: dailyCategoryId ? Number(dailyCategoryId) : null,
       });
       setNotice("Daily task updated.");
       await loadData();
@@ -211,6 +257,7 @@ export function TasksPage() {
         title: weeklyTitle,
         description: weeklyDescription,
         weekdays: weeklyWeekdays,
+        category_id: weeklyCategoryId ? Number(weeklyCategoryId) : null,
       });
       setSelectedWeeklyTaskId(task.id);
       setNotice("Weekly task created.");
@@ -228,6 +275,7 @@ export function TasksPage() {
         title: weeklyTitle,
         description: weeklyDescription,
         weekdays: weeklyWeekdays,
+        category_id: weeklyCategoryId ? Number(weeklyCategoryId) : null,
       });
       setNotice("Weekly task updated.");
       await loadData();
@@ -270,6 +318,70 @@ export function TasksPage() {
     );
   }
 
+  async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await runAction(async () => {
+      const category = await createTaskCategory({
+        name: categoryName,
+        color: categoryColor,
+      });
+      setSelectedCategoryId(category.id);
+      setNotice("Category created.");
+      await loadData();
+    });
+  }
+
+  async function handleUpdateCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedCategory) {
+      return;
+    }
+    await runAction(async () => {
+      await updateTaskCategory(selectedCategory.id, {
+        name: categoryName,
+        color: categoryColor,
+      });
+      setNotice("Category updated.");
+      await loadData();
+    });
+  }
+
+  async function handleArchiveCategory() {
+    if (!selectedCategory) {
+      return;
+    }
+    await runAction(async () => {
+      await archiveTaskCategory(selectedCategory.id);
+      resetCategoryForm();
+      setNotice("Category archived.");
+      await loadData();
+    });
+  }
+
+  function categoryNameFor(categoryId: number | null) {
+    if (categoryId === null) {
+      return null;
+    }
+    return categories.find((category) => category.id === categoryId)?.name ?? "Archived category";
+  }
+
+  function CategoryBadge({ categoryId }: { categoryId: number | null }) {
+    const category = categories.find((item) => item.id === categoryId);
+    const name = categoryNameFor(categoryId);
+    if (!name) {
+      return null;
+    }
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 rounded border border-neutral-200 px-2 py-0.5 text-xs text-neutral-600">
+        <span
+          className="h-2 w-2 rounded-full"
+          style={{ backgroundColor: category?.color || "#a3a3a3" }}
+        />
+        {name}
+      </span>
+    );
+  }
+
   return (
     <main className="min-h-screen px-6 py-8 text-neutral-900">
       <section className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-2">
@@ -294,16 +406,117 @@ export function TasksPage() {
           </div>
         </header>
 
+        <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">Task Categories</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {categories.length === 0 ? (
+                  <p className="text-sm text-neutral-600">No categories yet.</p>
+                ) : (
+                  categories.map((category) => (
+                    <button
+                      className={`inline-flex items-center gap-2 rounded border px-3 py-1.5 text-sm ${
+                        selectedCategoryId === category.id
+                          ? "border-teal-700 bg-teal-50"
+                          : "border-neutral-300 hover:bg-neutral-100"
+                      }`}
+                      key={category.id}
+                      onClick={() => setSelectedCategoryId(category.id)}
+                      type="button"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: category.color || "#a3a3a3" }}
+                      />
+                      {category.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <form
+              className="grid min-w-80 gap-3 sm:grid-cols-[1fr_120px_auto]"
+              onSubmit={selectedCategory ? handleUpdateCategory : handleCreateCategory}
+            >
+              <label className="text-sm font-medium">
+                Name
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setCategoryName(event.target.value)}
+                  required
+                  type="text"
+                  value={categoryName}
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Color
+                <input
+                  className="mt-1 h-10 w-full rounded border border-neutral-300 px-2 py-1"
+                  onChange={(event) => setCategoryColor(event.target.value)}
+                  type="color"
+                  value={categoryColor}
+                />
+              </label>
+              <div className="flex items-end gap-2">
+                <button
+                  className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {selectedCategory ? "Update" : "Create"}
+                </button>
+                {selectedCategory ? (
+                  <>
+                    <button
+                      className="rounded border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                      onClick={resetCategoryForm}
+                      type="button"
+                    >
+                      New
+                    </button>
+                    <button
+                      className="rounded border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                      disabled={isSaving}
+                      onClick={handleArchiveCategory}
+                      type="button"
+                    >
+                      Archive
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </form>
+          </div>
+        </section>
+
         <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Daily Tasks</h2>
-            <button
-              className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
-              onClick={resetDailyForm}
-              type="button"
-            >
-              New
-            </button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">
+                Category
+                <select
+                  className="ml-2 rounded border border-neutral-300 px-2 py-1.5"
+                  onChange={(event) => setDailyCategoryFilter(event.target.value)}
+                  value={dailyCategoryFilter}
+                >
+                  <option value="">All</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+                onClick={resetDailyForm}
+                type="button"
+              >
+                New
+              </button>
+            </div>
           </div>
           <div className="mt-4 space-y-2">
             {isLoading ? (
@@ -335,9 +548,10 @@ export function TasksPage() {
                       </span>
                       {task.description ? (
                         <span className="mt-1 block text-xs text-neutral-600">
-                          {task.description}
-                        </span>
-                      ) : null}
+                        {task.description}
+                      </span>
+                    ) : null}
+                      <CategoryBadge categoryId={task.category_id} />
                     </button>
                   </div>
                 </div>
@@ -369,6 +583,21 @@ export function TasksPage() {
                 value={dailyDescription}
               />
             </label>
+            <label className="block text-sm font-medium">
+              Category
+              <select
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                onChange={(event) => setDailyCategoryId(event.target.value)}
+                value={dailyCategoryId}
+              >
+                <option value="">None</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex flex-wrap gap-3">
               <button
                 className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
@@ -394,21 +623,38 @@ export function TasksPage() {
         <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Weekly Tasks</h2>
-            <label className="text-sm font-medium">
-              Filter
-              <select
-                className="ml-2 rounded border border-neutral-300 px-2 py-1.5"
-                onChange={(event) => setWeeklyFilter(event.target.value)}
-                value={weeklyFilter}
-              >
-                <option value="">All days</option>
-                {WEEKDAYS.map((weekday) => (
-                  <option key={weekday.value} value={weekday.value}>
-                    {weekday.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-wrap gap-2">
+              <label className="text-sm font-medium">
+                Day
+                <select
+                  className="ml-2 rounded border border-neutral-300 px-2 py-1.5"
+                  onChange={(event) => setWeeklyFilter(event.target.value)}
+                  value={weeklyFilter}
+                >
+                  <option value="">All days</option>
+                  {WEEKDAYS.map((weekday) => (
+                    <option key={weekday.value} value={weekday.value}>
+                      {weekday.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                Category
+                <select
+                  className="ml-2 rounded border border-neutral-300 px-2 py-1.5"
+                  onChange={(event) => setWeeklyCategoryFilter(event.target.value)}
+                  value={weeklyCategoryFilter}
+                >
+                  <option value="">All</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
           <div className="mt-4 space-y-2">
             {isLoading ? (
@@ -452,9 +698,10 @@ export function TasksPage() {
                         ) : null}
                         {task.description ? (
                           <span className="mt-1 block text-xs text-neutral-600">
-                            {task.description}
-                          </span>
-                        ) : null}
+                        {task.description}
+                      </span>
+                    ) : null}
+                        <CategoryBadge categoryId={task.category_id} />
                       </button>
                     </div>
                   </div>
@@ -519,6 +766,21 @@ export function TasksPage() {
                 ))}
               </div>
             </fieldset>
+            <label className="block text-sm font-medium">
+              Category
+              <select
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                onChange={(event) => setWeeklyCategoryId(event.target.value)}
+                value={weeklyCategoryId}
+              >
+                <option value="">None</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex flex-wrap gap-3">
               <button
                 className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"

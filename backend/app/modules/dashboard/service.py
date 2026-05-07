@@ -75,6 +75,7 @@ def get_dashboard_summary(
             title=task.title,
             description=task.description,
             weekdays=weekdays_from_storage(task.weekdays),
+            category_id=task.category_id,
             is_completed=task.id in completions_by_task_id,
             completion_id=completions_by_task_id.get(task.id).id
             if task.id in completions_by_task_id

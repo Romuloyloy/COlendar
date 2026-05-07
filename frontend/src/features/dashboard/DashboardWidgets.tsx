@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import type { DashboardSummary, DashboardWeeklyTask } from "./types";
-import type { DashboardWidgetProps } from "./widget-types";
+import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types";
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
 import { DateSelector, EmptyState, SectionCard } from "@/components/ui";
@@ -30,6 +30,19 @@ function formatEventTime(event: CalendarEvent) {
     return event.start_time.slice(0, 5);
   }
   return `Until ${event.end_time?.slice(0, 5)}`;
+}
+
+function configuredTitle(
+  defaultTitle: string,
+  widgetConfig?: DashboardWidgetConfig,
+) {
+  return widgetConfig?.title_override?.trim() || defaultTitle;
+}
+
+function configuredCategoryId(widgetConfig?: DashboardWidgetConfig) {
+  return typeof widgetConfig?.category_id === "number"
+    ? widgetConfig.category_id
+    : null;
 }
 
 function ManageLink({ href }: { href: string }) {
@@ -67,11 +80,25 @@ export function TodayOverviewWidget({
   selectedDate,
   summary,
   onDateChange,
+  renderMode = "normal",
 }: DashboardWidgetProps) {
   const weekday = WEEKDAYS[weekdayFromIsoDate(selectedDate)];
   const dailyOpen = summary.counts.incomplete_daily_task_count;
   const weeklyOpen = summary.counts.incomplete_weekly_task_count;
   const upcomingEvents = summary.counts.upcoming_event_count;
+
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title={formatDisplayDate(selectedDate)}>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <StatCell label="Daily Left" value={dailyOpen} />
+          <StatCell label="Weekly Left" value={weeklyOpen} />
+          <StatCell label="Upcoming" value={upcomingEvents} />
+          <StatCell label="Day" value={weekday} />
+        </div>
+      </SectionCard>
+    );
+  }
 
   return (
     <SectionCard
@@ -97,9 +124,33 @@ export function TodayOverviewWidget({
   );
 }
 
-export function QuickActionsWidget() {
+export function QuickActionsWidget({
+  renderMode = "normal",
+}: DashboardWidgetProps) {
   function openQuickAdd() {
     window.dispatchEvent(new Event("quick-add:open"));
+  }
+
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title="Quick Actions">
+        <div className="mt-3 grid gap-2">
+          <button
+            className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            onClick={openQuickAdd}
+            type="button"
+          >
+            Quick Add
+          </button>
+          <Link
+            className="rounded-md border border-neutral-300 px-3 py-2 text-center text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            href="/search"
+          >
+            Search
+          </Link>
+        </div>
+      </SectionCard>
+    );
   }
 
   return (
@@ -137,13 +188,53 @@ export function DailyTasksWidget({
   summary,
   isSaving,
   onToggleDailyTask,
+  widgetConfig,
+  renderMode = "normal",
 }: DashboardWidgetProps) {
+  const categoryId = configuredCategoryId(widgetConfig);
+  const tasks =
+    categoryId === null
+      ? summary.daily_tasks
+      : summary.daily_tasks.filter((task) => task.category_id === categoryId);
+  const openTasks = tasks.filter((task) => !task.is_completed);
+  const title = configuredTitle("Daily Tasks", widgetConfig);
+
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title={title}>
+        <p className="mt-2 text-xs text-neutral-600">
+          {openTasks.length} open of {tasks.length}
+        </p>
+        <div className="mt-3 space-y-2">
+          {tasks.length === 0 ? (
+            <EmptyState message="No daily tasks." />
+          ) : (
+            tasks.slice(0, 5).map((task) => (
+              <label className="flex items-start gap-2 text-sm" key={task.id}>
+                <input
+                  checked={task.is_completed}
+                  className="mt-1"
+                  disabled={isSaving}
+                  onChange={() => onToggleDailyTask(task)}
+                  type="checkbox"
+                />
+                <span className={task.is_completed ? "text-neutral-500 line-through" : ""}>
+                  {task.title}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
-    <SectionCard action={<ManageLink href="/tasks" />} eyebrow="Today" title="Daily Tasks">
+    <SectionCard action={<ManageLink href="/tasks" />} eyebrow="Today" title={title}>
       <DashboardTaskList
         isSaving={isSaving}
         onToggle={onToggleDailyTask}
-        tasks={summary.daily_tasks}
+        tasks={tasks}
       />
     </SectionCard>
   );
@@ -201,16 +292,55 @@ export function WeeklyTasksWidget({
   summary,
   isSaving,
   onToggleWeeklyTask,
+  widgetConfig,
+  renderMode = "normal",
 }: DashboardWidgetProps) {
   const weekday = WEEKDAYS[weekdayFromIsoDate(selectedDate)];
+  const categoryId = configuredCategoryId(widgetConfig);
+  const tasks =
+    categoryId === null
+      ? summary.weekly_tasks
+      : summary.weekly_tasks.filter((task) => task.category_id === categoryId);
+  const openTasks = tasks.filter((task) => !task.is_completed);
+  const title = configuredTitle("Weekly Tasks", widgetConfig);
+
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title={title}>
+        <p className="mt-2 text-xs text-neutral-600">
+          {openTasks.length} open of {tasks.length} for {weekday}
+        </p>
+        <div className="mt-3 space-y-2">
+          {tasks.length === 0 ? (
+            <EmptyState message="No weekly tasks." />
+          ) : (
+            tasks.slice(0, 5).map((task) => (
+              <label className="flex items-start gap-2 text-sm" key={task.id}>
+                <input
+                  checked={task.is_completed}
+                  className="mt-1"
+                  disabled={isSaving}
+                  onChange={() => onToggleWeeklyTask(task)}
+                  type="checkbox"
+                />
+                <span className={task.is_completed ? "text-neutral-500 line-through" : ""}>
+                  {task.title}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+      </SectionCard>
+    );
+  }
 
   return (
-    <SectionCard action={<ManageLink href="/tasks" />} eyebrow={weekday} title="Weekly Tasks">
+    <SectionCard action={<ManageLink href="/tasks" />} eyebrow={weekday} title={title}>
       <div className="mt-4 space-y-2">
-        {summary.weekly_tasks.length === 0 ? (
+        {tasks.length === 0 ? (
           <EmptyState message="No weekly tasks are scheduled for this date." />
         ) : (
-          summary.weekly_tasks.map((task) => (
+          tasks.map((task) => (
             <label
               className="flex items-start gap-3 rounded-md border border-neutral-200 px-3 py-2 hover:border-neutral-300"
               key={task.id}
@@ -247,7 +377,28 @@ export function WeeklyTasksWidget({
   );
 }
 
-export function RecentNotesWidget({ summary }: DashboardWidgetProps) {
+export function RecentNotesWidget({
+  summary,
+  renderMode = "normal",
+}: DashboardWidgetProps) {
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title="Recent Notes">
+        <div className="mt-3 space-y-2">
+          {summary.recent_notes.length === 0 ? (
+            <EmptyState message="No recent notes." />
+          ) : (
+            summary.recent_notes.slice(0, 5).map((note) => (
+              <p className="truncate text-sm font-medium text-neutral-900" key={note.id}>
+                {note.title}
+              </p>
+            ))
+          )}
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard action={<ManageLink href="/notes" />} eyebrow="Notes" title="Recent Notes">
       <div className="mt-4 space-y-2">
@@ -268,7 +419,33 @@ export function RecentNotesWidget({ summary }: DashboardWidgetProps) {
   );
 }
 
-export function UpcomingEventsWidget({ summary }: DashboardWidgetProps) {
+export function UpcomingEventsWidget({
+  summary,
+  renderMode = "normal",
+}: DashboardWidgetProps) {
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title="Upcoming Events">
+        <div className="mt-3 space-y-2">
+          {summary.upcoming_events.length === 0 ? (
+            <EmptyState message="No upcoming events." />
+          ) : (
+            summary.upcoming_events.slice(0, 4).map((event) => (
+              <div key={event.id}>
+                <p className="truncate text-sm font-medium text-neutral-900">
+                  {event.title}
+                </p>
+                <p className="text-xs text-neutral-600">
+                  {formatDisplayDate(event.event_date)}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard action={<ManageLink href="/calendar" />} eyebrow="Calendar" title="Upcoming Events">
       <div className="mt-4 space-y-2">
@@ -292,12 +469,36 @@ export function UpcomingEventsWidget({ summary }: DashboardWidgetProps) {
   );
 }
 
-export function TrackerSummaryWidget({ summary }: DashboardWidgetProps) {
+export function TrackerSummaryWidget({
+  summary,
+  renderMode = "normal",
+}: DashboardWidgetProps) {
   const trackerSummary = summary.tracker_summary;
   const hasTrackerData =
     trackerSummary.total_water_ml > 0 ||
     trackerSummary.activity_entries.length > 0 ||
     trackerSummary.total_calories_kcal > 0;
+
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title="Daily Tracking">
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+          <div>
+            <p className="text-xs font-semibold uppercase text-neutral-500">Water</p>
+            <p className="font-semibold">{trackerSummary.total_water_ml} ml</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase text-neutral-500">Move</p>
+            <p className="font-semibold">{trackerSummary.activity_count}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase text-neutral-500">Kcal</p>
+            <p className="font-semibold">{trackerSummary.total_calories_kcal}</p>
+          </div>
+        </div>
+      </SectionCard>
+    );
+  }
 
   return (
     <SectionCard action={<ManageLink href="/tracker" />} eyebrow="Tracker" title="Daily Tracking">
@@ -319,7 +520,21 @@ export function TrackerSummaryWidget({ summary }: DashboardWidgetProps) {
   );
 }
 
-export function PlanningSummaryWidget({ selectedDate }: DashboardWidgetProps) {
+export function PlanningSummaryWidget({
+  selectedDate,
+  renderMode = "normal",
+}: DashboardWidgetProps) {
+  if (renderMode === "compact") {
+    return (
+      <SectionCard title="Plan Review">
+        <p className="mt-3 text-sm leading-6 text-neutral-700">
+          Plan for {formatDisplayDate(selectedDate)}.
+        </p>
+        <ManageLink href="/planning" />
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard action={<ManageLink href="/planning" />} eyebrow="Planning" title="Plan Review">
       <p className="mt-4 text-sm leading-6 text-neutral-700">

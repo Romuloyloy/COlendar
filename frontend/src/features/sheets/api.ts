@@ -1,0 +1,46 @@
+import type { Sheet, SheetDetail, SheetSlotsUpdate } from "./types";
+import { apiRequest } from "@/lib/api";
+
+export function listSheets(): Promise<Sheet[]> {
+  return apiRequest<Sheet[]>("/api/sheets");
+}
+
+export function getSheet(sheetId: number): Promise<SheetDetail> {
+  return apiRequest<SheetDetail>(`/api/sheets/${sheetId}`);
+}
+
+export function createSheet(name: string): Promise<SheetDetail> {
+  return apiRequest<SheetDetail>("/api/sheets", {
+    body: JSON.stringify({ name }),
+    method: "POST",
+  });
+}
+
+export function renameSheet(sheetId: number, name: string): Promise<SheetDetail> {
+  return apiRequest<SheetDetail>(`/api/sheets/${sheetId}`, {
+    body: JSON.stringify({ name }),
+    method: "PATCH",
+  });
+}
+
+export function deleteSheet(sheetId: number): Promise<void> {
+  return apiRequest<void>(`/api/sheets/${sheetId}`, {
+    method: "DELETE",
+  });
+}
+
+export function updateSheetSlots(
+  sheetId: number,
+  payload: SheetSlotsUpdate,
+): Promise<SheetDetail> {
+  return apiRequest<SheetDetail>(`/api/sheets/${sheetId}/slots`, {
+    body: JSON.stringify(payload),
+    method: "PUT",
+  });
+}
+
+export function resetDefaultSheets(): Promise<Sheet[]> {
+  return apiRequest<Sheet[]>("/api/sheets/reset-default", {
+    method: "POST",
+  });
+}
