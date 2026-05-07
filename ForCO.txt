@@ -1,35 +1,32 @@
-Hi! Here is what I created for the first project skeleton.
+Hi! Phase 2 added the database and migration foundation.
 
-What exists now:
-- A frontend folder with a minimal Next.js, TypeScript, and Tailwind app.
-- A backend folder with a minimal FastAPI app.
-- A PostgreSQL database service in Docker Compose.
-- Backend health endpoints at /health and /health/db.
-- Example environment files, with no real secrets committed.
-- Placeholder module folders for dashboard, notes, tasks, calendar, and tracker.
+What changed:
+- SQLAlchemy now has a clean shared Base, timestamp mixin, engine, session factory, and DB connection helper.
+- Alembic is configured for migrations and uses the same DATABASE_URL settings as the backend.
+- There is an initial empty migration, on purpose, so the database can be stamped without adding feature tables yet.
+- A couple of small backend tests were added.
 
-How to run it on Windows:
-1. Open PowerShell in the repo root.
-2. Optional: run `Copy-Item .env.example .env` if you want local overrides.
+How to test it on Windows:
+1. Start Docker Desktop.
+2. Open PowerShell in the repo root.
 3. Run `docker compose up --build`.
+4. In a second PowerShell window, run `docker compose exec backend alembic upgrade head`.
+5. Run `docker compose exec backend pytest`.
 
 What to check in the browser:
 - Frontend: http://localhost:3000
 - Backend health: http://localhost:8000/health
 - Database health: http://localhost:8000/health/db
 
-Success should look like:
-- The frontend says "COlendar is running".
-- The backend health endpoint returns JSON with status "ok".
-- The database health endpoint says the database is connected.
-- Docker Desktop shows frontend, backend, and database containers running.
+Success looks like:
+- The frontend still loads.
+- /health says the backend is ok.
+- /health/db says the database is connected.
+- Alembic applies the migration without errors.
+- Pytest passes.
 
-Decisions to make next:
-- Whether to keep the working name COlendar.
-- Whether Phase 2 should add Alembic migrations immediately.
-- Whether the first real feature should be notes/folders, as the roadmap suggests.
+Next logical stage:
+- Phase 3: implement notes and nested folders with real SQLAlchemy models, an Alembic migration, API routes, and focused tests.
 
-Warnings and limits:
-- No real productivity features are implemented yet.
-- No auth, AI, Redis, workers, widgets, or sheet/grid GUI exists yet.
-- The default database password is only for local development. Change it before any serious deployment.
+Reminder:
+- No notes, tasks, calendar, tracker, auth, AI, widgets, or sheet/grid UI were added yet.

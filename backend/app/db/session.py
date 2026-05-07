@@ -1,5 +1,3 @@
-from sqlalchemy import create_engine
+from app.core.database import SessionLocal, check_database_connection, engine, get_db
 
-from app.core.config import settings
-
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+__all__ = ["SessionLocal", "check_database_connection", "engine", "get_db"]

@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.session import engine
+from app.core.database import check_database_connection
 
 router = APIRouter(tags=["health"])
 
@@ -15,8 +14,7 @@ def health_check() -> dict[str, str]:
 @router.get("/health/db")
 def database_health_check() -> dict[str, str]:
     try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+        check_database_connection()
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=503, detail="Database connection failed") from exc
 

@@ -1,25 +1,27 @@
 # COlendar
 
-COlendar is the initial skeleton for a local-first personal productivity dashboard. The current goal is only to prove the development stack works: Next.js frontend, FastAPI backend, PostgreSQL database, and Docker Compose orchestration.
+COlendar is a local-first personal productivity dashboard in early development. The current app is still foundation work: a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, and Alembic migrations.
 
 ## Project Structure
 
 ```text
 .
-├── backend/          FastAPI application
-│   └── app/
-│       ├── api/      HTTP routes, currently health checks only
-│       ├── core/     Configuration
-│       ├── db/       Database connection setup
-│       └── modules/  Future modular-monolith feature folders
-├── docs/             Product and architecture planning documents
-├── frontend/         Next.js + TypeScript + Tailwind application
-├── docker-compose.yml
-├── .env.example
-└── ForCO.txt
+|-- backend/              FastAPI backend
+|   |-- alembic/          Migration environment and migration files
+|   |-- app/
+|   |   |-- api/          HTTP routes, currently health checks only
+|   |   |-- core/         Settings and database connection setup
+|   |   |-- db/           Declarative Base, mixins, and model registry
+|   |   `-- modules/      Future feature modules
+|   `-- tests/            Small backend foundation tests
+|-- docs/                 Product and architecture planning documents
+|-- frontend/             Next.js + TypeScript + Tailwind app
+|-- docker-compose.yml
+|-- .env.example
+`-- ForCO.txt
 ```
 
-The app is intentionally split into separate frontend and backend folders while staying one modular monolith product.
+The app is intentionally a modular monolith: one backend, one frontend, one database, and clear module folders for future features.
 
 ## Windows Prerequisites
 
@@ -30,7 +32,7 @@ Install these first:
 - A code editor such as VS Code
 - Optional for non-Docker development: Node.js 22 LTS and Python 3.12
 
-Make sure Docker Desktop is running before you start the stack. On Windows, Docker Desktop usually works best with the WSL 2 backend enabled.
+Make sure Docker Desktop is running before using Docker Compose. On Windows, Docker Desktop usually works best with the WSL 2 backend enabled.
 
 ## Environment Files
 
@@ -40,13 +42,13 @@ Example files are committed, real secrets are not.
 - Backend local example: `backend/.env.example`
 - Frontend local example: `frontend/.env.example.local`
 
-For the Docker setup, you can run with the built-in defaults, or create a local `.env` file:
+For Docker Compose, you can use the built-in defaults or create a local `.env` file:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-If you copy the file, keep it local and change only development values you understand. Do not commit `.env`.
+Do not commit `.env`. The default passwords are only for local development.
 
 ## Run With Docker Compose
 
@@ -72,12 +74,84 @@ Open these in your browser:
 - Backend health: `http://localhost:8000/health`
 - Backend database health: `http://localhost:8000/health/db`
 
+Or check them from PowerShell:
+
+```powershell
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000).StatusCode
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod http://localhost:8000/health/db
+```
+
 Success looks like:
 
 - The frontend page says `COlendar is running`.
-- `/health` returns a JSON response with `status: ok`.
-- `/health/db` returns a JSON response with `database: connected`.
+- `/health` returns JSON with `status: ok`.
+- `/health/db` returns JSON with `database: connected`.
 - Docker Desktop shows the frontend, backend, and database containers running.
+
+## Database Layer
+
+The backend database foundation is split like this:
+
+- `backend/app/core/config.py`: environment-backed settings through Pydantic Settings.
+- `backend/app/core/database.py`: SQLAlchemy engine, session factory, FastAPI DB dependency, and DB connection check.
+- `backend/app/db/base.py`: shared SQLAlchemy declarative `Base` and reusable `TimestampMixin`.
+- `backend/app/db/model_registry.py`: future module model imports for Alembic autogeneration.
+- `backend/alembic/`: Alembic migration environment.
+
+Future modules should define their own SQLAlchemy models inside their module folders, then import those model modules in `backend/app/db/model_registry.py` so Alembic can detect them.
+
+## Run Migrations
+
+Start the stack first:
+
+```powershell
+docker compose up --build
+```
+
+In a second PowerShell window, apply migrations:
+
+```powershell
+docker compose exec backend alembic upgrade head
+```
+
+Check the current migration:
+
+```powershell
+docker compose exec backend alembic current
+```
+
+The first migration is intentionally empty. It verifies that Alembic can connect to the database and create its migration tracking table without adding product feature tables too early.
+
+## Create A New Migration
+
+After adding or changing SQLAlchemy models later, generate a migration from PowerShell:
+
+```powershell
+docker compose exec backend alembic revision --autogenerate -m "add notes folders"
+```
+
+Then inspect the generated file in `backend/alembic/versions/` before applying it:
+
+```powershell
+docker compose exec backend alembic upgrade head
+```
+
+For manual migrations, use:
+
+```powershell
+docker compose exec backend alembic revision -m "describe change"
+```
+
+## Backend Tests
+
+With the stack built, run the backend tests from PowerShell:
+
+```powershell
+docker compose exec backend pytest
+```
+
+The current tests are intentionally small. They check that the health endpoint works and that the shared timestamp mixin produces the expected columns.
 
 ## Stop The App
 
@@ -112,6 +186,18 @@ uvicorn app.main:app --reload
 
 This expects PostgreSQL to be available separately and `DATABASE_URL` to point at it.
 
+Run local migrations from the `backend` folder:
+
+```powershell
+alembic upgrade head
+```
+
+Run local backend tests:
+
+```powershell
+pytest
+```
+
 ## Optional Non-Docker Frontend Run
 
 ```powershell
@@ -125,14 +211,14 @@ Then open `http://localhost:3000`.
 
 ## Intentionally Not Implemented Yet
 
-This skeleton does not include:
+This foundation does not include:
 
-- Notes, tasks, calendar, tracker, dashboard data, or sheet widgets
+- Notes, folders, tasks, calendar events, tracker entries, or dashboard data
 - Authentication or users
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, resizable widgets, or the future sheet/grid GUI
-- Alembic migrations or SQLAlchemy models
+- Product feature database tables
 
 Those belong in later phases from the roadmap.
 
@@ -140,11 +226,22 @@ Those belong in later phases from the roadmap.
 
 If `docker compose` is not recognized, install or update Docker Desktop and reopen PowerShell.
 
+If Docker cannot connect to `dockerDesktopLinuxEngine`, start Docker Desktop and wait until it says the engine is running.
+
 If ports are already in use, edit `.env` and change `FRONTEND_PORT`, `BACKEND_PORT`, or `POSTGRES_PORT`, then run `docker compose up --build` again.
 
-If the backend starts before the database is ready, wait a few seconds and refresh `/health/db`. Compose also includes a Postgres health check to reduce this problem.
+If `/health/db` fails, check that the `db` container is running and healthy in Docker Desktop. Then try:
 
-If Docker file watching feels slow on Windows, keep the project inside a normal local folder such as `C:\Projects\COlendar` and make sure Docker Desktop has access to that drive.
+```powershell
+docker compose logs db
+docker compose logs backend
+```
+
+If migrations cannot connect, confirm the backend container is running and uses the Compose database URL:
+
+```powershell
+docker compose exec backend alembic current
+```
 
 If containers behave strangely after dependency changes, rebuild:
 
@@ -158,4 +255,5 @@ If the database is in a broken local state and you do not need its data:
 ```powershell
 docker compose down -v
 docker compose up --build
+docker compose exec backend alembic upgrade head
 ```
