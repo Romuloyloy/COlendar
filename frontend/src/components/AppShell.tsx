@@ -31,7 +31,7 @@ const navItems = [
 ];
 
 const quickAddTypes = [
-  { value: "daily-task", label: "Daily Task" },
+  { value: "daily-task", label: "One-time Task" },
   { value: "weekly-task", label: "Weekly Task" },
   { value: "note", label: "Note" },
   { value: "calendar-event", label: "Calendar Event" },
@@ -47,6 +47,9 @@ type QuickAddForm = {
   description: string;
   content: string;
   date: string;
+  plannedTime: string;
+  dueDate: string;
+  dueTime: string;
   startTime: string;
   endTime: string;
   location: string;
@@ -77,6 +80,9 @@ function emptyForm(date = todayIsoDate()): QuickAddForm {
     description: "",
     content: "",
     date,
+    plannedTime: "",
+    dueDate: "",
+    dueTime: "",
     startTime: "",
     endTime: "",
     location: "",
@@ -244,6 +250,10 @@ function QuickAddModal({
           title: form.title,
           description: form.description,
           task_date: form.date,
+          planned_time: emptyToNull(form.plannedTime),
+          due_date: emptyToNull(form.dueDate),
+          due_time: emptyToNull(form.dueTime),
+          category_id: form.categoryId ? Number(form.categoryId) : null,
         });
       } else if (type === "weekly-task") {
         if (form.weekdays.length === 0) {
@@ -349,13 +359,15 @@ function QuickAddModal({
               <div className="text-sm text-neutral-600">
                 Weekly tasks appear on the weekdays selected below.
               </div>
+            ) : type === "calendar-event" ? (
+              <DateSelector label="Event date" onChange={(value) => update("date", value)} value={form.date} />
             ) : (
-              <DateSelector label="Date" onChange={(value) => update("date", value)} value={form.date} />
+              <DateSelector label="Planned date" onChange={(value) => update("date", value)} value={form.date} />
             )}
           </div>
 
           {type === "daily-task" ? (
-            <DailyTaskFields form={form} update={update} />
+            <DailyTaskFields categories={categories} form={form} update={update} />
           ) : null}
           {type === "weekly-task" ? (
             <WeeklyTaskFields
@@ -409,7 +421,11 @@ type FieldProps = {
   update: <K extends keyof QuickAddForm>(key: K, value: QuickAddForm[K]) => void;
 };
 
-function DailyTaskFields({ form, update }: FieldProps) {
+function DailyTaskFields({
+  categories,
+  form,
+  update,
+}: FieldProps & { categories: TaskCategory[] }) {
   return (
     <>
       <Field label="Title">
@@ -427,6 +443,46 @@ function DailyTaskFields({ form, update }: FieldProps) {
           onChange={(event) => update("description", event.target.value)}
           value={form.description}
         />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Planned time">
+          <input
+            className={inputClass}
+            onChange={(event) => update("plannedTime", event.target.value)}
+            type="time"
+            value={form.plannedTime}
+          />
+        </Field>
+        <Field label="Due date">
+          <input
+            className={inputClass}
+            onChange={(event) => update("dueDate", event.target.value)}
+            type="date"
+            value={form.dueDate}
+          />
+        </Field>
+        <Field label="Due time">
+          <input
+            className={inputClass}
+            onChange={(event) => update("dueTime", event.target.value)}
+            type="time"
+            value={form.dueTime}
+          />
+        </Field>
+      </div>
+      <Field label="Category">
+        <select
+          className={inputClass}
+          onChange={(event) => update("categoryId", event.target.value)}
+          value={form.categoryId}
+        >
+          <option value="">None</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
       </Field>
     </>
   );

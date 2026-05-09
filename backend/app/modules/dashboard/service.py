@@ -38,7 +38,11 @@ def get_dashboard_summary(
                 DailyTask.task_date == selected_date,
                 DailyTask.is_archived.is_(False),
             )
-            .order_by(DailyTask.is_completed.asc(), DailyTask.id.asc())
+            .order_by(
+                DailyTask.is_completed.asc(),
+                DailyTask.planned_time.asc().nulls_last(),
+                DailyTask.id.asc(),
+            )
         )
     )
 

@@ -1,52 +1,46 @@
-Hi! This pass adds Workspace UX Safety + Navigation Polish.
+Hi! This pass adds Task/Event Concept Cleanup v1.
 
 What changed:
-- Dangerous sheet actions now ask for confirmation before delete, reset sheets, or applying dashboard layout.
-- Dangerous sheet actions moved into an Advanced area.
-- `/sheets` remembers the last active sheet in localStorage and safely falls back if that sheet no longer exists.
-- Sheets can move left/right with simple buttons; backend `sort_order` persists the order.
-- Previous/next sheet navigation follows the saved order.
-- Compact Recent Notes inside sheets now opens a note preview modal instead of feeling dead.
-- Added shared `DateNavigator` for previous day, date input, Today, and next day.
-- Used `DateNavigator` on dashboard date widgets, Tasks, Calendar, Tracker, Planning, and Sheets.
-- Quick Add can now create Weekly Tasks with title, optional description, weekdays, and optional category.
-- Added backend tests for sheet reorder behavior and persistence.
-- Updated README.md with behavior, limitations, and Windows PowerShell commands.
+- User-facing UI now says One-time Tasks instead of Daily Tasks.
+- Backend route/table names stay compatible: `/api/tasks/daily` and `daily_tasks` are legacy/internal names for one-time dated tasks.
+- One-time tasks now support optional `planned_time`, `due_date`, and `due_time`.
+- Tasks remain completable things; calendar events remain scheduled things that happen at a date/time.
+- Planning continues to combine one-time tasks, weekly tasks, and events without merging them.
+- Quick Add can create one-time tasks with planned date, optional planned time, optional deadline, and category.
+- Weekly Task Quick Add still works.
+- Dashboard, sheets, planning, and search wording now use One-time Tasks.
+- One-time task widgets/lists show planned time and due metadata when present.
+- Added Alembic migration and backend tests for the new optional fields.
 
 How I test it:
 1. `docker compose up --build -d`
-2. `docker compose exec backend alembic current`
-3. `docker compose exec backend pytest`
-4. `docker compose exec frontend npm run build`
-5. Open `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
-6. In `/sheets`, confirm delete/reset/dashboard-layout all require confirmation.
-7. Reorder sheets, refresh, and confirm the order remains.
-8. Leave and return to `/sheets`; confirm the last sheet opens when it still exists.
-9. Click a note in a sheet Recent Notes widget and confirm the preview modal opens.
-10. Use Quick Add to create a Weekly Task and confirm it appears on relevant task/dashboard/sheet/planning dates.
+2. `docker compose exec backend alembic upgrade head`
+3. `docker compose exec backend alembic current`
+4. `docker compose exec backend pytest`
+5. `docker compose exec frontend npm run build`
+6. Open `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
+7. Create a one-time task from Tasks and Quick Add with planned time and due date/time.
+8. Confirm weekly task Quick Add still works.
+9. Confirm task category filters, dashboard customization, sheet configs, and duplicate sheet widgets still work.
 
 What success looks like:
-- Docker starts cleanly.
-- Alembic reports `20260507_0009 (head)`.
-- Backend tests pass.
-- Frontend build passes.
-- Existing pages and core flows still work.
-- Dangerous sheet changes are no longer one-click mistakes.
-- Sheet navigation feels predictable and persistent.
-- Date movement is easier across daily views.
-- Weekly Task Quick Add uses the existing weekly task system.
+- Existing task behavior still works.
+- One-time task optional fields save, update, clear, and appear in list responses.
+- Dashboard, sheets, planning, and search still include tasks correctly.
+- Calendar events remain separate and do not get task checkboxes.
+- Alembic reports the latest migration as head.
+- Backend tests and frontend build pass.
 
 Limitations:
-- No drag-and-drop.
-- No widget resizing.
-- No `x/y/w/h` placement.
-- No advanced recurrence, monthly recurrence, or bi-weekly recurrence.
-- No task/event unification.
-- No auth, AI, notifications, integrations, semantic search, or pgvector.
-- Note preview is read-only and plain text.
-- Open in Notes goes to `/notes`; there are no deep note links yet.
+- No full task/event unification.
+- No event recurrence.
+- No advanced, monthly, or bi-weekly recurrence.
+- No reminders or notifications.
+- No priority, subtasks, drag-and-drop, resizing, auth, AI, or integrations.
+- The API still uses `/api/tasks/daily` until a future compatibility-safe rename phase.
+- Due dates are flexible metadata and are not restricted relative to planned date.
 
 Recommended next phase:
-- Add a small sheet/widget contract doc for compact rendering, config schemas, and edit/view expectations.
-- Add browser visual QA for `/sheets` desktop sizes.
-- Then consider a deliberate Sheet Layout v2 before drag-and-drop, resizing, or grid placement.
+- Add a small product-language cleanup pass for API docs and variable aliases if desired.
+- Add lightweight browser QA around task creation/editing with planned time and deadlines.
+- Later consider compatibility aliases like `/api/tasks/one-time` without removing `/api/tasks/daily`.

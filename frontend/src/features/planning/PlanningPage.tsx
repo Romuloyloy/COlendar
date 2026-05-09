@@ -19,7 +19,7 @@ import {
   PageHeader,
   SectionCard,
 } from "@/components/ui";
-import { formatDisplayDate, todayIsoDate } from "@/lib/date";
+import { formatDisplayDate, formatTime, todayIsoDate } from "@/lib/date";
 
 const SHORT_DATE_FORMAT: Intl.DateTimeFormatOptions = {
   weekday: "short",
@@ -40,9 +40,26 @@ function formatEventTime(event: CalendarEvent) {
   return `Until ${event.end_time?.slice(0, 5)}`;
 }
 
+function oneTimeTaskMeta(task: DailyTask) {
+  const meta = [];
+  const plannedTime = formatTime(task.planned_time);
+  const dueTime = formatTime(task.due_time);
+  if (plannedTime) {
+    meta.push(`Planned ${plannedTime}`);
+  }
+  if (task.due_date) {
+    meta.push(
+      dueTime
+        ? `Due ${formatDisplayDate(task.due_date, { month: "short", day: "numeric" })} ${dueTime}`
+        : `Due ${formatDisplayDate(task.due_date, { month: "short", day: "numeric" })}`,
+    );
+  }
+  return meta.join(" - ");
+}
+
 function DailyTaskList({ tasks }: { tasks: DailyTask[] }) {
   if (tasks.length === 0) {
-    return <p className="text-sm text-neutral-600">No daily tasks.</p>;
+    return <p className="text-sm text-neutral-600">No one-time tasks.</p>;
   }
 
   return (
@@ -59,6 +76,11 @@ function DailyTaskList({ tasks }: { tasks: DailyTask[] }) {
           {task.description ? (
             <p className="mt-1 text-xs leading-5 text-neutral-600">
               {task.description}
+            </p>
+          ) : null}
+          {oneTimeTaskMeta(task) ? (
+            <p className="mt-1 text-xs font-medium text-neutral-600">
+              {oneTimeTaskMeta(task)}
             </p>
           ) : null}
         </div>
@@ -131,7 +153,7 @@ function WeeklyDayCard({ day }: { day: WeeklyPlanDay }) {
       <div className="mt-4 space-y-4">
         <div>
           <p className="mb-2 text-xs font-semibold uppercase text-neutral-500">
-            Daily
+            One-time
           </p>
           <DailyTaskList tasks={day.daily_tasks} />
         </div>
@@ -235,7 +257,7 @@ export function PlanningPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase text-teal-700">
-                    Daily Plan
+                    Day Plan
                   </p>
                   <h2 className="mt-1 text-xl font-semibold">
                     {selectedDateLabel}
@@ -244,7 +266,7 @@ export function PlanningPage() {
               </div>
               <div className="mt-5 grid gap-5 lg:grid-cols-3">
                 <div>
-                  <h3 className="mb-3 text-sm font-semibold">Daily Tasks</h3>
+                  <h3 className="mb-3 text-sm font-semibold">One-time Tasks</h3>
                   <DailyTaskList tasks={dailyPlan.daily_tasks} />
                 </div>
                 <div>

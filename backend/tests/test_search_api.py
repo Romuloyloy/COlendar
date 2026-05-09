@@ -56,6 +56,7 @@ def test_search_daily_tasks(client: TestClient) -> None:
     assert response.status_code == 200
     result = response.json()["results"]["daily_tasks"][0]
     assert result["id"] == task["id"]
+    assert result["subtitle"] == "One-time task"
     assert result["date"] == "2026-05-07"
     assert result["target_url"] == "/tasks"
 

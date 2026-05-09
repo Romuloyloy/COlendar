@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -28,6 +28,9 @@ class DailyTaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=250)
     description: str = ""
     task_date: date
+    planned_time: time | None = None
+    due_date: date | None = None
+    due_time: time | None = None
     category_id: int | None = None
 
     @field_validator("title")
@@ -42,6 +45,9 @@ class DailyTaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=250)
     description: str | None = None
     task_date: date | None = None
+    planned_time: time | None = None
+    due_date: date | None = None
+    due_time: time | None = None
     category_id: int | None = None
 
     @field_validator("title")
@@ -57,6 +63,9 @@ class DailyTaskRead(BaseModel):
     title: str
     description: str
     task_date: date
+    planned_time: time | None
+    due_date: date | None
+    due_time: time | None
     category_id: int | None
     is_completed: bool
     completed_at: datetime | None

@@ -63,8 +63,42 @@ def test_create_daily_task(client: TestClient) -> None:
     data = response.json()
     assert data["title"] == "Study"
     assert data["task_date"] == "2026-05-07"
+    assert data["planned_time"] is None
+    assert data["due_date"] is None
+    assert data["due_time"] is None
     assert data["is_completed"] is False
     assert data["category_id"] is None
+
+
+def test_create_daily_task_with_planned_time(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Study",
+            "task_date": "2026-05-07",
+            "planned_time": "09:30",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["planned_time"] == "09:30:00"
+
+
+def test_create_daily_task_with_due_date_and_time(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Submit form",
+            "task_date": "2026-05-07",
+            "due_date": "2026-05-09",
+            "due_time": "17:00",
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["due_date"] == "2026-05-09"
+    assert data["due_time"] == "17:00:00"
 
 
 def test_create_daily_task_with_category(client: TestClient) -> None:
@@ -93,7 +127,15 @@ def test_reject_blank_daily_task_title(client: TestClient) -> None:
 
 
 def test_list_daily_tasks_by_date(client: TestClient) -> None:
-    client.post("/api/tasks/daily", json={"title": "Today", "task_date": "2026-05-07"})
+    client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Today",
+            "task_date": "2026-05-07",
+            "planned_time": "08:45",
+            "due_date": "2026-05-09",
+        },
+    )
     client.post("/api/tasks/daily", json={"title": "Tomorrow", "task_date": "2026-05-08"})
 
     response = client.get("/api/tasks/daily?date=2026-05-07")
@@ -102,6 +144,8 @@ def test_list_daily_tasks_by_date(client: TestClient) -> None:
     data = response.json()
     assert len(data) == 1
     assert data[0]["title"] == "Today"
+    assert data[0]["planned_time"] == "08:45:00"
+    assert data[0]["due_date"] == "2026-05-09"
 
 
 def test_update_daily_task(client: TestClient) -> None:
@@ -117,6 +161,9 @@ def test_update_daily_task(client: TestClient) -> None:
             "title": "Updated",
             "description": "Edited",
             "task_date": "2026-05-08",
+            "planned_time": "10:15",
+            "due_date": "2026-05-10",
+            "due_time": "18:30",
             "category_id": category["id"],
         },
     )
@@ -126,7 +173,34 @@ def test_update_daily_task(client: TestClient) -> None:
     assert data["title"] == "Updated"
     assert data["description"] == "Edited"
     assert data["task_date"] == "2026-05-08"
+    assert data["planned_time"] == "10:15:00"
+    assert data["due_date"] == "2026-05-10"
+    assert data["due_time"] == "18:30:00"
     assert data["category_id"] == category["id"]
+
+
+def test_clear_daily_task_optional_time_fields(client: TestClient) -> None:
+    task = client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Draft",
+            "task_date": "2026-05-07",
+            "planned_time": "10:00",
+            "due_date": "2026-05-08",
+            "due_time": "17:00",
+        },
+    ).json()
+
+    response = client.patch(
+        f"/api/tasks/daily/{task['id']}",
+        json={"planned_time": None, "due_date": None, "due_time": None},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["planned_time"] is None
+    assert data["due_date"] is None
+    assert data["due_time"] is None
 
 
 def test_filter_daily_tasks_by_category(client: TestClient) -> None:

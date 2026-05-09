@@ -98,7 +98,7 @@ def search_daily_tasks(db: Session, pattern: str) -> list[SearchResult]:
             id=task.id,
             type="daily_task",
             title=task.title,
-            subtitle="Daily task",
+            subtitle="One-time task",
             preview=preview_text(task.description),
             date=task.task_date,
             target_url="/tasks",

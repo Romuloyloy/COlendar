@@ -3,6 +3,9 @@ export type DailyTask = {
   title: string;
   description: string;
   task_date: string;
+  planned_time: string | null;
+  due_date: string | null;
+  due_time: string | null;
   category_id: number | null;
   is_completed: boolean;
   completed_at: string | null;

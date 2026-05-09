@@ -51,6 +51,9 @@ export function createDailyTask(input: {
   title: string;
   description: string;
   task_date: string;
+  planned_time?: string | null;
+  due_date?: string | null;
+  due_time?: string | null;
   category_id?: number | null;
 }): Promise<DailyTask> {
   return apiRequest<DailyTask>("/api/tasks/daily", {
@@ -61,7 +64,18 @@ export function createDailyTask(input: {
 
 export function updateDailyTask(
   taskId: number,
-  input: Partial<Pick<DailyTask, "title" | "description" | "task_date" | "category_id">>,
+  input: Partial<
+    Pick<
+      DailyTask,
+      | "title"
+      | "description"
+      | "task_date"
+      | "planned_time"
+      | "due_date"
+      | "due_time"
+      | "category_id"
+    >
+  >,
 ): Promise<DailyTask> {
   return apiRequest<DailyTask>(`/api/tasks/daily/${taskId}`, {
     method: "PATCH",

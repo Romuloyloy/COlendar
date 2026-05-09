@@ -31,8 +31,8 @@ export const DASHBOARD_WIDGET_REGISTRY: DashboardWidgetDefinition[] = [
   },
   {
     id: "daily-tasks",
-    displayName: "Daily Tasks",
-    description: "Daily task occurrences for the selected date.",
+    displayName: "One-time Tasks",
+    description: "One-time tasks planned for the selected date.",
     category: "tasks",
     defaultOrder: 2,
     defaultSize: "standard",

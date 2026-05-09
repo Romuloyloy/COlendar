@@ -117,7 +117,11 @@ def list_daily_tasks(
         query = query.where(DailyTask.category_id == category_id)
     return list(
         db.scalars(
-            query.order_by(DailyTask.is_completed.asc(), DailyTask.id.asc())
+            query.order_by(
+                DailyTask.is_completed.asc(),
+                DailyTask.planned_time.asc().nulls_last(),
+                DailyTask.id.asc(),
+            )
         )
     )
 
@@ -129,6 +133,9 @@ def create_daily_task(payload: DailyTaskCreate, db: Session = Depends(get_db)) -
         title=payload.title.strip(),
         description=payload.description,
         task_date=payload.task_date,
+        planned_time=payload.planned_time,
+        due_date=payload.due_date,
+        due_time=payload.due_time,
         category_id=payload.category_id,
     )
     db.add(task)
@@ -151,6 +158,12 @@ def update_daily_task(
         task.description = payload.description
     if "task_date" in payload.model_fields_set and payload.task_date is not None:
         task.task_date = payload.task_date
+    if "planned_time" in payload.model_fields_set:
+        task.planned_time = payload.planned_time
+    if "due_date" in payload.model_fields_set:
+        task.due_date = payload.due_date
+    if "due_time" in payload.model_fields_set:
+        task.due_time = payload.due_time
     if "category_id" in payload.model_fields_set:
         validate_optional_category(db, payload.category_id)
         task.category_id = payload.category_id

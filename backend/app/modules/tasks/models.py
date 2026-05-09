@@ -1,6 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -27,6 +27,9 @@ class DailyTask(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(250), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     task_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    planned_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    due_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("task_categories.id", ondelete="SET NULL"),
         nullable=True,

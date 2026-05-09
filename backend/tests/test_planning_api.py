@@ -9,13 +9,24 @@ def test_daily_planning_endpoint_returns_selected_date(client: TestClient) -> No
 
 
 def test_daily_planning_includes_daily_tasks(client: TestClient) -> None:
-    client.post("/api/tasks/daily", json={"title": "Today", "task_date": "2026-05-07"})
+    client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Today",
+            "task_date": "2026-05-07",
+            "planned_time": "11:30",
+            "due_date": "2026-05-09",
+        },
+    )
     client.post("/api/tasks/daily", json={"title": "Tomorrow", "task_date": "2026-05-08"})
 
     response = client.get("/api/planning/daily?date=2026-05-07")
 
     assert response.status_code == 200
-    assert [task["title"] for task in response.json()["daily_tasks"]] == ["Today"]
+    task = response.json()["daily_tasks"][0]
+    assert task["title"] == "Today"
+    assert task["planned_time"] == "11:30:00"
+    assert task["due_date"] == "2026-05-09"
 
 
 def test_daily_planning_includes_weekly_scheduled_tasks(client: TestClient) -> None:

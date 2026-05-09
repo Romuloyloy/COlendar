@@ -28,7 +28,7 @@ import type {
   WeeklyTaskCompletion,
 } from "./types";
 import { DateNavigator, ErrorState, NoticeState } from "@/components/ui";
-import { todayIsoDate, weekdayFromIsoDate } from "@/lib/date";
+import { formatDisplayDate, formatTime, todayIsoDate, weekdayFromIsoDate } from "@/lib/date";
 
 const WEEKDAYS = [
   { value: 0, label: "Mon" },
@@ -44,6 +44,35 @@ function weekdayLabel(value: number) {
   return WEEKDAYS.find((weekday) => weekday.value === value)?.label ?? `${value}`;
 }
 
+function emptyToNull(value: string) {
+  return value.trim() ? value : null;
+}
+
+function timeInputValue(value: string | null) {
+  return value ? value.slice(0, 5) : "";
+}
+
+function oneTimeTaskMeta(task: DailyTask, selectedDate: string) {
+  const meta = [];
+  const plannedTime = formatTime(task.planned_time);
+  const dueTime = formatTime(task.due_time);
+  if (plannedTime) {
+    meta.push(`Planned ${plannedTime}`);
+  }
+  if (task.due_date) {
+    const dueLabel =
+      task.due_date === selectedDate
+        ? "Due today"
+        : `Due ${formatDisplayDate(task.due_date, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}`;
+    meta.push(dueTime ? `${dueLabel} ${dueTime}` : dueLabel);
+  }
+  return meta;
+}
+
 export function TasksPage() {
   const [selectedDate, setSelectedDate] = useState(todayIsoDate());
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
@@ -54,6 +83,9 @@ export function TasksPage() {
   const [selectedWeeklyTaskId, setSelectedWeeklyTaskId] = useState<number | null>(null);
   const [dailyTitle, setDailyTitle] = useState("");
   const [dailyDescription, setDailyDescription] = useState("");
+  const [dailyPlannedTime, setDailyPlannedTime] = useState("");
+  const [dailyDueDate, setDailyDueDate] = useState("");
+  const [dailyDueTime, setDailyDueTime] = useState("");
   const [dailyCategoryId, setDailyCategoryId] = useState("");
   const [dailyCategoryFilter, setDailyCategoryFilter] = useState("");
   const [weeklyTitle, setWeeklyTitle] = useState("");
@@ -141,6 +173,9 @@ export function TasksPage() {
     if (selectedDailyTask) {
       setDailyTitle(selectedDailyTask.title);
       setDailyDescription(selectedDailyTask.description);
+      setDailyPlannedTime(timeInputValue(selectedDailyTask.planned_time));
+      setDailyDueDate(selectedDailyTask.due_date ?? "");
+      setDailyDueTime(timeInputValue(selectedDailyTask.due_time));
       setDailyCategoryId(selectedDailyTask.category_id?.toString() ?? "");
     }
   }, [selectedDailyTask]);
@@ -165,6 +200,9 @@ export function TasksPage() {
     setSelectedDailyTaskId(null);
     setDailyTitle("");
     setDailyDescription("");
+    setDailyPlannedTime("");
+    setDailyDueDate("");
+    setDailyDueTime("");
     setDailyCategoryId("");
   }
 
@@ -202,10 +240,13 @@ export function TasksPage() {
         title: dailyTitle,
         description: dailyDescription,
         task_date: selectedDate,
+        planned_time: emptyToNull(dailyPlannedTime),
+        due_date: emptyToNull(dailyDueDate),
+        due_time: emptyToNull(dailyDueTime),
         category_id: dailyCategoryId ? Number(dailyCategoryId) : null,
       });
       setSelectedDailyTaskId(task.id);
-      setNotice("Daily task created.");
+      setNotice("One-time task created.");
       await loadData();
     });
   }
@@ -220,9 +261,12 @@ export function TasksPage() {
         title: dailyTitle,
         description: dailyDescription,
         task_date: selectedDate,
+        planned_time: emptyToNull(dailyPlannedTime),
+        due_date: emptyToNull(dailyDueDate),
+        due_time: emptyToNull(dailyDueTime),
         category_id: dailyCategoryId ? Number(dailyCategoryId) : null,
       });
-      setNotice("Daily task updated.");
+      setNotice("One-time task updated.");
       await loadData();
     });
   }
@@ -245,7 +289,7 @@ export function TasksPage() {
     await runAction(async () => {
       await archiveDailyTask(selectedDailyTask.id);
       resetDailyForm();
-      setNotice("Daily task archived.");
+      setNotice("One-time task archived.");
       await loadData();
     });
   }
@@ -388,7 +432,7 @@ export function TasksPage() {
         <header className="xl:col-span-2">
           <h1 className="text-3xl font-semibold">Tasks</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-700">
-            Plan one-off daily tasks and simple weekly recurring tasks.
+            Plan one-time tasks to complete and simple weekly recurring tasks.
           </p>
           <div className="mt-4 flex flex-wrap items-end gap-4">
             <DateNavigator
@@ -492,7 +536,7 @@ export function TasksPage() {
 
         <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Daily Tasks</h2>
+            <h2 className="text-xl font-semibold">One-time Tasks</h2>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">
                 Category
@@ -520,9 +564,9 @@ export function TasksPage() {
           </div>
           <div className="mt-4 space-y-2">
             {isLoading ? (
-              <p className="text-sm text-neutral-600">Loading daily tasks...</p>
+              <p className="text-sm text-neutral-600">Loading one-time tasks...</p>
             ) : dailyTasks.length === 0 ? (
-              <p className="text-sm text-neutral-600">No daily tasks for this date.</p>
+              <p className="text-sm text-neutral-600">No one-time tasks for this date.</p>
             ) : (
               dailyTasks.map((task) => (
                 <div
@@ -546,6 +590,11 @@ export function TasksPage() {
                       <span className={`block text-sm font-medium ${task.is_completed ? "line-through text-neutral-500" : ""}`}>
                         {task.title}
                       </span>
+                      {oneTimeTaskMeta(task, selectedDate).length > 0 ? (
+                        <span className="mt-1 block text-xs font-medium text-neutral-600">
+                          {oneTimeTaskMeta(task, selectedDate).join(" - ")}
+                        </span>
+                      ) : null}
                       {task.description ? (
                         <span className="mt-1 block text-xs text-neutral-600">
                         {task.description}
@@ -563,7 +612,7 @@ export function TasksPage() {
             onSubmit={selectedDailyTask ? handleUpdateDailyTask : handleCreateDailyTask}
           >
             <h3 className="text-sm font-semibold">
-              {selectedDailyTask ? "Edit Daily Task" : "Create Daily Task"}
+              {selectedDailyTask ? "Edit One-time Task" : "Create One-time Task"}
             </h3>
             <label className="block text-sm font-medium">
               Title
@@ -583,6 +632,35 @@ export function TasksPage() {
                 value={dailyDescription}
               />
             </label>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block text-sm font-medium">
+                Planned time
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setDailyPlannedTime(event.target.value)}
+                  type="time"
+                  value={dailyPlannedTime}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Due date
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setDailyDueDate(event.target.value)}
+                  type="date"
+                  value={dailyDueDate}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Due time
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setDailyDueTime(event.target.value)}
+                  type="time"
+                  value={dailyDueTime}
+                />
+              </label>
+            </div>
             <label className="block text-sm font-medium">
               Category
               <select
@@ -604,7 +682,7 @@ export function TasksPage() {
                 disabled={isSaving}
                 type="submit"
               >
-                {selectedDailyTask ? "Update Daily Task" : "Create Daily Task"}
+                {selectedDailyTask ? "Update One-time Task" : "Create One-time Task"}
               </button>
               {selectedDailyTask ? (
                 <button

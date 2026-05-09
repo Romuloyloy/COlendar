@@ -228,7 +228,7 @@ export function CalendarPage() {
           <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
             <h1 className="text-2xl font-semibold">Calendar</h1>
             <p className="mt-2 text-sm leading-6 text-neutral-700">
-              Create simple internal events and see what is coming up.
+              Create scheduled events that happen at a date or time.
             </p>
             <DateNavigator
               className="mt-4"

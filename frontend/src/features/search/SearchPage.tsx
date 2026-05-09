@@ -11,7 +11,7 @@ import { formatDisplayDate } from "@/lib/date";
 const groupLabels: Array<[keyof SearchResultGroups, string]> = [
   ["notes", "Notes"],
   ["folders", "Folders"],
-  ["daily_tasks", "Daily Tasks"],
+  ["daily_tasks", "One-time Tasks"],
   ["weekly_tasks", "Weekly Tasks"],
   ["calendar_events", "Calendar Events"],
 ];

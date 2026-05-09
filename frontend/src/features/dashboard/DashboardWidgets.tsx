@@ -8,7 +8,7 @@ import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
 import { DateNavigator, EmptyState, SectionCard } from "@/components/ui";
-import { formatDisplayDate, weekdayFromIsoDate } from "@/lib/date";
+import { formatDisplayDate, formatTime, weekdayFromIsoDate } from "@/lib/date";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -44,6 +44,23 @@ function configuredCategoryId(widgetConfig?: DashboardWidgetConfig) {
   return typeof widgetConfig?.category_id === "number"
     ? widgetConfig.category_id
     : null;
+}
+
+function taskMetadata(task: DailyTask) {
+  const meta = [];
+  const plannedTime = formatTime(task.planned_time);
+  const dueTime = formatTime(task.due_time);
+  if (plannedTime) {
+    meta.push(`Planned ${plannedTime}`);
+  }
+  if (task.due_date) {
+    meta.push(
+      dueTime
+        ? `Due ${formatDisplayDate(task.due_date, { month: "short", day: "numeric" })} ${dueTime}`
+        : `Due ${formatDisplayDate(task.due_date, { month: "short", day: "numeric" })}`,
+    );
+  }
+  return meta.join(" - ");
 }
 
 function ManageLink({ href }: { href: string }) {
@@ -128,7 +145,7 @@ export function TodayOverviewWidget({
     return (
       <CompactWidgetCard title={formatDisplayDate(selectedDate)} meta={weekday}>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <CompactMetric label="Daily" value={dailyOpen} />
+          <CompactMetric label="One-time" value={dailyOpen} />
           <CompactMetric label="Weekly" value={weeklyOpen} />
           <CompactMetric label="Events" value={upcomingEvents} />
           <CompactMetric label="Day" value={weekday} />
@@ -153,7 +170,7 @@ export function TodayOverviewWidget({
     >
       <div className="mt-5 grid border-y border-neutral-200 sm:grid-cols-4 sm:divide-x sm:divide-neutral-200">
         <StatCell label="Day" value={weekday} />
-        <StatCell label="Daily Left" value={dailyOpen} />
+        <StatCell label="One-time Left" value={dailyOpen} />
         <StatCell label="Weekly Left" value={weeklyOpen} />
         <StatCell label="Upcoming" value={upcomingEvents} />
       </div>
@@ -234,7 +251,7 @@ export function DailyTasksWidget({
       ? summary.daily_tasks
       : summary.daily_tasks.filter((task) => task.category_id === categoryId);
   const openTasks = tasks.filter((task) => !task.is_completed);
-  const title = configuredTitle("Daily Tasks", widgetConfig);
+  const title = configuredTitle("One-time Tasks", widgetConfig);
   const hiddenTaskCount = Math.max(tasks.length - 5, 0);
 
   if (renderMode === "compact") {
@@ -247,7 +264,7 @@ export function DailyTasksWidget({
       >
         <div className="space-y-2">
           {tasks.length === 0 ? (
-            <CompactEmpty message="No daily tasks." />
+            <CompactEmpty message="No one-time tasks." />
           ) : (
             tasks.slice(0, 5).map((task) => (
               <label className="flex min-w-0 items-start gap-2 text-sm" key={task.id}>
@@ -264,6 +281,11 @@ export function DailyTasksWidget({
                   }`}
                 >
                   {task.title}
+                  {taskMetadata(task) ? (
+                    <span className="block truncate text-xs font-normal text-neutral-500">
+                      {taskMetadata(task)}
+                    </span>
+                  ) : null}
                 </span>
               </label>
             ))
@@ -301,7 +323,7 @@ function DashboardTaskList({
   return (
     <div className="mt-4 space-y-2">
       {tasks.length === 0 ? (
-        <EmptyState message="No daily tasks for this date." />
+        <EmptyState message="No one-time tasks for this date." />
       ) : (
         tasks.map((task) => (
           <label
@@ -326,6 +348,11 @@ function DashboardTaskList({
               {task.description ? (
                 <span className="mt-1 block text-xs leading-5 text-neutral-600">
                   {task.description}
+                </span>
+              ) : null}
+              {taskMetadata(task) ? (
+                <span className="mt-1 block text-xs font-medium text-neutral-600">
+                  {taskMetadata(task)}
                 </span>
               ) : null}
             </span>

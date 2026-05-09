@@ -101,14 +101,14 @@ Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
 
-- The dashboard shows today's overview, quick actions, daily tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
+- The dashboard shows today's overview, quick actions, one-time tasks, weekly tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
 - The Sheets page is an experimental 4x2 workspace prototype that renders code-defined dashboard widgets in persisted sheet slots.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page lets you create folders and notes.
-- The Tasks page lets you create daily and weekly tasks.
-- The Calendar page lets you create, edit, view, and archive simple internal events.
-- The Planning page shows a read-only daily plan and weekly plan from Tasks and Calendar.
+- The Tasks page lets you create one-time tasks and weekly recurring tasks.
+- The Calendar page lets you create, edit, view, and archive scheduled events.
+- The Planning page shows a read-only day plan and weekly plan from Tasks and Calendar.
 - The Tracker page lets you log water, lightweight activity, and calories for a selected date.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
@@ -134,9 +134,9 @@ It is intentionally simple and practical in this phase. It currently shows:
 
 - Today/date overview using the browser's local date on first load
 - Quick actions for Quick Add, Search, Planning, and core modules
-- Incomplete daily task count for the selected date
+- Incomplete one-time task count for the selected date
 - Incomplete weekly task count for the selected date
-- Daily tasks for the selected date, with complete/incomplete checkboxes
+- One-time tasks for the selected date, with complete/incomplete checkboxes
 - Weekly recurring tasks scheduled for the selected date, with complete/incomplete checkboxes
 - Upcoming active calendar events from the selected date onward
 - Tracker summary for the selected date, including water, activity, and calories
@@ -167,7 +167,7 @@ The dashboard widget registry is code-only. Each widget definition has an id, di
 
 - `TodayOverviewWidget`
 - `QuickActionsWidget`
-- `DailyTasksWidget`
+- `DailyTasksWidget` (legacy internal name for the One-time Tasks widget)
 - `WeeklyTasksWidget`
 - `RecentNotesWidget`
 - `UpcomingEventsWidget`
@@ -221,7 +221,7 @@ POST /api/dashboard/widgets/reset
 The response includes:
 
 - selected date
-- daily tasks for that date
+- one-time tasks for that date
 - weekly tasks scheduled for that date and their completion state
 - upcoming active calendar events from the selected date onward
 - tracker summary for that date, including calorie total
@@ -244,6 +244,27 @@ The widget layout endpoints use this simple shape:
 ```
 
 `GET /api/dashboard/widgets` returns the current layout and creates or normalizes the default preferences when needed. `PUT /api/dashboard/widgets` stores the submitted widget array order and visibility, rejects unknown or duplicate widget keys, and appends omitted known widgets safely. `POST /api/dashboard/widgets/reset` restores the default order and sets all widgets visible.
+
+## Task/Event Concept Model
+
+The product model is intentionally clearer without merging modules yet:
+
+- One-time Tasks are completable things planned for a specific date.
+- Weekly Tasks are completable recurring task templates with weekday occurrences.
+- Calendar Events are scheduled things that happen at a date or time.
+- Planning combines tasks and events into daily and weekly review views.
+- Calendar remains the simple date/time event view.
+
+The backend still uses `DailyTask`, the `daily_tasks` table, and `/api/tasks/daily` routes as legacy/internal names for one-time dated tasks. Those names are kept for compatibility in this phase.
+
+One-time task fields:
+
+- `task_date`: required planned date where the task appears.
+- `planned_time`: optional time the user wants to do the task.
+- `due_date`: optional deadline date.
+- `due_time`: optional deadline time.
+
+Due dates are allowed before, on, or after the planned date for now. The app treats the deadline fields as flexible metadata and does not add reminders or notifications.
 
 ## Sheet Workspace Shell v1
 
@@ -312,9 +333,9 @@ Sheet navigation behavior:
 
 Default sheets:
 
-- `Today`: overview, daily tasks, weekly tasks, upcoming events, recent notes, tracker summary, quick actions, and planning
-- `Planning`: overview, daily tasks, weekly tasks, upcoming events, planning, recent notes, and quick actions
-- `Health`: tracker summary, daily tasks, weekly tasks, overview, and quick actions
+- `Today`: overview, one-time tasks, weekly tasks, upcoming events, recent notes, tracker summary, quick actions, and planning
+- `Planning`: overview, one-time tasks, weekly tasks, upcoming events, planning, recent notes, and quick actions
+- `Health`: tracker summary, one-time tasks, weekly tasks, overview, and quick actions
 - if an active task category named `Health` exists when defaults are generated, the Health sheet task widgets use that category and a Health title override
 - if no Health category exists, Health sheet task widgets stay generic
 
@@ -324,8 +345,8 @@ Slot editing behavior:
 - the editor clearly shows the sheet name and active slot number
 - the user selects one of the 8 slots, then chooses a widget type or Empty
 - Clear slot empties the active slot
-- Daily Tasks and Weekly Tasks expose category filter controls
-- Daily Tasks and Weekly Tasks expose `title_override`
+- One-time Tasks and Weekly Tasks expose category filter controls
+- One-time Tasks and Weekly Tasks expose `title_override`
 - the editor shows the current widget, category, and title config for the selected slot
 - the editor shows whether there are unsaved slot changes
 - Save changes persists all 8 slot definitions
@@ -346,12 +367,12 @@ Current persisted sheet behavior:
 
 Examples:
 
-- one Daily Tasks widget can show all daily tasks
-- another Daily Tasks widget can show only `School`
-- another Daily Tasks widget can show only `Gym`
+- one One-time Tasks widget can show all one-time tasks
+- another One-time Tasks widget can show only `School`
+- another One-time Tasks widget can show only `Gym`
 - Weekly Tasks widgets can do the same for categories such as `Health` or `Work`
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Daily and weekly task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. One-time and weekly task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
 
 Current sheet limitations:
 
@@ -441,10 +462,10 @@ Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K
 
 Quick Add can create:
 
-- Daily task: title, optional description, date
+- One-time task: title, optional description, planned date, optional planned time, optional due date, optional due time, optional category
 - Weekly task: title, optional description, one or more weekdays, optional category
 - Note: title and content, saved without a folder
-- Calendar event: title, date, optional start time, optional end time, optional location, optional description
+- Calendar event: scheduled appointment/block/event with title, date, optional start time, optional end time, optional location, optional description
 - Water entry: date, amount in ml, optional note
 - Activity entry: date, activity type, optional duration, optional quantity, optional note
 - Calorie entry: date, amount in kcal, optional label, optional note
@@ -461,7 +482,7 @@ POST /api/tracker/activity
 POST /api/tracker/calories
 ```
 
-Weekly Task validates that at least one weekday is selected. Quick Add does not add advanced recurrence, monthly/bi-weekly recurrence, command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
+One-time Task uses the existing `/api/tasks/daily` endpoint, whose `daily` name is legacy/internal. Weekly Task validates that at least one weekday is selected. Quick Add does not add advanced recurrence, monthly/bi-weekly recurrence, command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
 
 ## Global Search
 
@@ -471,7 +492,7 @@ Search includes active, non-archived records from:
 
 - Notes: title and content
 - Folders: folder name
-- Daily tasks: title and description
+- One-time tasks: title and description
 - Weekly tasks: title and description
 - Calendar events: title, description, and location
 
@@ -566,14 +587,14 @@ The planning module is a simple read-only planning view. It does not own plannin
 
 It composes:
 
-- Daily tasks
+- One-time tasks
 - Weekly recurring tasks scheduled for the relevant dates
 - Calendar events
 
 The browser UI at `http://localhost:3000/planning` currently provides:
 
 - A selected date
-- Daily Plan for that date
+- Day Plan for that date
 - Weekly Plan for the week containing that date
 - Links to Tasks and Calendar for editing or creation
 - Loading, empty, and error states
@@ -593,7 +614,7 @@ GET /api/planning/daily?date=YYYY-MM-DD
 GET /api/planning/weekly?date=YYYY-MM-DD
 ```
 
-The daily endpoint returns the selected date, daily tasks, weekly task occurrences, and calendar events for that date. The weekly endpoint returns week start/end plus seven grouped day summaries.
+The daily planning endpoint returns the selected date, one-time tasks, weekly task occurrences, and calendar events for that date. The weekly endpoint returns week start/end plus seven grouped day summaries.
 
 ## Shared Frontend UI And Data Layer
 
@@ -763,7 +784,7 @@ Deletes are soft archives in this phase.
 
 The tasks module supports simple MVP planning without a complex recurrence engine.
 
-Task categories are a lightweight grouping layer for daily and weekly tasks. They are not tags, projects, or a tracker category system.
+Task categories are a lightweight grouping layer for one-time and weekly tasks. They are not tags, projects, or a tracker category system.
 
 Categories:
 
@@ -774,13 +795,14 @@ Categories:
 - remain referenced by existing tasks after archive for historical safety
 - cannot be assigned to new or updated tasks after archive
 
-Daily tasks:
+One-time tasks:
 
 - Belong to one specific date.
-- Have a title, optional description, completion state, and soft archive flag.
+- Have a title, optional description, optional planned time, optional due date/time, completion state, and soft archive flag.
 - Can optionally belong to one task category.
 - Can be created, edited, completed, marked incomplete, and archived.
 - Normal lists only return active, non-archived tasks and can filter by category.
+- Use `DailyTask`, `daily_tasks`, and `/api/tasks/daily` internally for compatibility.
 
 Weekly recurring tasks:
 
@@ -796,11 +818,11 @@ The browser UI at `http://localhost:3000/tasks` currently provides:
 
 - A working date selector
 - Simple task category management
-- Daily task list for that date
-- Daily task category filtering
-- Daily task create/edit/archive
-- Daily task category assignment
-- Daily task complete/incomplete
+- One-time task list for that date
+- One-time task category filtering
+- One-time task create/edit/archive with optional planned time and deadline fields
+- One-time task category assignment
+- One-time task complete/incomplete
 - Weekly recurring task list
 - Weekly task category filtering
 - Weekday checkboxes for weekly tasks
@@ -819,7 +841,7 @@ The module lives mainly in:
 
 ## Tasks API Overview
 
-Daily tasks:
+One-time tasks:
 
 ```text
 GET    /api/tasks/daily?date=YYYY-MM-DD
@@ -830,6 +852,8 @@ DELETE /api/tasks/daily/{task_id}
 POST   /api/tasks/daily/{task_id}/complete
 POST   /api/tasks/daily/{task_id}/incomplete
 ```
+
+The `/api/tasks/daily` name is legacy/internal for one-time dated tasks. Create/update/read responses include `planned_time`, `due_date`, and `due_time` as nullable fields. Empty optional time/date fields can be sent as `null` or omitted.
 
 Weekly tasks:
 
@@ -876,7 +900,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table.
 
 ## Create A New Migration
 
@@ -906,7 +930,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive/category assignment/category filtering, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering/category assignment/category filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, weekly recurrence validation, weekly task editing/filtering/category assignment/category filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 

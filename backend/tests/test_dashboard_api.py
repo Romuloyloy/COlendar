@@ -130,7 +130,15 @@ def test_dashboard_summary_still_loads_after_customized_layout(
 
 
 def test_dashboard_summary_includes_daily_tasks_for_date(client: TestClient) -> None:
-    client.post("/api/tasks/daily", json={"title": "Today", "task_date": "2026-05-07"})
+    client.post(
+        "/api/tasks/daily",
+        json={
+            "title": "Today",
+            "task_date": "2026-05-07",
+            "planned_time": "09:00",
+            "due_date": "2026-05-08",
+        },
+    )
     client.post("/api/tasks/daily", json={"title": "Tomorrow", "task_date": "2026-05-08"})
 
     response = client.get("/api/dashboard/summary?date=2026-05-07")
@@ -138,6 +146,8 @@ def test_dashboard_summary_includes_daily_tasks_for_date(client: TestClient) -> 
     assert response.status_code == 200
     data = response.json()
     assert [task["title"] for task in data["daily_tasks"]] == ["Today"]
+    assert data["daily_tasks"][0]["planned_time"] == "09:00:00"
+    assert data["daily_tasks"][0]["due_date"] == "2026-05-08"
     assert data["counts"]["daily_task_count"] == 1
     assert data["counts"]["incomplete_daily_task_count"] == 1
 

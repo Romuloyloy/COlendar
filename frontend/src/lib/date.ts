@@ -33,3 +33,7 @@ export function weekdayFromIsoDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
   return (date.getDay() + 6) % 7;
 }
+
+export function formatTime(value: string | null) {
+  return value ? value.slice(0, 5) : null;
+}
