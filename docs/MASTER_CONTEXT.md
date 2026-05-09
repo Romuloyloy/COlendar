@@ -15,6 +15,21 @@ The app is intentionally being developed as if it could later become a serious d
 
 ---
 
+## Supporting Docs
+
+These docs are source of truth for repeated project rules and future feature prompts:
+
+- [PROJECT_CONSTRAINTS.md](PROJECT_CONSTRAINTS.md): default non-goals, architecture principles, and scope guardrails.
+- [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md): standard completion checklist and Docker verification commands.
+- [TASK_EVENT_MODEL.md](TASK_EVENT_MODEL.md): product language for one-time tasks, weekly tasks, events, planning, and calendar.
+- [SHEETS_VISION.md](SHEETS_VISION.md): long-term sheet workspace direction and current sheet guardrails.
+- [UX_GUIDELINES.md](UX_GUIDELINES.md): practical UI and product behavior rules.
+- [features/](features/): feature specs for future scoped implementation work.
+
+Do not duplicate those docs here; link to them from prompts and feature specs.
+
+---
+
 # Core Product Philosophy
 
 The app should feel like:

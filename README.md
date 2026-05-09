@@ -28,6 +28,18 @@ COlendar is a local-first personal productivity dashboard in MVP hardening. The 
 
 The app is intentionally a modular monolith: one backend, one frontend, one database, and clear module folders for future features.
 
+## Project Documentation
+
+Core project docs live in `docs/` and are intended to make future Codex prompts shorter:
+
+- `docs/MASTER_CONTEXT.md`: entry-point project context.
+- `docs/PROJECT_CONSTRAINTS.md`: default non-goals and architecture guardrails.
+- `docs/DEFINITION_OF_DONE.md`: standard implementation checklist and verification commands.
+- `docs/TASK_EVENT_MODEL.md`: task, event, planning, and calendar product model.
+- `docs/SHEETS_VISION.md`: long-term sheet workspace direction.
+- `docs/UX_GUIDELINES.md`: product and UI rules.
+- `docs/features/`: scoped feature specs.
+
 ## Windows Prerequisites
 
 Install these first:
@@ -548,12 +560,18 @@ Time handling is intentionally simple for the MVP. Event dates and times are loc
 
 The browser UI at `http://localhost:3000/calendar` currently provides:
 
-- A selected-date event list
+- A monthly calendar grid for the visible month
+- Previous month, Today, and next month navigation
+- Day selection from the month grid
+- Compact event indicators inside day cells
+- A selected-day event list
 - An upcoming events list
 - Event creation
 - Event editing
 - Event archive/delete
 - Loading, empty, success, and error states
+
+Calendar Month View v1 keeps the calendar MVP-level: events are still simple internal scheduled happenings with optional times, location, and description. Selecting a day updates the selected-day panel and creates new events for that date by default. Month navigation fetches events for the visible grid range through the existing date-range calendar API.
 
 The dashboard at `http://localhost:3000` now shows real upcoming calendar events from the selected date onward. The dashboard still only composes calendar data; event ownership remains in the Calendar module.
 
@@ -580,6 +598,15 @@ DELETE /api/calendar/events/{event_id}
 ```
 
 Deletes are soft archives in this phase. Normal list and detail endpoints only return active, non-archived events.
+
+Current calendar limitations:
+
+- No recurring calendar events
+- No reminders or notifications
+- No external calendar sync
+- No drag-and-drop event moving
+- No advanced week/day calendar views
+- No task/event unification
 
 ## Planning Module
 

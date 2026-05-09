@@ -108,6 +108,27 @@ def test_list_calendar_events_for_date_range(client: TestClient) -> None:
     assert [event["title"] for event in response.json()] == ["Inside"]
 
 
+def test_list_calendar_events_for_date_range_excludes_archived(
+    client: TestClient,
+) -> None:
+    archived = client.post(
+        "/api/calendar/events",
+        json={"title": "Archived", "event_date": "2026-05-07"},
+    ).json()
+    client.post(
+        "/api/calendar/events",
+        json={"title": "Active", "event_date": "2026-05-08"},
+    )
+    client.delete(f"/api/calendar/events/{archived['id']}")
+
+    response = client.get(
+        "/api/calendar/events?from_date=2026-05-01&to_date=2026-05-31"
+    )
+
+    assert response.status_code == 200
+    assert [event["title"] for event in response.json()] == ["Active"]
+
+
 def test_reject_invalid_calendar_event_date_query(client: TestClient) -> None:
     response = client.get(
         "/api/calendar/events?from_date=2026-05-08&to_date=2026-05-07"

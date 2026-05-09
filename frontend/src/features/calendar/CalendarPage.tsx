@@ -5,13 +5,20 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   archiveCalendarEvent,
   createCalendarEvent,
-  getCalendarEventsForDate,
+  getCalendarEventsForDateRange,
   getUpcomingCalendarEvents,
   updateCalendarEvent,
 } from "./api";
 import type { CalendarEvent } from "./types";
-import { DateNavigator, ErrorState, NoticeState } from "@/components/ui";
-import { formatDisplayDate, todayIsoDate } from "@/lib/date";
+import { ErrorState, NoticeState } from "@/components/ui";
+import {
+  addDaysToIsoDate,
+  formatDisplayDate,
+  todayIsoDate,
+  weekdayFromIsoDate,
+} from "@/lib/date";
+
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function formatEventTime(event: CalendarEvent) {
   if (!event.start_time && !event.end_time) {
@@ -32,6 +39,44 @@ function timeInputValue(value: string | null) {
 
 function emptyToNull(value: string) {
   return value.trim() ? value : null;
+}
+
+function isoDateFromParts(year: number, monthIndex: number, day: number) {
+  const month = `${monthIndex + 1}`.padStart(2, "0");
+  const date = `${day}`.padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+function monthStartIso(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return isoDateFromParts(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonthsToIsoMonth(value: string, months: number) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setMonth(date.getMonth() + months, 1);
+  return isoDateFromParts(date.getFullYear(), date.getMonth(), 1);
+}
+
+function monthLabel(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${value}T00:00:00`));
+}
+
+function dayNumber(value: string) {
+  return new Date(`${value}T00:00:00`).getDate();
+}
+
+function buildMonthDays(monthStart: string) {
+  const startOffset = weekdayFromIsoDate(monthStart);
+  const gridStart = addDaysToIsoDate(monthStart, -startOffset);
+  return Array.from({ length: 42 }, (_, index) => addDaysToIsoDate(gridStart, index));
+}
+
+function sameMonth(value: string, monthStart: string) {
+  return value.slice(0, 7) === monthStart.slice(0, 7);
 }
 
 function EventCard({
@@ -74,8 +119,10 @@ function EventCard({
 }
 
 export function CalendarPage() {
-  const [selectedDate, setSelectedDate] = useState(todayIsoDate());
-  const [dateEvents, setDateEvents] = useState<CalendarEvent[]>([]);
+  const today = todayIsoDate();
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [visibleMonth, setVisibleMonth] = useState(monthStartIso(today));
+  const [monthEvents, setMonthEvents] = useState<CalendarEvent[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
@@ -89,25 +136,42 @@ export function CalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const monthDays = useMemo(() => buildMonthDays(visibleMonth), [visibleMonth]);
+  const monthRangeStart = monthDays[0];
+  const monthRangeEnd = monthDays[monthDays.length - 1];
+
+  const eventsByDate = useMemo(() => {
+    return monthEvents.reduce<Record<string, CalendarEvent[]>>((grouped, event) => {
+      grouped[event.event_date] = grouped[event.event_date] ?? [];
+      grouped[event.event_date].push(event);
+      return grouped;
+    }, {});
+  }, [monthEvents]);
+
+  const selectedDateEvents = eventsByDate[selectedDate] ?? [];
+
   const selectedEvent = useMemo(
     () =>
-      [...dateEvents, ...upcomingEvents].find((event) => event.id === selectedEventId) ??
-      null,
-    [dateEvents, selectedEventId, upcomingEvents],
+      [...monthEvents, ...upcomingEvents].find(
+        (event) => event.id === selectedEventId,
+      ) ?? null,
+    [monthEvents, selectedEventId, upcomingEvents],
   );
 
   async function loadData() {
     setError(null);
-    const [dateData, upcomingData] = await Promise.all([
-      getCalendarEventsForDate(selectedDate),
+    const [monthData, upcomingData] = await Promise.all([
+      getCalendarEventsForDateRange(monthRangeStart, monthRangeEnd),
       getUpcomingCalendarEvents(selectedDate),
     ]);
-    setDateEvents(dateData);
+    setMonthEvents(monthData);
     setUpcomingEvents(upcomingData);
 
     if (
       selectedEventId !== null &&
-      ![...dateData, ...upcomingData].some((event) => event.id === selectedEventId)
+      ![...monthData, ...upcomingData].some(
+        (event) => event.id === selectedEventId,
+      )
     ) {
       resetForm();
     }
@@ -118,7 +182,7 @@ export function CalendarPage() {
     loadData()
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setIsLoading(false));
-  }, [selectedDate]);
+  }, [monthRangeStart, monthRangeEnd, selectedDate]);
 
   useEffect(() => {
     function refreshAfterQuickAdd() {
@@ -128,13 +192,7 @@ export function CalendarPage() {
     window.addEventListener("quick-add:created", refreshAfterQuickAdd);
     return () =>
       window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
-  }, [selectedDate]);
-
-  useEffect(() => {
-    setEventDate(selectedDate);
-    setSelectedEventId(null);
-    resetForm(selectedDate);
-  }, [selectedDate]);
+  }, [monthRangeStart, monthRangeEnd, selectedDate]);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -155,6 +213,28 @@ export function CalendarPage() {
     setStartTime("");
     setEndTime("");
     setLocation("");
+  }
+
+  function selectDate(date: string) {
+    setSelectedDate(date);
+    if (!sameMonth(date, visibleMonth)) {
+      setVisibleMonth(monthStartIso(date));
+    }
+    resetForm(date);
+  }
+
+  function moveMonth(months: number) {
+    const nextMonth = addMonthsToIsoMonth(visibleMonth, months);
+    setVisibleMonth(nextMonth);
+    setSelectedDate(nextMonth);
+    resetForm(nextMonth);
+  }
+
+  function returnToToday() {
+    const currentDate = todayIsoDate();
+    setVisibleMonth(monthStartIso(currentDate));
+    setSelectedDate(currentDate);
+    resetForm(currentDate);
   }
 
   async function runAction(action: () => Promise<void>) {
@@ -183,6 +263,8 @@ export function CalendarPage() {
         location,
       });
       setSelectedEventId(created.id);
+      setSelectedDate(created.event_date);
+      setVisibleMonth(monthStartIso(created.event_date));
       setNotice("Calendar event created.");
       await loadData();
     });
@@ -195,7 +277,7 @@ export function CalendarPage() {
     }
 
     await runAction(async () => {
-      await updateCalendarEvent(selectedEvent.id, {
+      const updated = await updateCalendarEvent(selectedEvent.id, {
         title,
         description,
         event_date: eventDate,
@@ -203,6 +285,9 @@ export function CalendarPage() {
         end_time: emptyToNull(endTime),
         location,
       });
+      setSelectedEventId(updated.id);
+      setSelectedDate(updated.event_date);
+      setVisibleMonth(monthStartIso(updated.event_date));
       setNotice("Calendar event updated.");
       await loadData();
     });
@@ -210,6 +295,9 @@ export function CalendarPage() {
 
   async function handleArchiveEvent() {
     if (!selectedEvent) {
+      return;
+    }
+    if (!window.confirm("Archive this calendar event?")) {
       return;
     }
 
@@ -223,19 +311,46 @@ export function CalendarPage() {
 
   return (
     <main className="min-h-screen px-6 py-8 text-neutral-900">
-      <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[360px_1fr]">
-        <aside className="space-y-6">
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
-            <h1 className="text-2xl font-semibold">Calendar</h1>
-            <p className="mt-2 text-sm leading-6 text-neutral-700">
-              Create scheduled events that happen at a date or time.
-            </p>
-            <DateNavigator
-              className="mt-4"
-              label="Selected date"
-              onChange={setSelectedDate}
-              value={selectedDate}
-            />
+      <section className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="space-y-6">
+          <section className="rounded-md border border-neutral-300 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+                  Calendar
+                </p>
+                <h1 className="mt-1 text-3xl font-semibold text-neutral-950">
+                  {monthLabel(visibleMonth)}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-700">
+                  View scheduled events by month, select a day, and manage the
+                  events that happen on that date.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                  onClick={() => moveMonth(-1)}
+                  type="button"
+                >
+                  Prev
+                </button>
+                <button
+                  className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                  onClick={returnToToday}
+                  type="button"
+                >
+                  Today
+                </button>
+                <button
+                  className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                  onClick={() => moveMonth(1)}
+                  type="button"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
             {error ? (
               <div className="mt-4">
                 <ErrorState message={error} />
@@ -248,148 +363,218 @@ export function CalendarPage() {
             ) : null}
           </section>
 
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Upcoming Events</h2>
-              <button
-                className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
-                onClick={() => resetForm()}
-                type="button"
-              >
-                New
-              </button>
+          <section className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm">
+            <div className="grid grid-cols-7 border-b border-neutral-200 pb-2 text-center text-xs font-semibold uppercase tracking-normal text-neutral-600">
+              {WEEKDAY_LABELS.map((weekday) => (
+                <span key={weekday}>{weekday}</span>
+              ))}
             </div>
-            <div className="mt-4 space-y-2">
-              {isLoading ? (
-                <p className="text-sm text-neutral-600">Loading upcoming events...</p>
-              ) : upcomingEvents.length === 0 ? (
-                <p className="text-sm text-neutral-600">No upcoming events yet.</p>
-              ) : (
-                upcomingEvents.map((event) => (
-                  <EventCard
-                    event={event}
-                    isSelected={selectedEventId === event.id}
-                    key={event.id}
-                    onSelect={(selected) => setSelectedEventId(selected.id)}
-                  />
-                ))
-              )}
-            </div>
-          </section>
-        </aside>
+            <div className="mt-2 grid grid-cols-7 gap-1">
+              {monthDays.map((date) => {
+                const dayEvents = eventsByDate[date] ?? [];
+                const isSelected = date === selectedDate;
+                const isToday = date === todayIsoDate();
+                const isCurrentMonth = sameMonth(date, visibleMonth);
 
-        <section className="grid gap-6 xl:grid-cols-[320px_1fr]">
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold">
-              Events On {formatDisplayDate(selectedDate)}
-            </h2>
-            <div className="mt-4 space-y-2">
-              {isLoading ? (
-                <p className="text-sm text-neutral-600">Loading events...</p>
-              ) : dateEvents.length === 0 ? (
-                <p className="text-sm text-neutral-600">
-                  No events for this date.
-                </p>
-              ) : (
-                dateEvents.map((event) => (
-                  <EventCard
-                    event={event}
-                    isSelected={selectedEventId === event.id}
-                    key={event.id}
-                    onSelect={(selected) => setSelectedEventId(selected.id)}
-                  />
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold">
-              {selectedEvent ? "Edit Event" : "Create Event"}
-            </h2>
-            <form
-              className="mt-4 space-y-4"
-              onSubmit={selectedEvent ? handleUpdateEvent : handleCreateEvent}
-            >
-              <label className="block text-sm font-medium">
-                Title
-                <input
-                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                  onChange={(event) => setTitle(event.target.value)}
-                  required
-                  type="text"
-                  value={title}
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                Date
-                <input
-                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                  onChange={(event) => setEventDate(event.target.value)}
-                  required
-                  type="date"
-                  value={eventDate}
-                />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm font-medium">
-                  Start time
-                  <input
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                    onChange={(event) => setStartTime(event.target.value)}
-                    type="time"
-                    value={startTime}
-                  />
-                </label>
-                <label className="block text-sm font-medium">
-                  End time
-                  <input
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                    onChange={(event) => setEndTime(event.target.value)}
-                    type="time"
-                    value={endTime}
-                  />
-                </label>
-              </div>
-              <label className="block text-sm font-medium">
-                Location
-                <input
-                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
-                  onChange={(event) => setLocation(event.target.value)}
-                  type="text"
-                  value={location}
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                Description
-                <textarea
-                  className="mt-1 min-h-32 w-full rounded border border-neutral-300 px-3 py-2"
-                  onChange={(event) => setDescription(event.target.value)}
-                  value={description}
-                />
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
-                  disabled={isSaving}
-                  type="submit"
-                >
-                  {selectedEvent ? "Update Event" : "Create Event"}
-                </button>
-                {selectedEvent ? (
+                return (
                   <button
-                    className="rounded border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
-                    disabled={isSaving}
-                    onClick={handleArchiveEvent}
+                    className={`flex min-h-28 flex-col rounded-md border p-2 text-left transition ${
+                      isSelected
+                        ? "border-teal-700 bg-teal-50"
+                        : "border-neutral-200 hover:border-neutral-400"
+                    } ${isCurrentMonth ? "bg-white" : "bg-neutral-50 text-neutral-500"}`}
+                    key={date}
+                    onClick={() => selectDate(date)}
                     type="button"
                   >
-                    Archive Event
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
+                        isToday ? "bg-teal-700 text-white" : "text-neutral-900"
+                      }`}
+                    >
+                      {dayNumber(date)}
+                    </span>
+                    <span className="mt-2 flex flex-1 flex-col gap-1 overflow-hidden">
+                      {isLoading ? (
+                        <span className="text-xs text-neutral-500">Loading...</span>
+                      ) : dayEvents.length === 0 ? (
+                        <span className="text-xs text-neutral-400">No events</span>
+                      ) : (
+                        <>
+                          {dayEvents.slice(0, 3).map((event) => (
+                            <span
+                              className="truncate rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-800"
+                              key={event.id}
+                            >
+                              {formatEventTime(event)} - {event.title}
+                            </span>
+                          ))}
+                          {dayEvents.length > 3 ? (
+                            <span className="text-xs font-medium text-neutral-600">
+                              +{dayEvents.length - 3} more
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </span>
                   </button>
-                ) : null}
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
+            <section className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {formatDisplayDate(selectedDate)}
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-600">
+                    {selectedDateEvents.length} event
+                    {selectedDateEvents.length === 1 ? "" : "s"} scheduled
+                  </p>
+                </div>
+                <button
+                  className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+                  onClick={() => resetForm()}
+                  type="button"
+                >
+                  New
+                </button>
               </div>
-            </form>
+              <div className="mt-4 space-y-2">
+                {isLoading ? (
+                  <p className="text-sm text-neutral-600">Loading events...</p>
+                ) : selectedDateEvents.length === 0 ? (
+                  <p className="text-sm text-neutral-600">
+                    No events for this date.
+                  </p>
+                ) : (
+                  selectedDateEvents.map((event) => (
+                    <EventCard
+                      event={event}
+                      isSelected={selectedEventId === event.id}
+                      key={event.id}
+                      onSelect={(selected) => setSelectedEventId(selected.id)}
+                    />
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm">
+              <h2 className="text-lg font-semibold">
+                {selectedEvent ? "Edit Event" : "Create Event"}
+              </h2>
+              <form
+                className="mt-4 space-y-4"
+                onSubmit={selectedEvent ? handleUpdateEvent : handleCreateEvent}
+              >
+                <label className="block text-sm font-medium">
+                  Title
+                  <input
+                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                    onChange={(event) => setTitle(event.target.value)}
+                    required
+                    type="text"
+                    value={title}
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Date
+                  <input
+                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                    onChange={(event) => setEventDate(event.target.value)}
+                    required
+                    type="date"
+                    value={eventDate}
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-medium">
+                    Start time
+                    <input
+                      className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                      onChange={(event) => setStartTime(event.target.value)}
+                      type="time"
+                      value={startTime}
+                    />
+                  </label>
+                  <label className="block text-sm font-medium">
+                    End time
+                    <input
+                      className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                      onChange={(event) => setEndTime(event.target.value)}
+                      type="time"
+                      value={endTime}
+                    />
+                  </label>
+                </div>
+                <label className="block text-sm font-medium">
+                  Location
+                  <input
+                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                    onChange={(event) => setLocation(event.target.value)}
+                    type="text"
+                    value={location}
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Description
+                  <textarea
+                    className="mt-1 min-h-28 w-full rounded border border-neutral-300 px-3 py-2"
+                    onChange={(event) => setDescription(event.target.value)}
+                    value={description}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
+                    disabled={isSaving}
+                    type="submit"
+                  >
+                    {selectedEvent ? "Update Event" : "Create Event"}
+                  </button>
+                  {selectedEvent ? (
+                    <button
+                      className="rounded border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                      disabled={isSaving}
+                      onClick={handleArchiveEvent}
+                      type="button"
+                    >
+                      Archive Event
+                    </button>
+                  ) : null}
+                </div>
+              </form>
+            </section>
           </section>
         </section>
+
+        <aside className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm xl:sticky xl:top-6 xl:self-start">
+          <h2 className="text-lg font-semibold">Upcoming Events</h2>
+          <div className="mt-4 space-y-2">
+            {isLoading ? (
+              <p className="text-sm text-neutral-600">Loading upcoming events...</p>
+            ) : upcomingEvents.length === 0 ? (
+              <p className="text-sm text-neutral-600">No upcoming events yet.</p>
+            ) : (
+              upcomingEvents.map((event) => (
+                <EventCard
+                  event={event}
+                  isSelected={selectedEventId === event.id}
+                  key={event.id}
+                  onSelect={(selected) => {
+                    setSelectedEventId(selected.id);
+                    setSelectedDate(selected.event_date);
+                    setVisibleMonth(monthStartIso(selected.event_date));
+                  }}
+                />
+              ))
+            )}
+          </div>
+        </aside>
       </section>
     </main>
   );

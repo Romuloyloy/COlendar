@@ -7,6 +7,17 @@ export function getCalendarEventsForDate(date: string): Promise<CalendarEvent[]>
   );
 }
 
+export function getCalendarEventsForDateRange(
+  fromDate: string,
+  toDate: string,
+): Promise<CalendarEvent[]> {
+  return apiRequest<CalendarEvent[]>(
+    `/api/calendar/events?from_date=${encodeURIComponent(
+      fromDate,
+    )}&to_date=${encodeURIComponent(toDate)}`,
+  );
+}
+
 export function getUpcomingCalendarEvents(
   fromDate: string,
 ): Promise<CalendarEvent[]> {

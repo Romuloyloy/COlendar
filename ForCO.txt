@@ -1,46 +1,46 @@
-Hi! This pass adds Task/Event Concept Cleanup v1.
+Hi! This pass adds Calendar Month View v1.
 
 What changed:
-- User-facing UI now says One-time Tasks instead of Daily Tasks.
-- Backend route/table names stay compatible: `/api/tasks/daily` and `daily_tasks` are legacy/internal names for one-time dated tasks.
-- One-time tasks now support optional `planned_time`, `due_date`, and `due_time`.
-- Tasks remain completable things; calendar events remain scheduled things that happen at a date/time.
-- Planning continues to combine one-time tasks, weekly tasks, and events without merging them.
-- Quick Add can create one-time tasks with planned date, optional planned time, optional deadline, and category.
-- Weekly Task Quick Add still works.
-- Dashboard, sheets, planning, and search wording now use One-time Tasks.
-- One-time task widgets/lists show planned time and due metadata when present.
-- Added Alembic migration and backend tests for the new optional fields.
+- `/calendar` now shows a visual monthly calendar grid.
+- The Calendar page has previous month, Today, and next month controls.
+- Users can select a day from the month grid.
+- Events appear inside day cells as compact time/title indicators.
+- The selected-day panel shows events for the chosen date.
+- Creating an event defaults to the selected date.
+- Existing edit and archive behavior still works.
+- Archive now asks for confirmation before hiding an event.
+- The frontend reuses the existing date-range Calendar API for visible month data.
+- Added a backend test confirming archived events are excluded from date-range results.
+- Updated `README.md` with the month view behavior and current limitations.
 
-How I test it:
+How to test it:
 1. `docker compose up --build -d`
 2. `docker compose exec backend alembic upgrade head`
 3. `docker compose exec backend alembic current`
 4. `docker compose exec backend pytest`
 5. `docker compose exec frontend npm run build`
-6. Open `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
-7. Create a one-time task from Tasks and Quick Add with planned time and due date/time.
-8. Confirm weekly task Quick Add still works.
-9. Confirm task category filters, dashboard customization, sheet configs, and duplicate sheet widgets still work.
+6. Open `/calendar`.
+7. Navigate previous/next month and return to Today.
+8. Select a day, create an event, edit it, and archive it.
+9. Confirm dashboard upcoming events, planning, Quick Add, and Global Search still work.
 
 What success looks like:
-- Existing task behavior still works.
-- One-time task optional fields save, update, clear, and appear in list responses.
-- Dashboard, sheets, planning, and search still include tasks correctly.
-- Calendar events remain separate and do not get task checkboxes.
-- Alembic reports the latest migration as head.
+- Calendar shows a month grid with scheduled events in day cells.
+- Month navigation updates the visible calendar.
+- Selected-day events are clear.
+- Created events appear in the correct day cell.
+- Edited events update normally.
+- Archived events disappear from normal calendar views.
 - Backend tests and frontend build pass.
 
-Limitations:
-- No full task/event unification.
-- No event recurrence.
-- No advanced, monthly, or bi-weekly recurrence.
+Known limitations:
+- No external sync.
+- No recurring calendar events.
 - No reminders or notifications.
-- No priority, subtasks, drag-and-drop, resizing, auth, AI, or integrations.
-- The API still uses `/api/tasks/daily` until a future compatibility-safe rename phase.
-- Due dates are flexible metadata and are not restricted relative to planned date.
+- No drag-and-drop event moving.
+- No advanced week/day views.
+- Tasks and events are still separate product concepts.
 
 Recommended next phase:
-- Add a small product-language cleanup pass for API docs and variable aliases if desired.
-- Add lightweight browser QA around task creation/editing with planned time and deadlines.
-- Later consider compatibility aliases like `/api/tasks/one-time` without removing `/api/tasks/daily`.
+- Add lightweight browser QA around event creation/edit/archive in the month grid.
+- Later consider a focused week/day visual view spec if the month view feels stable.
