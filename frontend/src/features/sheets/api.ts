@@ -39,6 +39,18 @@ export function updateSheetSlots(
   });
 }
 
+export function moveSheetLeft(sheetId: number): Promise<Sheet[]> {
+  return apiRequest<Sheet[]>(`/api/sheets/${sheetId}/move-left`, {
+    method: "POST",
+  });
+}
+
+export function moveSheetRight(sheetId: number): Promise<Sheet[]> {
+  return apiRequest<Sheet[]>(`/api/sheets/${sheetId}/move-right`, {
+    method: "POST",
+  });
+}
+
 export function resetDefaultSheets(): Promise<Sheet[]> {
   return apiRequest<Sheet[]>("/api/sheets/reset-default", {
     method: "POST",

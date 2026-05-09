@@ -17,7 +17,7 @@ import type {
   TrackerSummary,
   WaterEntry,
 } from "./types";
-import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
+import { DateNavigator, ErrorState, NoticeState } from "@/components/ui";
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 function emptyToNull(value: string) {
@@ -278,7 +278,7 @@ export function TrackerPage() {
             <p className="mt-2 text-sm leading-6 text-neutral-700">
               Log water intake and lightweight activity for a selected date.
             </p>
-            <DateSelector
+            <DateNavigator
               className="mt-4"
               label="Selected date"
               onChange={setSelectedDate}

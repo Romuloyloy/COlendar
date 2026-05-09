@@ -7,7 +7,7 @@ import type { DashboardSummary, DashboardWeeklyTask } from "./types";
 import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types";
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
-import { DateSelector, EmptyState, SectionCard } from "@/components/ui";
+import { DateNavigator, EmptyState, SectionCard } from "@/components/ui";
 import { formatDisplayDate, weekdayFromIsoDate } from "@/lib/date";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -140,7 +140,7 @@ export function TodayOverviewWidget({
   return (
     <SectionCard
       action={
-        <DateSelector
+        <DateNavigator
           className="min-w-48"
           label="Date"
           onChange={onDateChange}
@@ -439,6 +439,7 @@ export function WeeklyTasksWidget({
 }
 
 export function RecentNotesWidget({
+  onPreviewNote,
   summary,
   renderMode = "normal",
 }: DashboardWidgetProps) {
@@ -455,14 +456,19 @@ export function RecentNotesWidget({
             <CompactEmpty message="No recent notes." />
           ) : (
             summary.recent_notes.slice(0, 5).map((note) => (
-              <div className="min-w-0" key={note.id}>
+              <button
+                className="block w-full min-w-0 rounded-md px-1 py-1 text-left hover:bg-neutral-50"
+                key={note.id}
+                onClick={() => onPreviewNote?.(note)}
+                type="button"
+              >
                 <p className="truncate text-sm font-medium text-neutral-900">
                   {note.title}
                 </p>
                 <p className="truncate text-xs text-neutral-600">
                   {notePreview(note.content)}
                 </p>
-              </div>
+              </button>
             ))
           )}
           {summary.recent_notes.length > 5 ? (

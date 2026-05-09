@@ -27,7 +27,7 @@ import type {
   WeeklyTask,
   WeeklyTaskCompletion,
 } from "./types";
-import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
+import { DateNavigator, ErrorState, NoticeState } from "@/components/ui";
 import { todayIsoDate, weekdayFromIsoDate } from "@/lib/date";
 
 const WEEKDAYS = [
@@ -391,7 +391,7 @@ export function TasksPage() {
             Plan one-off daily tasks and simple weekly recurring tasks.
           </p>
           <div className="mt-4 flex flex-wrap items-end gap-4">
-            <DateSelector
+            <DateNavigator
               className="min-w-48"
               label="Working date"
               onChange={setSelectedDate}

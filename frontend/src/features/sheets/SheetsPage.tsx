@@ -8,6 +8,8 @@ import {
   deleteSheet,
   getSheet,
   listSheets,
+  moveSheetLeft,
+  moveSheetRight,
   renameSheet,
   resetDefaultSheets,
   updateSheetSlots,
@@ -32,6 +34,7 @@ import type {
   DashboardWidgetProps,
 } from "@/features/dashboard/widget-types";
 import type { DailyTask } from "@/features/tasks/types";
+import type { Note } from "@/features/notes/types";
 import {
   completeDailyTask,
   completeWeeklyTask,
@@ -41,7 +44,7 @@ import {
 } from "@/features/tasks/api";
 import type { TaskCategory } from "@/features/tasks/types";
 import {
-  DateSelector,
+  DateNavigator,
   ErrorState,
   LoadingState,
   NoticeState,
@@ -49,6 +52,7 @@ import {
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 const SLOT_COUNT = 8;
+const LAST_ACTIVE_SHEET_STORAGE_KEY = "calendar:last-active-sheet-id";
 
 const workspaceLinks = [
   ["Dashboard", "/"],
@@ -69,6 +73,13 @@ type DraftSlot = {
   };
 };
 
+type PendingConfirmation = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => Promise<void>;
+} | null;
+
 export function SheetsPage() {
   const [selectedDate, setSelectedDate] = useState(todayIsoDate());
   const [sheets, setSheets] = useState<Sheet[]>([]);
@@ -88,6 +99,9 @@ export function SheetsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation>(null);
+  const [previewNote, setPreviewNote] = useState<Note | null>(null);
 
   const selectedSheetIndex = useMemo(
     () => sheets.findIndex((sheet) => sheet.id === selectedSheetId),
@@ -109,23 +123,36 @@ export function SheetsPage() {
     );
   }, [draftSlots, sheetDetail]);
 
+  function selectSheet(sheetId: number | null) {
+    setSelectedSheetId(sheetId);
+    if (sheetId !== null) {
+      window.localStorage.setItem(LAST_ACTIVE_SHEET_STORAGE_KEY, String(sheetId));
+    }
+  }
+
+  function savedSheetId() {
+    const value = window.localStorage.getItem(LAST_ACTIVE_SHEET_STORAGE_KEY);
+    if (!value) {
+      return undefined;
+    }
+    const sheetId = Number(value);
+    return Number.isInteger(sheetId) ? sheetId : undefined;
+  }
+
   async function loadSheets(preferredSheetId?: number) {
     const loadedSheets = await listSheets();
     setSheets(loadedSheets);
 
+    const savedId = savedSheetId();
+    const targetSheetId = preferredSheetId ?? selectedSheetId ?? savedId;
     const preferredExists = loadedSheets.some(
-      (sheet) => sheet.id === preferredSheetId,
-    );
-    const selectedExists = loadedSheets.some(
-      (sheet) => sheet.id === selectedSheetId,
+      (sheet) => sheet.id === targetSheetId,
     );
     const nextSheetId = preferredExists
-      ? preferredSheetId ?? null
-      : selectedExists
-        ? selectedSheetId
-        : loadedSheets[0]?.id ?? null;
+      ? targetSheetId ?? null
+      : loadedSheets[0]?.id ?? null;
 
-    setSelectedSheetId(nextSheetId);
+    selectSheet(nextSheetId);
     return nextSheetId;
   }
 
@@ -259,13 +286,13 @@ export function SheetsPage() {
 
   function selectPreviousSheet() {
     if (selectedSheetIndex > 0) {
-      setSelectedSheetId(sheets[selectedSheetIndex - 1].id);
+      selectSheet(sheets[selectedSheetIndex - 1].id);
     }
   }
 
   function selectNextSheet() {
     if (selectedSheetIndex >= 0 && selectedSheetIndex < sheets.length - 1) {
-      setSelectedSheetId(sheets[selectedSheetIndex + 1].id);
+      selectSheet(sheets[selectedSheetIndex + 1].id);
     }
   }
 
@@ -306,7 +333,7 @@ export function SheetsPage() {
     });
   }
 
-  async function handleDeleteSheet() {
+  function requestDeleteSheet() {
     if (!sheetDetail) {
       return;
     }
@@ -316,13 +343,26 @@ export function SheetsPage() {
       return;
     }
 
+    setPendingConfirmation({
+      title: "Delete sheet?",
+      message: `This will permanently delete "${sheetDetail.name}" and its slot layout. The widgets' source data, like tasks and notes, will not be deleted.`,
+      confirmLabel: "Delete sheet",
+      onConfirm: handleDeleteSheet,
+    });
+  }
+
+  async function handleDeleteSheet() {
+    if (!sheetDetail) {
+      return;
+    }
+
     await runAction(async () => {
       const nextIndex = selectedSheetIndex > 0 ? selectedSheetIndex - 1 : 0;
       await deleteSheet(sheetDetail.id);
       const loadedSheets = await listSheets();
       setSheets(loadedSheets);
       const nextSheetId = loadedSheets[nextIndex]?.id ?? loadedSheets[0]?.id ?? null;
-      setSelectedSheetId(nextSheetId);
+      selectSheet(nextSheetId);
       if (nextSheetId !== null) {
         await loadSheetDetail(nextSheetId);
       } else {
@@ -335,12 +375,22 @@ export function SheetsPage() {
     });
   }
 
+  function requestResetSheets() {
+    setPendingConfirmation({
+      title: "Reset sheets?",
+      message:
+        "This will delete all current sheets and restore the default Today, Planning, and Health sheets. Sheet slot layouts will be replaced.",
+      confirmLabel: "Reset sheets",
+      onConfirm: handleResetSheets,
+    });
+  }
+
   async function handleResetSheets() {
     await runAction(async () => {
       const resetSheets = await resetDefaultSheets();
       setSheets(resetSheets);
       const nextSheetId = resetSheets[0]?.id ?? null;
-      setSelectedSheetId(nextSheetId);
+      selectSheet(nextSheetId);
       if (nextSheetId !== null) {
         await loadSheetDetail(nextSheetId);
       }
@@ -348,6 +398,19 @@ export function SheetsPage() {
       setIsSlotEditorOpen(false);
       setIsControlOpen(false);
       setNotice("Default sheets restored.");
+    });
+  }
+
+  function requestResetCurrentSheetFromDashboard() {
+    if (!sheetDetail) {
+      return;
+    }
+
+    setPendingConfirmation({
+      title: "Use dashboard layout?",
+      message: `This will replace every slot on "${sheetDetail.name}" with the current dashboard widget layout.`,
+      confirmLabel: "Use dashboard layout",
+      onConfirm: handleResetCurrentSheetFromDashboard,
     });
   }
 
@@ -381,6 +444,41 @@ export function SheetsPage() {
       setIsControlOpen(false);
       setNotice("Current sheet reset to dashboard-style layout.");
     });
+  }
+
+  async function handleMoveSheetLeft() {
+    if (!sheetDetail || selectedSheetIndex <= 0) {
+      return;
+    }
+
+    await runAction(async () => {
+      const movedSheets = await moveSheetLeft(sheetDetail.id);
+      setSheets(movedSheets);
+      selectSheet(sheetDetail.id);
+      setNotice("Sheet moved left.");
+    });
+  }
+
+  async function handleMoveSheetRight() {
+    if (!sheetDetail || selectedSheetIndex < 0 || selectedSheetIndex >= sheets.length - 1) {
+      return;
+    }
+
+    await runAction(async () => {
+      const movedSheets = await moveSheetRight(sheetDetail.id);
+      setSheets(movedSheets);
+      selectSheet(sheetDetail.id);
+      setNotice("Sheet moved right.");
+    });
+  }
+
+  async function confirmPendingAction() {
+    if (!pendingConfirmation) {
+      return;
+    }
+    const action = pendingConfirmation.onConfirm;
+    setPendingConfirmation(null);
+    await action();
   }
 
   async function handleSaveSlots() {
@@ -504,15 +602,17 @@ export function SheetsPage() {
         isSaving={isSaving}
         newSheetName={newSheetName}
         onCreateSheet={handleCreateSheet}
-        onDeleteSheet={handleDeleteSheet}
+        onMoveSheetLeft={handleMoveSheetLeft}
+        onMoveSheetRight={handleMoveSheetRight}
         onNextSheet={selectNextSheet}
         onOpenQuickAdd={openQuickAdd}
         onOpenSlotEditor={() => openSlotEditor()}
         onPreviousSheet={selectPreviousSheet}
         onRenameSheet={handleRenameSheet}
-        onResetCurrentSheetFromDashboard={handleResetCurrentSheetFromDashboard}
-        onResetSheets={handleResetSheets}
-        onSelectedSheetChange={(sheetId) => setSelectedSheetId(sheetId)}
+        onRequestDeleteSheet={requestDeleteSheet}
+        onResetCurrentSheetFromDashboard={requestResetCurrentSheetFromDashboard}
+        onResetSheets={requestResetSheets}
+        onSelectedSheetChange={selectSheet}
         onSetControlOpen={setIsControlOpen}
         renameValue={renameValue}
         selectedDate={selectedDate}
@@ -571,6 +671,7 @@ export function SheetsPage() {
             draftSlots={draftSlots}
             isSummaryReady={summary !== null}
             onEditSlot={openSlotEditor}
+            onPreviewNote={setPreviewNote}
             taskCategories={categories}
             widgetProps={widgetProps}
           />
@@ -593,6 +694,22 @@ export function SheetsPage() {
           sheetName={currentSheetName}
         />
       ) : null}
+      {previewNote ? (
+        <NotePreviewModal
+          note={previewNote}
+          onClose={() => setPreviewNote(null)}
+        />
+      ) : null}
+      {pendingConfirmation ? (
+        <ConfirmModal
+          confirmLabel={pendingConfirmation.confirmLabel}
+          isSaving={isSaving}
+          message={pendingConfirmation.message}
+          onCancel={() => setPendingConfirmation(null)}
+          onConfirm={confirmPendingAction}
+          title={pendingConfirmation.title}
+        />
+      ) : null}
     </main>
   );
 }
@@ -602,12 +719,14 @@ function TopCenterControls({
   isSaving,
   newSheetName,
   onCreateSheet,
-  onDeleteSheet,
+  onMoveSheetLeft,
+  onMoveSheetRight,
   onNextSheet,
   onOpenQuickAdd,
   onOpenSlotEditor,
   onPreviousSheet,
   onRenameSheet,
+  onRequestDeleteSheet,
   onResetCurrentSheetFromDashboard,
   onResetSheets,
   onSelectedSheetChange,
@@ -627,14 +746,16 @@ function TopCenterControls({
   isSaving: boolean;
   newSheetName: string;
   onCreateSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onDeleteSheet: () => Promise<void>;
+  onMoveSheetLeft: () => Promise<void>;
+  onMoveSheetRight: () => Promise<void>;
   onNextSheet: () => void;
   onOpenQuickAdd: () => void;
   onOpenSlotEditor: () => void;
   onPreviousSheet: () => void;
   onRenameSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onResetCurrentSheetFromDashboard: () => Promise<void>;
-  onResetSheets: () => Promise<void>;
+  onRequestDeleteSheet: () => void;
+  onResetCurrentSheetFromDashboard: () => void;
+  onResetSheets: () => void;
   onSelectedSheetChange: (sheetId: number) => void;
   onSetControlOpen: (isOpen: boolean) => void;
   renameValue: string;
@@ -688,7 +809,7 @@ function TopCenterControls({
                 Shortcuts: Left/Right changes sheets, Esc closes panels,
                 Ctrl+Shift+A opens Quick Add.
               </div>
-              <DateSelector
+              <DateNavigator
                 className="mt-3"
                 label={`Widget date (${selectedDateLabel})`}
                 onChange={setSelectedDate}
@@ -769,19 +890,6 @@ function TopCenterControls({
                 >
                   Rename
                 </button>
-                <button
-                  className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isSaving || selectedSheetId === null || sheets.length <= 1}
-                  onClick={onDeleteSheet}
-                  type="button"
-                  title={
-                    sheets.length <= 1
-                      ? "Create another sheet before deleting this one."
-                      : "Delete current sheet"
-                  }
-                >
-                  Delete
-                </button>
               </form>
 
               <div className="mt-3 flex flex-wrap gap-2">
@@ -795,19 +903,23 @@ function TopCenterControls({
                 </button>
                 <button
                   className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isSaving}
-                  onClick={onResetSheets}
+                  disabled={isSaving || selectedSheetIndex <= 0}
+                  onClick={onMoveSheetLeft}
                   type="button"
                 >
-                  Reset default
+                  Move left
                 </button>
                 <button
                   className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isSaving || selectedSheetId === null}
-                  onClick={onResetCurrentSheetFromDashboard}
+                  disabled={
+                    isSaving ||
+                    selectedSheetIndex < 0 ||
+                    selectedSheetIndex >= sheets.length - 1
+                  }
+                  onClick={onMoveSheetRight}
                   type="button"
                 >
-                  Use dashboard layout
+                  Move right
                 </button>
                 <button
                   className="ml-auto rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
@@ -817,6 +929,43 @@ function TopCenterControls({
                   Close
                 </button>
               </div>
+
+              <details className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-neutral-800">
+                  Advanced
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isSaving || selectedSheetId === null || sheets.length <= 1}
+                    onClick={onRequestDeleteSheet}
+                    type="button"
+                    title={
+                      sheets.length <= 1
+                        ? "Create another sheet before deleting this one."
+                        : "Delete current sheet"
+                    }
+                  >
+                    Delete sheet
+                  </button>
+                <button
+                  className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isSaving}
+                  onClick={onResetSheets}
+                  type="button"
+                >
+                  Reset sheets
+                </button>
+                <button
+                  className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isSaving || selectedSheetId === null}
+                  onClick={onResetCurrentSheetFromDashboard}
+                  type="button"
+                >
+                  Use dashboard layout
+                </button>
+                </div>
+              </details>
             </section>
           </div>
         </div>
@@ -829,12 +978,14 @@ function SheetGrid({
   draftSlots,
   isSummaryReady,
   onEditSlot,
+  onPreviewNote,
   taskCategories,
   widgetProps,
 }: {
   draftSlots: DraftSlot[];
   isSummaryReady: boolean;
   onEditSlot: (slotIndex: number) => void;
+  onPreviewNote: (note: Note) => void;
   taskCategories: TaskCategory[];
   widgetProps: DashboardWidgetProps | null;
 }) {
@@ -869,6 +1020,7 @@ function SheetGrid({
                     definition={definition}
                     props={{
                       ...widgetProps,
+                      onPreviewNote,
                       renderMode: "compact",
                       taskCategories,
                       widgetConfig: slot.config_json,
@@ -885,6 +1037,104 @@ function SheetGrid({
         );
       })}
     </section>
+  );
+}
+
+function ConfirmModal({
+  confirmLabel,
+  isSaving,
+  message,
+  onCancel,
+  onConfirm,
+  title,
+}: {
+  confirmLabel: string;
+  isSaving: boolean;
+  message: string;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+  title: string;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-6">
+      <section className="w-full max-w-md rounded-md border border-neutral-300 bg-white p-5 shadow-xl">
+        <h2 className="text-lg font-semibold text-neutral-950">{title}</h2>
+        <p className="mt-3 text-sm leading-6 text-neutral-700">{message}</p>
+        <div className="mt-5 flex justify-end gap-3 border-t border-neutral-200 pt-4">
+          <button
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            disabled={isSaving}
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+            disabled={isSaving}
+            onClick={onConfirm}
+            type="button"
+          >
+            {isSaving ? "Working..." : confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function NotePreviewModal({
+  note,
+  onClose,
+}: {
+  note: Note;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-6">
+      <section className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+              Note Preview
+            </p>
+            <h2 className="mt-1 truncate text-xl font-semibold text-neutral-950">
+              {note.title}
+            </h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Folder: {note.folder_id === null ? "None" : `#${note.folder_id}`}
+            </p>
+          </div>
+          <button
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-neutral-800">
+            {note.content.trim() || "No note body yet."}
+          </p>
+        </div>
+        <div className="flex justify-end gap-3 border-t border-neutral-200 px-5 py-4">
+          <button
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+          <Link
+            className="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            href="/notes"
+          >
+            Open in Notes
+          </Link>
+        </div>
+      </section>
+    </div>
   );
 }
 

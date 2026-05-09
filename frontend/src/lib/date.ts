@@ -6,6 +6,15 @@ export function todayIsoDate() {
   return `${year}-${month}-${day}`;
 }
 
+export function addDaysToIsoDate(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDisplayDate(
   value: string,
   options: Intl.DateTimeFormatOptions = {

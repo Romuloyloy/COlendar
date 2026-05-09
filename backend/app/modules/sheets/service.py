@@ -84,6 +84,14 @@ def update_sheet_slots(
     return get_sheet(db, sheet.id)
 
 
+def move_sheet_left(db: Session, sheet_id: int) -> list[Sheet]:
+    return _move_sheet(db, sheet_id, direction=-1)
+
+
+def move_sheet_right(db: Session, sheet_id: int) -> list[Sheet]:
+    return _move_sheet(db, sheet_id, direction=1)
+
+
 def reset_default_sheets(db: Session) -> list[Sheet]:
     db.execute(delete(SheetWidgetSlot))
     db.execute(delete(Sheet))
@@ -292,3 +300,30 @@ def _normalize_sheet_sort_order(db: Session) -> None:
     for sort_order, sheet in enumerate(_ordered_sheets(db)):
         sheet.sort_order = sort_order
     db.commit()
+
+
+def _move_sheet(db: Session, sheet_id: int, direction: int) -> list[Sheet]:
+    _ensure_default_sheet(db)
+    sheets = _ordered_sheets(db)
+    sheet_index = next(
+        (index for index, sheet in enumerate(sheets) if sheet.id == sheet_id),
+        None,
+    )
+    if sheet_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sheet not found",
+        )
+
+    target_index = sheet_index + direction
+    if target_index < 0 or target_index >= len(sheets):
+        _normalize_sheet_sort_order(db)
+        return _ordered_sheets(db)
+
+    sheets[sheet_index].sort_order, sheets[target_index].sort_order = (
+        sheets[target_index].sort_order,
+        sheets[sheet_index].sort_order,
+    )
+    db.commit()
+    _normalize_sheet_sort_order(db)
+    return _ordered_sheets(db)

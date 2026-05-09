@@ -10,7 +10,7 @@ import {
   updateCalendarEvent,
 } from "./api";
 import type { CalendarEvent } from "./types";
-import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
+import { DateNavigator, ErrorState, NoticeState } from "@/components/ui";
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 function formatEventTime(event: CalendarEvent) {
@@ -230,7 +230,7 @@ export function CalendarPage() {
             <p className="mt-2 text-sm leading-6 text-neutral-700">
               Create simple internal events and see what is coming up.
             </p>
-            <DateSelector
+            <DateNavigator
               className="mt-4"
               label="Selected date"
               onChange={setSelectedDate}

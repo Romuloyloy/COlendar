@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 import type { DashboardSummary, DashboardWeeklyTask } from "./types";
+import type { Note } from "@/features/notes/types";
 import type { DailyTask, TaskCategory } from "@/features/tasks/types";
 
 export type DashboardWidgetId =
@@ -33,6 +34,7 @@ export type DashboardWidgetProps = {
   onDateChange: (date: string) => void;
   onToggleDailyTask: (task: DailyTask) => void;
   onToggleWeeklyTask: (task: DashboardWeeklyTask) => void;
+  onPreviewNote?: (note: Note) => void;
 };
 
 export type DashboardWidgetConfig = {

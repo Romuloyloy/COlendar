@@ -1,95 +1,52 @@
-Hi! This added Sheet Hardening + Workspace Flow Polish.
+Hi! This pass adds Workspace UX Safety + Navigation Polish.
 
 What changed:
-- Hardened `/sheets` active-sheet behavior so the UI recovers from stale or deleted sheet selections.
-- Creating a sheet now selects it and shows clear feedback.
-- Deleting a sheet closes sheet panels and selects another valid sheet.
-- Reset now restores the default sheet set, selects the first default sheet, and closes open sheet panels.
-- Added better default sheets:
-  - Today
-  - Planning
-  - Health
-- Health defaults use the Health task category only if an active category named Health exists.
-- Added a low-risk "Use dashboard layout" action that fills the current sheet from visible dashboard widget preferences.
-- Added safe sheet keyboard shortcuts:
-  - Left Arrow for previous sheet
-  - Right Arrow for next sheet
-  - Escape to close the Workspace dropdown or slot editor
-  - Ctrl+Shift+A to open Quick Add
-- Shortcuts do not fire while typing in inputs, textareas, selects, or editable content.
-- Tightened the existing global Ctrl+K Quick Add shortcut so it also ignores typing fields.
-- Improved compact widgets:
-  - Daily Tasks and Weekly Tasks show concise counts, short lists, more-counts, and links to Tasks.
-  - Upcoming Events links to Calendar.
-  - Recent Notes shows title/previews and links to Notes.
-  - Tracker Summary links to Tracker.
-  - Compact content remains contained inside cells.
-- Improved the slot editor:
-  - active slot remains visually obvious
-  - current widget/category/title config is shown
-  - unsaved slot changes are shown
-  - clear action is explicit
-  - save state changes to Saved when there are no unsaved changes
-- Added backend sheet tests for the new default sheets and Health category default behavior.
-- Updated README.md with workspace behavior, shortcuts, default sheets, slot editing behavior, compact widget limitations, future direction, and Windows PowerShell commands.
+- Dangerous sheet actions now ask for confirmation before delete, reset sheets, or applying dashboard layout.
+- Dangerous sheet actions moved into an Advanced area.
+- `/sheets` remembers the last active sheet in localStorage and safely falls back if that sheet no longer exists.
+- Sheets can move left/right with simple buttons; backend `sort_order` persists the order.
+- Previous/next sheet navigation follows the saved order.
+- Compact Recent Notes inside sheets now opens a note preview modal instead of feeling dead.
+- Added shared `DateNavigator` for previous day, date input, Today, and next day.
+- Used `DateNavigator` on dashboard date widgets, Tasks, Calendar, Tracker, Planning, and Sheets.
+- Quick Add can now create Weekly Tasks with title, optional description, weekdays, and optional category.
+- Added backend tests for sheet reorder behavior and persistence.
+- Updated README.md with behavior, limitations, and Windows PowerShell commands.
 
 How I test it:
-1. Start Docker Desktop.
-2. Open PowerShell in the repo root.
-3. Run `docker compose up --build -d`.
-4. Run `docker compose exec backend alembic current`.
-5. Run `docker compose exec backend pytest`.
-6. Run `docker compose exec frontend npm run build`.
-7. Check backend health at `http://localhost:8000/health`.
-8. Check DB health at `http://localhost:8000/health/db`.
-9. Open `http://localhost:3000/sheets`.
-10. Confirm Today, Planning, and Health defaults exist after reset or first default creation.
-11. Create a sheet and confirm it becomes active.
-12. Delete a sheet and confirm another valid sheet becomes active.
-13. Reset sheets and confirm the default sheet set is visible.
-14. Open the Workspace dropdown and test app links, Quick Add, sheet selector, create, rename, delete, reset, Use dashboard layout, and Customize slots.
-15. Test Left Arrow, Right Arrow, Escape, and Ctrl+Shift+A outside input fields.
-16. Confirm shortcuts do nothing while typing in form fields.
-17. Open Customize slots, change widget types/config, clear a slot, and save.
-18. Confirm unsaved/saved messaging updates.
-19. Add duplicate Daily Tasks or Weekly Tasks widgets with different configs.
-20. Refresh `/sheets` and confirm configs persisted.
-21. Check existing pages: `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
-22. Confirm Global Search still works.
-23. Confirm dashboard customization still works on `/`.
-24. Confirm task category filtering still works on `/tasks`.
+1. `docker compose up --build -d`
+2. `docker compose exec backend alembic current`
+3. `docker compose exec backend pytest`
+4. `docker compose exec frontend npm run build`
+5. Open `/`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/planning`, `/search`, and `/sheets`.
+6. In `/sheets`, confirm delete/reset/dashboard-layout all require confirmation.
+7. Reorder sheets, refresh, and confirm the order remains.
+8. Leave and return to `/sheets`; confirm the last sheet opens when it still exists.
+9. Click a note in a sheet Recent Notes widget and confirm the preview modal opens.
+10. Use Quick Add to create a Weekly Task and confirm it appears on relevant task/dashboard/sheet/planning dates.
 
 What success looks like:
-- Docker Compose starts cleanly.
-- Backend health and DB health return healthy responses.
+- Docker starts cleanly.
 - Alembic reports `20260507_0009 (head)`.
 - Backend tests pass.
 - Frontend build passes.
-- `/sheets` remains a stable 4x2 workspace.
-- The user never lands in a no-active-sheet dead end.
-- Create, rename, delete, reset, and dashboard-layout flows feel understandable.
-- Slot editing shows the active slot, current config, and unsaved state clearly.
-- Duplicate configured widget instances still work.
-- Compact widgets stay readable and contained.
-- Quick Add, Global Search, dashboard customization, and task category filtering still work.
+- Existing pages and core flows still work.
+- Dangerous sheet changes are no longer one-click mistakes.
+- Sheet navigation feels predictable and persistent.
+- Date movement is easier across daily views.
+- Weekly Task Quick Add uses the existing weekly task system.
 
 Limitations:
 - No drag-and-drop.
 - No widget resizing.
-- No `x/y/w/h` layout.
-- No final animation system.
-- No full command palette.
-- No auth or user-specific sheets.
-- No AI, semantic search, or pgvector.
-- No external integrations.
-- No notifications or reminders.
-- No tracker categories.
-- No database-defined widgets or plugin system.
-- Mobile is still not heavily optimized.
-- Use dashboard layout copies visible dashboard widget order only; it does not create advanced widget config.
-- The no-scroll feeling is practical rather than absolute on very small viewports.
+- No `x/y/w/h` placement.
+- No advanced recurrence, monthly recurrence, or bi-weekly recurrence.
+- No task/event unification.
+- No auth, AI, notifications, integrations, semantic search, or pgvector.
+- Note preview is read-only and plain text.
+- Open in Notes goes to `/notes`; there are no deep note links yet.
 
 Recommended next phase:
-- Add a short sheet/widget contract doc for compact rendering rules, config schemas, and edit/view expectations.
-- Add browser visual QA for `/sheets` across common desktop sizes.
-- Then consider Sheet Layout v2 with explicit edit/view modes before drag-and-drop, resizing, or `x/y/w/h` placement.
+- Add a small sheet/widget contract doc for compact rendering, config schemas, and edit/view expectations.
+- Add browser visual QA for `/sheets` desktop sizes.
+- Then consider a deliberate Sheet Layout v2 before drag-and-drop, resizing, or grid placement.

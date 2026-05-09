@@ -232,6 +232,70 @@ def test_reset_default_sheets(client: TestClient) -> None:
     assert [sheet["sort_order"] for sheet in sheets] == [0, 1, 2]
 
 
+def test_move_sheet_left(client: TestClient) -> None:
+    sheets = client.get("/api/sheets").json()
+    planning_sheet_id = sheets[1]["id"]
+
+    response = client.post(f"/api/sheets/{planning_sheet_id}/move-left")
+
+    assert response.status_code == 200
+    moved_sheets = response.json()
+    assert [sheet["name"] for sheet in moved_sheets] == ["Planning", "Today", "Health"]
+    assert [sheet["sort_order"] for sheet in moved_sheets] == [0, 1, 2]
+
+
+def test_move_sheet_right(client: TestClient) -> None:
+    sheets = client.get("/api/sheets").json()
+    planning_sheet_id = sheets[1]["id"]
+
+    response = client.post(f"/api/sheets/{planning_sheet_id}/move-right")
+
+    assert response.status_code == 200
+    moved_sheets = response.json()
+    assert [sheet["name"] for sheet in moved_sheets] == ["Today", "Health", "Planning"]
+    assert [sheet["sort_order"] for sheet in moved_sheets] == [0, 1, 2]
+
+
+def test_move_sheet_left_at_boundary_is_noop(client: TestClient) -> None:
+    sheets = client.get("/api/sheets").json()
+    first_sheet_id = sheets[0]["id"]
+
+    response = client.post(f"/api/sheets/{first_sheet_id}/move-left")
+
+    assert response.status_code == 200
+    moved_sheets = response.json()
+    assert [sheet["id"] for sheet in moved_sheets] == [sheet["id"] for sheet in sheets]
+    assert [sheet["sort_order"] for sheet in moved_sheets] == [0, 1, 2]
+
+
+def test_move_sheet_right_at_boundary_is_noop(client: TestClient) -> None:
+    sheets = client.get("/api/sheets").json()
+    last_sheet_id = sheets[-1]["id"]
+
+    response = client.post(f"/api/sheets/{last_sheet_id}/move-right")
+
+    assert response.status_code == 200
+    moved_sheets = response.json()
+    assert [sheet["id"] for sheet in moved_sheets] == [sheet["id"] for sheet in sheets]
+    assert [sheet["sort_order"] for sheet in moved_sheets] == [0, 1, 2]
+
+
+def test_sheet_order_persists_after_move(client: TestClient) -> None:
+    sheets = client.get("/api/sheets").json()
+    planning_sheet_id = sheets[1]["id"]
+
+    client.post(f"/api/sheets/{planning_sheet_id}/move-left")
+
+    response = client.get("/api/sheets")
+
+    assert response.status_code == 200
+    assert [sheet["name"] for sheet in response.json()] == [
+        "Planning",
+        "Today",
+        "Health",
+    ]
+
+
 def test_health_default_uses_health_category_when_it_exists(
     client: TestClient,
 ) -> None:

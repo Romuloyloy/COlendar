@@ -14,6 +14,8 @@ from app.modules.sheets.service import (
     delete_sheet,
     get_sheet,
     list_sheets,
+    move_sheet_left,
+    move_sheet_right,
     reset_default_sheets,
     update_sheet,
     update_sheet_slots,
@@ -59,6 +61,22 @@ def put_sheet_slots(
     db: Session = Depends(get_db),
 ) -> SheetDetailRead:
     return update_sheet_slots(db, sheet_id, payload)
+
+
+@router.post("/{sheet_id}/move-left", response_model=list[SheetRead])
+def post_sheet_move_left(
+    sheet_id: int,
+    db: Session = Depends(get_db),
+) -> list[SheetRead]:
+    return move_sheet_left(db, sheet_id)
+
+
+@router.post("/{sheet_id}/move-right", response_model=list[SheetRead])
+def post_sheet_move_right(
+    sheet_id: int,
+    db: Session = Depends(get_db),
+) -> list[SheetRead]:
+    return move_sheet_right(db, sheet_id)
 
 
 @router.post("/reset-default", response_model=list[SheetRead])

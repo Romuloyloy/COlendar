@@ -264,6 +264,9 @@ Workspace shell behavior:
 - deleting a sheet selects another available sheet
 - reset recreates and selects the default sheet set
 - stale sheet selections recover by reloading the available sheets
+- the last active sheet is remembered in browser `localStorage`
+- returning to `/sheets` restores the remembered sheet when it still exists
+- if the remembered sheet was deleted, `/sheets` falls back to the first valid sheet
 - the primary surface is a desktop-first 4 columns x 2 rows grid
 - the sheet area fills the available viewport below the app shell as much as practical
 - normal long page scrolling is avoided on `/sheets`
@@ -277,9 +280,10 @@ Top-center dropdown behavior:
 - clicking it opens a simple dropdown/control panel
 - the dropdown links to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search
 - the dropdown includes a Quick Add button wired to the existing global Quick Add modal
-- the dropdown includes the widget date selector for the sheet widgets
+- the dropdown includes the shared day DateNavigator for the sheet widgets
 - the dropdown includes current sheet controls, not a full command palette
 - the dropdown documents the sheet keyboard shortcuts
+- dangerous actions live under `Advanced`
 
 Keyboard shortcuts on `/sheets`:
 
@@ -297,9 +301,14 @@ Sheet navigation behavior:
 - the current sheet name is shown in the workspace header and dropdown trigger
 - the dropdown includes a sheet selector for jumping between sheets
 - sheets can be created and renamed
-- sheets can be deleted, except the last remaining sheet is protected with a clear message
-- reset restores the default sheet set
-- Use dashboard layout fills the current sheet from the current visible dashboard widget preferences
+- Move left and Move right reorder the current sheet without drag-and-drop
+- reorder controls are disabled at the first or last sheet
+- previous/next navigation follows the saved sheet order
+- sheet order persists after refresh through backend `sort_order`
+- delete sheet, reset sheets, and Use dashboard layout require explicit confirmation
+- sheets can be deleted after confirmation, except the last remaining sheet is protected with a clear message
+- reset restores the default sheet set after confirmation
+- Use dashboard layout fills the current sheet from the current visible dashboard widget preferences after confirmation
 
 Default sheets:
 
@@ -326,6 +335,8 @@ Current persisted sheet behavior:
 
 - sheets can be created and renamed
 - sheets can be deleted, except the last remaining sheet is protected
+- sheets can be moved left/right in order
+- sheet order is saved in `sort_order` and normalized after destructive changes
 - each sheet has exactly 8 slot positions, indexed 0 through 7
 - each slot can hold one known `widget_key` or be empty
 - each occupied slot is a widget instance with its own `widget_key` and `config_json`
@@ -340,7 +351,7 @@ Examples:
 - another Daily Tasks widget can show only `Gym`
 - Weekly Tasks widgets can do the same for categories such as `Health` or `Work`
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Daily and weekly task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. Calendar, Notes, and Tracker compact widgets link to their full module pages. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. Daily and weekly task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
 
 Current sheet limitations:
 
@@ -385,6 +396,8 @@ GET    /api/sheets/{sheet_id}
 PATCH  /api/sheets/{sheet_id}
 DELETE /api/sheets/{sheet_id}
 PUT    /api/sheets/{sheet_id}/slots
+POST   /api/sheets/{sheet_id}/move-left
+POST   /api/sheets/{sheet_id}/move-right
 POST   /api/sheets/reset-default
 ```
 
@@ -429,6 +442,7 @@ Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K
 Quick Add can create:
 
 - Daily task: title, optional description, date
+- Weekly task: title, optional description, one or more weekdays, optional category
 - Note: title and content, saved without a folder
 - Calendar event: title, date, optional start time, optional end time, optional location, optional description
 - Water entry: date, amount in ml, optional note
@@ -439,6 +453,7 @@ Quick Add uses the existing module APIs:
 
 ```text
 POST /api/tasks/daily
+POST /api/tasks/weekly
 POST /api/notes
 POST /api/calendar/events
 POST /api/tracker/water
@@ -446,7 +461,7 @@ POST /api/tracker/activity
 POST /api/tracker/calories
 ```
 
-It does not add command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
+Weekly Task validates that at least one weekday is selected. Quick Add does not add advanced recurrence, monthly/bi-weekly recurrence, command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
 
 ## Global Search
 
@@ -584,9 +599,9 @@ The daily endpoint returns the selected date, daily tasks, weekly task occurrenc
 
 The frontend now has a small shared foundation to keep the MVP pages from feeling like disconnected test screens:
 
-- `frontend/src/components/ui.tsx`: shared `PageHeader`, `SectionCard`, `EmptyState`, `LoadingState`, `ErrorState`, `NoticeState`, and `DateSelector`.
+- `frontend/src/components/ui.tsx`: shared `PageHeader`, `SectionCard`, `EmptyState`, `LoadingState`, `ErrorState`, `NoticeState`, `DateSelector`, and `DateNavigator`.
 - `frontend/src/lib/api.ts`: shared API request wrapper, environment-backed API base URL, consistent JSON headers, `204 No Content` handling, and validation/error message formatting.
-- `frontend/src/lib/date.ts`: shared local ISO date, display-date, and weekday helpers.
+- `frontend/src/lib/date.ts`: shared local ISO date, local day math, display-date, and weekday helpers.
 
 Feature modules still own their product-specific API functions and page behavior. The shared layer is intentionally small and practical; it is not a design system, component library, or state framework.
 
@@ -596,11 +611,14 @@ This pass focused on consistency, preparation, and a small controlled customizat
 
 - Navigation spacing and hover states are more consistent.
 - Date selectors and status messages use shared UI primitives where practical.
+- `DateNavigator` provides previous day, date input, Today, and next day controls while keeping browser-local `YYYY-MM-DD` date handling.
+- `DateNavigator` is used on the dashboard date widget, Tasks, Calendar, Tracker, Planning, and the Sheets widget date control.
 - Frontend API error handling is centralized instead of duplicated per feature.
 - Dashboard sections now render through code-defined widget definitions and a lightweight widget renderer.
 - Widget Foundation v1 prepares the dashboard for future configurable widgets while keeping the dashboard fixed.
 - Dashboard Customization v1 persists widget visibility and order without making widgets database-defined.
 - Sheet/Grid Prototype v1 adds a separate `/sheets` route with persisted named sheets and fixed 4x2 widget slots.
+- Workspace UX Safety + Navigation Polish adds sheet action confirmations, last active sheet restore, left/right sheet reordering, sheet note preview, DateNavigator adoption, and Weekly Task Quick Add.
 - Backend module behavior was reviewed for archive/date/error consistency; stable APIs were left intact.
 
 The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker. The dashboard owns only its layout preference table, and Sheets owns only sheet/slot persistence.
@@ -888,7 +906,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive/category assignment/category filtering, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering/category assignment/category filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete behavior, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, daily task CRUD/completion/archive/category assignment/category filtering, daily completion idempotency, weekly recurrence validation, weekly task editing/filtering/category assignment/category filtering, weekly occurrence completion idempotency, invalid occurrence dates, weekly task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 

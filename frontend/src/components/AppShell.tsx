@@ -9,7 +9,12 @@ import {
   createWaterEntry,
 } from "@/features/tracker/api";
 import { createCalendarEvent } from "@/features/calendar/api";
-import { createDailyTask } from "@/features/tasks/api";
+import {
+  createDailyTask,
+  createWeeklyTask,
+  getTaskCategories,
+} from "@/features/tasks/api";
+import type { TaskCategory } from "@/features/tasks/types";
 import { createNote } from "@/features/notes/api";
 import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
 import { todayIsoDate } from "@/lib/date";
@@ -27,6 +32,7 @@ const navItems = [
 
 const quickAddTypes = [
   { value: "daily-task", label: "Daily Task" },
+  { value: "weekly-task", label: "Weekly Task" },
   { value: "note", label: "Note" },
   { value: "calendar-event", label: "Calendar Event" },
   { value: "water-entry", label: "Water Entry" },
@@ -51,7 +57,19 @@ type QuickAddForm = {
   amountKcal: string;
   label: string;
   note: string;
+  weekdays: number[];
+  categoryId: string;
 };
+
+const WEEKDAYS = [
+  { value: 0, label: "Mon" },
+  { value: 1, label: "Tue" },
+  { value: 2, label: "Wed" },
+  { value: 3, label: "Thu" },
+  { value: 4, label: "Fri" },
+  { value: 5, label: "Sat" },
+  { value: 6, label: "Sun" },
+];
 
 function emptyForm(date = todayIsoDate()): QuickAddForm {
   return {
@@ -69,6 +87,8 @@ function emptyForm(date = todayIsoDate()): QuickAddForm {
     amountKcal: "",
     label: "",
     note: "",
+    weekdays: [],
+    categoryId: "",
   };
 }
 
@@ -178,8 +198,18 @@ function QuickAddModal({
   const [type, setType] = useState<QuickAddType>("daily-task");
   const [form, setForm] = useState<QuickAddForm>(() => emptyForm());
   const [isSaving, setIsSaving] = useState(false);
+  const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    getTaskCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;
@@ -191,6 +221,15 @@ function QuickAddModal({
 
   function resetForNextCreate() {
     setForm(emptyForm(form.date));
+  }
+
+  function toggleWeekday(weekday: number) {
+    setForm((current) => ({
+      ...current,
+      weekdays: current.weekdays.includes(weekday)
+        ? current.weekdays.filter((item) => item !== weekday)
+        : [...current.weekdays, weekday].sort(),
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -205,6 +244,16 @@ function QuickAddModal({
           title: form.title,
           description: form.description,
           task_date: form.date,
+        });
+      } else if (type === "weekly-task") {
+        if (form.weekdays.length === 0) {
+          throw new Error("Choose at least one weekday.");
+        }
+        await createWeeklyTask({
+          title: form.title,
+          description: form.description,
+          weekdays: form.weekdays,
+          category_id: form.categoryId ? Number(form.categoryId) : null,
         });
       } else if (type === "note") {
         await createNote({
@@ -296,11 +345,25 @@ function QuickAddModal({
                 ))}
               </select>
             </Field>
-            <DateSelector label="Date" onChange={(value) => update("date", value)} value={form.date} />
+            {type === "weekly-task" ? (
+              <div className="text-sm text-neutral-600">
+                Weekly tasks appear on the weekdays selected below.
+              </div>
+            ) : (
+              <DateSelector label="Date" onChange={(value) => update("date", value)} value={form.date} />
+            )}
           </div>
 
           {type === "daily-task" ? (
             <DailyTaskFields form={form} update={update} />
+          ) : null}
+          {type === "weekly-task" ? (
+            <WeeklyTaskFields
+              categories={categories}
+              form={form}
+              toggleWeekday={toggleWeekday}
+              update={update}
+            />
           ) : null}
           {type === "note" ? <NoteFields form={form} update={update} /> : null}
           {type === "calendar-event" ? (
@@ -364,6 +427,74 @@ function DailyTaskFields({ form, update }: FieldProps) {
           onChange={(event) => update("description", event.target.value)}
           value={form.description}
         />
+      </Field>
+    </>
+  );
+}
+
+function WeeklyTaskFields({
+  categories,
+  form,
+  toggleWeekday,
+  update,
+}: FieldProps & {
+  categories: TaskCategory[];
+  toggleWeekday: (weekday: number) => void;
+}) {
+  return (
+    <>
+      <Field label="Title">
+        <input
+          className={inputClass}
+          onChange={(event) => update("title", event.target.value)}
+          required
+          type="text"
+          value={form.title}
+        />
+      </Field>
+      <Field label="Description">
+        <textarea
+          className={`${inputClass} min-h-24`}
+          onChange={(event) => update("description", event.target.value)}
+          value={form.description}
+        />
+      </Field>
+      <fieldset>
+        <legend className="text-sm font-medium text-neutral-800">Weekdays</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {WEEKDAYS.map((weekday) => (
+            <label
+              className={`rounded-md border px-3 py-2 text-sm ${
+                form.weekdays.includes(weekday.value)
+                  ? "border-teal-700 bg-teal-50 text-teal-900"
+                  : "border-neutral-300 text-neutral-800"
+              }`}
+              key={weekday.value}
+            >
+              <input
+                checked={form.weekdays.includes(weekday.value)}
+                className="mr-2"
+                onChange={() => toggleWeekday(weekday.value)}
+                type="checkbox"
+              />
+              {weekday.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <Field label="Category">
+        <select
+          className={inputClass}
+          onChange={(event) => update("categoryId", event.target.value)}
+          value={form.categoryId}
+        >
+          <option value="">None</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
       </Field>
     </>
   );

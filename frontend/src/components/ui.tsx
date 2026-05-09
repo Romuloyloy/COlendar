@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { addDaysToIsoDate, todayIsoDate } from "@/lib/date";
+
 type PageHeaderProps = {
   title: string;
   description: string;
@@ -120,5 +122,52 @@ export function DateSelector({
         value={value}
       />
     </label>
+  );
+}
+
+export function DateNavigator({
+  label = "Date",
+  value,
+  onChange,
+  className = "",
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={`text-sm font-medium text-neutral-800 ${className}`}>
+      <span className="block">{label}</span>
+      <div className="mt-1 flex items-center gap-2">
+        <button
+          className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+          onClick={() => onChange(addDaysToIsoDate(value, -1))}
+          type="button"
+        >
+          Prev
+        </button>
+        <input
+          className="h-10 rounded-md border border-neutral-300 px-3 text-sm"
+          onChange={(event) => onChange(event.target.value)}
+          type="date"
+          value={value}
+        />
+        <button
+          className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+          onClick={() => onChange(todayIsoDate())}
+          type="button"
+        >
+          Today
+        </button>
+        <button
+          className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+          onClick={() => onChange(addDaysToIsoDate(value, 1))}
+          type="button"
+        >
+          Next
+        </button>
+      </div>
+    </div>
   );
 }

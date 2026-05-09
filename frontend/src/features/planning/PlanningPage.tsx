@@ -13,7 +13,7 @@ import type {
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
 import {
-  DateSelector,
+  DateNavigator,
   ErrorState,
   LoadingState,
   PageHeader,
@@ -197,7 +197,7 @@ export function PlanningPage() {
         <PageHeader
           actions={
           <div className="flex flex-wrap items-end gap-3">
-            <DateSelector
+            <DateNavigator
               className="min-w-48"
               label="Date"
               onChange={setSelectedDate}
