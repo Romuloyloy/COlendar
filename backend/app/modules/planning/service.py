@@ -10,8 +10,9 @@ from app.modules.planning.schemas import (
     WeeklyPlan,
     WeeklyPlanDay,
 )
-from app.modules.tasks.models import DailyTask, WeeklyTask, WeeklyTaskCompletion
+from app.modules.tasks.models import DailyTask, WeeklyTaskCompletion
 from app.modules.tasks.schemas import weekdays_from_storage
+from app.modules.tasks.service import list_recurring_tasks_scheduled_for_date
 
 
 def week_start_for(selected_date: date) -> date:
@@ -58,19 +59,7 @@ def list_weekly_task_occurrences_for_date(
     db: Session,
     selected_date: date,
 ) -> list[PlanningWeeklyTaskOccurrence]:
-    scheduled_weekday = selected_date.weekday()
-    active_weekly_tasks = list(
-        db.scalars(
-            select(WeeklyTask)
-            .where(WeeklyTask.is_archived.is_(False))
-            .order_by(WeeklyTask.id.asc())
-        )
-    )
-    scheduled_tasks = [
-        task
-        for task in active_weekly_tasks
-        if scheduled_weekday in weekdays_from_storage(task.weekdays)
-    ]
+    scheduled_tasks = list_recurring_tasks_scheduled_for_date(db, selected_date)
     task_ids = [task.id for task in scheduled_tasks]
     completions_by_task_id: dict[int, WeeklyTaskCompletion] = {}
     if task_ids:
@@ -90,6 +79,12 @@ def list_weekly_task_occurrences_for_date(
             title=task.title,
             description=task.description,
             weekdays=weekdays_from_storage(task.weekdays),
+            recurrence_type=task.recurrence_type,
+            interval_weeks=task.interval_weeks,
+            anchor_date=task.anchor_date,
+            day_of_month=task.day_of_month,
+            start_date=task.start_date,
+            end_date=task.end_date,
             is_completed=task.id in completions_by_task_id,
             completion_id=completions_by_task_id.get(task.id).id
             if task.id in completions_by_task_id

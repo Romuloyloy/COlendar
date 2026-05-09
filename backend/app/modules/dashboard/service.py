@@ -20,8 +20,9 @@ from app.modules.dashboard.widget_catalog import (
 )
 from app.modules.calendar.service import upcoming_events_query
 from app.modules.notes.models import Note
-from app.modules.tasks.models import DailyTask, WeeklyTask, WeeklyTaskCompletion
+from app.modules.tasks.models import DailyTask, WeeklyTaskCompletion
 from app.modules.tasks.schemas import weekdays_from_storage
+from app.modules.tasks.service import list_recurring_tasks_scheduled_for_date
 from app.modules.tracker.service import get_tracker_summary
 
 
@@ -46,19 +47,7 @@ def get_dashboard_summary(
         )
     )
 
-    scheduled_weekday = selected_date.weekday()
-    active_weekly_tasks = list(
-        db.scalars(
-            select(WeeklyTask)
-            .where(WeeklyTask.is_archived.is_(False))
-            .order_by(WeeklyTask.id.asc())
-        )
-    )
-    scheduled_weekly_tasks = [
-        task
-        for task in active_weekly_tasks
-        if scheduled_weekday in weekdays_from_storage(task.weekdays)
-    ]
+    scheduled_weekly_tasks = list_recurring_tasks_scheduled_for_date(db, selected_date)
 
     weekly_task_ids = [task.id for task in scheduled_weekly_tasks]
     completions_by_task_id: dict[int, WeeklyTaskCompletion] = {}
@@ -79,6 +68,12 @@ def get_dashboard_summary(
             title=task.title,
             description=task.description,
             weekdays=weekdays_from_storage(task.weekdays),
+            recurrence_type=task.recurrence_type,
+            interval_weeks=task.interval_weeks,
+            anchor_date=task.anchor_date,
+            day_of_month=task.day_of_month,
+            start_date=task.start_date,
+            end_date=task.end_date,
             category_id=task.category_id,
             is_completed=task.id in completions_by_task_id,
             completion_id=completions_by_task_id.get(task.id).id

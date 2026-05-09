@@ -39,6 +39,36 @@ def test_daily_planning_includes_weekly_scheduled_tasks(client: TestClient) -> N
     assert [task["title"] for task in response.json()["weekly_tasks"]] == ["Thursday"]
 
 
+def test_daily_planning_includes_biweekly_and_monthly_occurrences(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Bi-weekly",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+            "anchor_date": "2026-05-04",
+        },
+    )
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Monthly",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 18,
+        },
+    )
+
+    response = client.get("/api/planning/daily?date=2026-05-18")
+
+    assert response.status_code == 200
+    assert [task["title"] for task in response.json()["weekly_tasks"]] == [
+        "Bi-weekly",
+        "Monthly",
+    ]
+
+
 def test_daily_planning_includes_calendar_events(client: TestClient) -> None:
     client.post(
         "/api/calendar/events",

@@ -104,7 +104,7 @@ Examples:
 
 Implemented:
 - notes + nested folders
-- daily tasks
+- one-time dated tasks
 - weekly recurring tasks
 - internal calendar events
 - water tracking

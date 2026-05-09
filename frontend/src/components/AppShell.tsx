@@ -16,7 +16,13 @@ import {
 } from "@/features/tasks/api";
 import type { TaskCategory } from "@/features/tasks/types";
 import { createNote } from "@/features/notes/api";
-import { DateSelector, ErrorState, NoticeState } from "@/components/ui";
+import {
+  AppButton,
+  DateSelector,
+  ErrorState,
+  NoticeState,
+  inputClassName,
+} from "@/components/ui";
 import { todayIsoDate } from "@/lib/date";
 
 const navItems = [
@@ -32,7 +38,7 @@ const navItems = [
 
 const quickAddTypes = [
   { value: "daily-task", label: "One-time Task" },
-  { value: "weekly-task", label: "Weekly Task" },
+  { value: "weekly-task", label: "Recurring Task" },
   { value: "note", label: "Note" },
   { value: "calendar-event", label: "Calendar Event" },
   { value: "water-entry", label: "Water Entry" },
@@ -61,6 +67,10 @@ type QuickAddForm = {
   label: string;
   note: string;
   weekdays: number[];
+  recurrenceType: "weekly" | "biweekly" | "monthly_day";
+  anchorDate: string;
+  dayOfMonth: string;
+  endDate: string;
   categoryId: string;
 };
 
@@ -94,6 +104,10 @@ function emptyForm(date = todayIsoDate()): QuickAddForm {
     label: "",
     note: "",
     weekdays: [],
+    recurrenceType: "weekly",
+    anchorDate: date,
+    dayOfMonth: `${new Date(`${date}T00:00:00`).getDate()}`,
+    endDate: "",
     categoryId: "",
   };
 }
@@ -110,15 +124,14 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="block text-sm font-medium text-neutral-800">
+    <label className="block text-sm font-medium text-[#3b3732]">
       {label}
       {children}
     </label>
   );
 }
 
-const inputClass =
-  "mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm";
+const inputClass = inputClassName;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
@@ -147,28 +160,29 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="border-b border-neutral-300 bg-white/95">
+      <header className="sticky top-0 z-30 border-b border-[#ded6ca]/80 bg-[#fffdf8]/88 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link className="text-lg font-semibold text-neutral-950" href="/">
+          <Link className="text-lg font-semibold text-[#2c2925]" href="/">
             COlendar
           </Link>
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
             {navItems.map(([label, href]) => (
               <Link
-                className="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 hover:text-teal-700"
+                className="rounded-full px-3 py-1.5 text-[#625c55] transition hover:bg-[#f0f4ec] hover:text-[#3f7168]"
                 href={href}
                 key={href}
               >
                 {label}
               </Link>
             ))}
-            <button
-              className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-800"
+            <AppButton
+              className="min-h-9 px-3 py-1.5"
+              variant="primary"
               onClick={() => setIsQuickAddOpen(true)}
               type="button"
             >
               Quick Add
-            </button>
+            </AppButton>
           </div>
         </nav>
       </header>
@@ -256,13 +270,21 @@ function QuickAddModal({
           category_id: form.categoryId ? Number(form.categoryId) : null,
         });
       } else if (type === "weekly-task") {
-        if (form.weekdays.length === 0) {
+        if (form.recurrenceType !== "monthly_day" && form.weekdays.length === 0) {
           throw new Error("Choose at least one weekday.");
         }
         await createWeeklyTask({
           title: form.title,
           description: form.description,
+          recurrence_type: form.recurrenceType,
           weekdays: form.weekdays,
+          anchor_date:
+            form.recurrenceType === "biweekly" ? emptyToNull(form.anchorDate) : null,
+          day_of_month:
+            form.recurrenceType === "monthly_day"
+              ? Number(form.dayOfMonth)
+              : null,
+          end_date: emptyToNull(form.endDate),
           category_id: form.categoryId ? Number(form.categoryId) : null,
         });
       } else if (type === "note") {
@@ -316,24 +338,24 @@ function QuickAddModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-neutral-950/30 px-6 py-20">
-      <div className="w-full max-w-2xl rounded-md border border-neutral-300 bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#2c2925]/35 px-6 py-20 backdrop-blur-sm">
+      <div className="sheet-floating-panel w-full max-w-2xl overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-[#ded6ca] px-5 py-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+            <p className="app-eyebrow">
               Global Quick Add
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-neutral-950">
+            <h2 className="mt-1 text-xl font-semibold text-[#2c2925]">
               Create from anywhere
             </h2>
           </div>
-          <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+          <AppButton
+            className="min-h-8 px-3 py-1.5 text-xs"
             onClick={onClose}
             type="button"
           >
             Close
-          </button>
+          </AppButton>
         </div>
 
         <form className="space-y-4 px-5 py-5" onSubmit={handleSubmit}>
@@ -357,7 +379,7 @@ function QuickAddModal({
             </Field>
             {type === "weekly-task" ? (
               <div className="text-sm text-neutral-600">
-                Weekly tasks appear on the weekdays selected below.
+                Recurring tasks appear on dates that match the simple recurrence below.
               </div>
             ) : type === "calendar-event" ? (
               <DateSelector label="Event date" onChange={(value) => update("date", value)} value={form.date} />
@@ -394,21 +416,20 @@ function QuickAddModal({
           {error ? <ErrorState message={error} /> : null}
           {notice ? <NoticeState message={notice} /> : null}
 
-          <div className="flex flex-wrap justify-end gap-3 border-t border-neutral-200 pt-4">
-            <button
-              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+          <div className="flex flex-wrap justify-end gap-3 border-t border-[#ded6ca] pt-4">
+            <AppButton
               onClick={onClose}
               type="button"
             >
               Done
-            </button>
-            <button
-              className="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
+            </AppButton>
+            <AppButton
               disabled={isSaving}
+              variant="primary"
               type="submit"
             >
               {isSaving ? "Creating..." : "Create"}
-            </button>
+            </AppButton>
           </div>
         </form>
       </div>
@@ -515,29 +536,80 @@ function WeeklyTaskFields({
           value={form.description}
         />
       </Field>
-      <fieldset>
-        <legend className="text-sm font-medium text-neutral-800">Weekdays</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {WEEKDAYS.map((weekday) => (
-            <label
-              className={`rounded-md border px-3 py-2 text-sm ${
-                form.weekdays.includes(weekday.value)
-                  ? "border-teal-700 bg-teal-50 text-teal-900"
-                  : "border-neutral-300 text-neutral-800"
-              }`}
-              key={weekday.value}
-            >
-              <input
-                checked={form.weekdays.includes(weekday.value)}
-                className="mr-2"
-                onChange={() => toggleWeekday(weekday.value)}
-                type="checkbox"
-              />
-              {weekday.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <Field label="Recurrence">
+        <select
+          className={inputClass}
+          onChange={(event) =>
+            update(
+              "recurrenceType",
+              event.target.value as QuickAddForm["recurrenceType"],
+            )
+          }
+          value={form.recurrenceType}
+        >
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly_day">Monthly by day</option>
+        </select>
+      </Field>
+      {form.recurrenceType === "monthly_day" ? (
+        <Field label="Day of month">
+          <input
+            className={inputClass}
+            max="31"
+            min="1"
+            onChange={(event) => update("dayOfMonth", event.target.value)}
+            required
+            type="number"
+            value={form.dayOfMonth}
+          />
+        </Field>
+      ) : (
+        <fieldset>
+          <legend className="text-sm font-medium text-neutral-800">Weekdays</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {WEEKDAYS.map((weekday) => (
+              <label
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  form.weekdays.includes(weekday.value)
+                    ? "border-teal-700 bg-teal-50 text-teal-900"
+                    : "border-neutral-300 text-neutral-800"
+                }`}
+                key={weekday.value}
+              >
+                <input
+                  checked={form.weekdays.includes(weekday.value)}
+                  className="mr-2"
+                  onChange={() => toggleWeekday(weekday.value)}
+                  type="checkbox"
+                />
+                {weekday.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {form.recurrenceType === "biweekly" ? (
+          <Field label="Anchor date">
+            <input
+              className={inputClass}
+              onChange={(event) => update("anchorDate", event.target.value)}
+              required
+              type="date"
+              value={form.anchorDate}
+            />
+          </Field>
+        ) : null}
+        <Field label="End date">
+          <input
+            className={inputClass}
+            onChange={(event) => update("endDate", event.target.value)}
+            type="date"
+            value={form.endDate}
+          />
+        </Field>
+      </div>
       <Field label="Category">
         <select
           className={inputClass}

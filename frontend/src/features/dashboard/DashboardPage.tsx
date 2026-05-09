@@ -28,6 +28,7 @@ import {
   NoticeState,
   PageHeader,
   SectionCard,
+  AppButton,
 } from "@/components/ui";
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
@@ -132,20 +133,19 @@ export function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 text-neutral-900">
-      <section className="mx-auto max-w-6xl">
+    <main className="app-page">
+      <section className="app-container">
         <div className="mb-6">
           <PageHeader
             description={`A practical home base for ${selectedDateLabel}.`}
             eyebrow="Dashboard"
             actions={
-              <button
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+              <AppButton
                 onClick={() => setIsCustomizeOpen(true)}
                 type="button"
               >
                 Customize Dashboard
-              </button>
+              </AppButton>
             }
             title="COlendar"
           />
@@ -191,7 +191,7 @@ export function DashboardPage() {
                 All dashboard widgets are hidden.
               </p>
               <button
-                className="mt-4 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+                className="app-button-primary mt-4"
                 onClick={() => setIsCustomizeOpen(true)}
                 type="button"
               >

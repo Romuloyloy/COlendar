@@ -1,8 +1,9 @@
 from datetime import date, datetime, time
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 VALID_WEEKDAYS = set(range(7))
+VALID_RECURRENCE_TYPES = {"weekly", "biweekly", "monthly_day"}
 
 
 def normalize_weekdays(value: list[int]) -> list[int]:
@@ -79,7 +80,13 @@ class DailyTaskRead(BaseModel):
 class WeeklyTaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=250)
     description: str = ""
-    weekdays: list[int]
+    weekdays: list[int] = Field(default_factory=list)
+    recurrence_type: str = "weekly"
+    interval_weeks: int | None = None
+    anchor_date: date | None = None
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    start_date: date | None = None
+    end_date: date | None = None
     category_id: int | None = None
 
     @field_validator("title")
@@ -92,13 +99,38 @@ class WeeklyTaskCreate(BaseModel):
     @field_validator("weekdays")
     @classmethod
     def weekdays_must_be_valid(cls, value: list[int]) -> list[int]:
-        return normalize_weekdays(value)
+        return sorted(set(value))
+
+    @field_validator("recurrence_type")
+    @classmethod
+    def recurrence_type_must_be_valid(cls, value: str) -> str:
+        if value not in VALID_RECURRENCE_TYPES:
+            raise ValueError("recurrence_type must be weekly, biweekly, or monthly_day")
+        return value
+
+    @model_validator(mode="after")
+    def recurrence_fields_must_match_type(self) -> "WeeklyTaskCreate":
+        validate_recurrence_fields(
+            recurrence_type=self.recurrence_type,
+            weekdays=self.weekdays,
+            anchor_date=self.anchor_date,
+            day_of_month=self.day_of_month,
+            start_date=self.start_date,
+            end_date=self.end_date,
+        )
+        return self
 
 
 class WeeklyTaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=250)
     description: str | None = None
     weekdays: list[int] | None = None
+    recurrence_type: str | None = None
+    interval_weeks: int | None = None
+    anchor_date: date | None = None
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    start_date: date | None = None
+    end_date: date | None = None
     category_id: int | None = None
 
     @field_validator("title")
@@ -113,7 +145,14 @@ class WeeklyTaskUpdate(BaseModel):
     def weekdays_must_be_valid(cls, value: list[int] | None) -> list[int] | None:
         if value is None:
             return value
-        return normalize_weekdays(value)
+        return sorted(set(value))
+
+    @field_validator("recurrence_type")
+    @classmethod
+    def recurrence_type_must_be_valid(cls, value: str | None) -> str | None:
+        if value is not None and value not in VALID_RECURRENCE_TYPES:
+            raise ValueError("recurrence_type must be weekly, biweekly, or monthly_day")
+        return value
 
 
 class WeeklyTaskRead(BaseModel):
@@ -121,12 +160,39 @@ class WeeklyTaskRead(BaseModel):
     title: str
     description: str
     weekdays: list[int]
+    recurrence_type: str
+    interval_weeks: int
+    anchor_date: date | None
+    day_of_month: int | None
+    start_date: date | None
+    end_date: date | None
     category_id: int | None
     is_archived: bool
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+def validate_recurrence_fields(
+    *,
+    recurrence_type: str,
+    weekdays: list[int],
+    anchor_date: date | None,
+    day_of_month: int | None,
+    start_date: date | None,
+    end_date: date | None,
+) -> None:
+    if recurrence_type in {"weekly", "biweekly"}:
+        normalize_weekdays(weekdays)
+    if recurrence_type == "biweekly" and anchor_date is None:
+        raise ValueError("Bi-weekly tasks require an anchor date")
+    if recurrence_type == "monthly_day" and day_of_month is None:
+        raise ValueError("Monthly tasks require a day of month")
+
+    recurrence_start = anchor_date if recurrence_type == "biweekly" else start_date
+    if end_date is not None and recurrence_start is not None and end_date < recurrence_start:
+        raise ValueError("end_date cannot be before the recurrence start")
 
 
 class TaskCategoryCreate(BaseModel):

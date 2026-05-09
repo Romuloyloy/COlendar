@@ -91,7 +91,7 @@ function DailyTaskList({ tasks }: { tasks: DailyTask[] }) {
 
 function WeeklyTaskList({ tasks }: { tasks: PlanningWeeklyTaskOccurrence[] }) {
   if (tasks.length === 0) {
-    return <p className="text-sm text-neutral-600">No weekly tasks scheduled.</p>;
+    return <p className="text-sm text-neutral-600">No recurring tasks scheduled.</p>;
   }
 
   return (
@@ -110,6 +110,13 @@ function WeeklyTaskList({ tasks }: { tasks: PlanningWeeklyTaskOccurrence[] }) {
               {task.description}
             </p>
           ) : null}
+          <p className="mt-1 text-xs text-neutral-600">
+            {task.recurrence_type === "monthly_day"
+              ? `Monthly on day ${task.day_of_month}`
+              : task.recurrence_type === "biweekly"
+                ? "Bi-weekly"
+                : "Weekly"}
+          </p>
         </div>
       ))}
     </div>
@@ -159,7 +166,7 @@ function WeeklyDayCard({ day }: { day: WeeklyPlanDay }) {
         </div>
         <div>
           <p className="mb-2 text-xs font-semibold uppercase text-neutral-500">
-            Weekly
+            Recurring
           </p>
           <WeeklyTaskList tasks={day.weekly_tasks} />
         </div>
@@ -214,7 +221,7 @@ export function PlanningPage() {
   }, [selectedDate]);
 
   return (
-    <main className="min-h-screen px-6 py-8 text-neutral-900">
+    <main className="app-page">
       <section className="mx-auto max-w-6xl space-y-6">
         <PageHeader
           actions={
@@ -270,7 +277,7 @@ export function PlanningPage() {
                   <DailyTaskList tasks={dailyPlan.daily_tasks} />
                 </div>
                 <div>
-                  <h3 className="mb-3 text-sm font-semibold">Weekly Tasks</h3>
+                  <h3 className="mb-3 text-sm font-semibold">Recurring Tasks</h3>
                   <WeeklyTaskList tasks={dailyPlan.weekly_tasks} />
                 </div>
                 <div>

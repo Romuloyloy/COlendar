@@ -122,7 +122,7 @@ def search_weekly_tasks(db: Session, pattern: str) -> list[SearchResult]:
             id=task.id,
             type="weekly_task",
             title=task.title,
-            subtitle="Weekly task",
+            subtitle="Recurring task",
             preview=preview_text(task.description),
             target_url="/tasks",
         )

@@ -11,6 +11,12 @@ class PlanningWeeklyTaskOccurrence(BaseModel):
     title: str
     description: str
     weekdays: list[int]
+    recurrence_type: str
+    interval_weeks: int
+    anchor_date: date | None
+    day_of_month: int | None
+    start_date: date | None
+    end_date: date | None
     is_completed: bool
     completion_id: int | None
 

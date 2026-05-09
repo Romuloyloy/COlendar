@@ -1,5 +1,16 @@
-import type { CalendarEvent } from "./types";
+import type { CalendarEvent, CalendarOverview } from "./types";
 import { apiRequest } from "@/lib/api";
+
+export function getCalendarOverview(
+  fromDate: string,
+  toDate: string,
+): Promise<CalendarOverview> {
+  return apiRequest<CalendarOverview>(
+    `/api/calendar/overview?from_date=${encodeURIComponent(
+      fromDate,
+    )}&to_date=${encodeURIComponent(toDate)}`,
+  );
+}
 
 export function getCalendarEventsForDate(date: string): Promise<CalendarEvent[]> {
   return apiRequest<CalendarEvent[]>(

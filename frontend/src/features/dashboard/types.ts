@@ -8,6 +8,12 @@ export type DashboardWeeklyTask = {
   title: string;
   description: string;
   weekdays: number[];
+  recurrence_type: "weekly" | "biweekly" | "monthly_day";
+  interval_weeks: number;
+  anchor_date: string | null;
+  day_of_month: number | null;
+  start_date: string | null;
+  end_date: string | null;
   category_id: number | null;
   is_completed: boolean;
   completion_id: number | null;

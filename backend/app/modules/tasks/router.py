@@ -18,13 +18,16 @@ from app.modules.tasks.schemas import (
     WeeklyTaskRead,
     WeeklyTaskUpdate,
     weekdays_from_storage,
-    weekdays_to_storage,
 )
 from app.modules.tasks.service import (
     get_active_task_category_or_404,
     get_active_daily_task_or_404,
     get_active_weekly_task_or_404,
+    list_recurring_tasks_scheduled_for_date,
+    normalized_weekday_storage,
+    recurrence_interval_for,
     validate_optional_category,
+    validate_recurring_task_values,
     validate_unique_active_category_name,
     validate_weekly_completion_date,
 )
@@ -38,6 +41,12 @@ def serialize_weekly_task(task: WeeklyTask) -> WeeklyTaskRead:
         title=task.title,
         description=task.description,
         weekdays=weekdays_from_storage(task.weekdays),
+        recurrence_type=task.recurrence_type,
+        interval_weeks=task.interval_weeks,
+        anchor_date=task.anchor_date,
+        day_of_month=task.day_of_month,
+        start_date=task.start_date,
+        end_date=task.end_date,
         category_id=task.category_id,
         is_archived=task.is_archived,
         created_at=task.created_at,
@@ -206,20 +215,29 @@ def incomplete_daily_task(task_id: int, db: Session = Depends(get_db)) -> DailyT
 @router.get("/weekly", response_model=list[WeeklyTaskRead])
 def list_weekly_tasks(
     weekday: int | None = Query(default=None, ge=0, le=6),
+    date: date | None = Query(default=None),
     category_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[WeeklyTaskRead]:
     validate_optional_category(db, category_id)
-    query = select(WeeklyTask).where(WeeklyTask.is_archived.is_(False))
-    if category_id is not None:
-        query = query.where(WeeklyTask.category_id == category_id)
-    tasks = list(
-        db.scalars(
-            query.order_by(WeeklyTask.id.asc())
+    if date is not None:
+        tasks = list_recurring_tasks_scheduled_for_date(db, date, category_id)
+    else:
+        query = select(WeeklyTask).where(WeeklyTask.is_archived.is_(False))
+        if category_id is not None:
+            query = query.where(WeeklyTask.category_id == category_id)
+        tasks = list(
+            db.scalars(
+                query.order_by(WeeklyTask.id.asc())
+            )
         )
-    )
     if weekday is not None:
-        tasks = [task for task in tasks if weekday in weekdays_from_storage(task.weekdays)]
+        tasks = [
+            task
+            for task in tasks
+            if task.recurrence_type != "monthly_day"
+            and weekday in weekdays_from_storage(task.weekdays)
+        ]
     return [serialize_weekly_task(task) for task in tasks]
 
 
@@ -247,10 +265,26 @@ def create_weekly_task(
     db: Session = Depends(get_db),
 ) -> WeeklyTaskRead:
     validate_optional_category(db, payload.category_id)
+    validate_recurring_task_values(
+        recurrence_type=payload.recurrence_type,
+        weekdays=payload.weekdays,
+        anchor_date=payload.anchor_date,
+        day_of_month=payload.day_of_month,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+    )
     task = WeeklyTask(
         title=payload.title.strip(),
         description=payload.description,
-        weekdays=weekdays_to_storage(payload.weekdays),
+        weekdays=normalized_weekday_storage(payload.recurrence_type, payload.weekdays),
+        recurrence_type=payload.recurrence_type,
+        interval_weeks=recurrence_interval_for(payload.recurrence_type),
+        anchor_date=payload.anchor_date,
+        day_of_month=payload.day_of_month
+        if payload.recurrence_type == "monthly_day"
+        else None,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
         category_id=payload.category_id,
     )
     db.add(task)
@@ -267,12 +301,58 @@ def update_weekly_task(
 ) -> WeeklyTaskRead:
     task = get_active_weekly_task_or_404(db, task_id)
 
+    next_recurrence_type = (
+        payload.recurrence_type
+        if "recurrence_type" in payload.model_fields_set and payload.recurrence_type is not None
+        else task.recurrence_type
+    )
+    next_weekdays = (
+        payload.weekdays
+        if "weekdays" in payload.model_fields_set and payload.weekdays is not None
+        else weekdays_from_storage(task.weekdays)
+    )
+    next_anchor_date = (
+        payload.anchor_date
+        if "anchor_date" in payload.model_fields_set
+        else task.anchor_date
+    )
+    next_day_of_month = (
+        payload.day_of_month
+        if "day_of_month" in payload.model_fields_set
+        else task.day_of_month
+    )
+    next_start_date = (
+        payload.start_date
+        if "start_date" in payload.model_fields_set
+        else task.start_date
+    )
+    next_end_date = (
+        payload.end_date
+        if "end_date" in payload.model_fields_set
+        else task.end_date
+    )
+    validate_recurring_task_values(
+        recurrence_type=next_recurrence_type,
+        weekdays=next_weekdays,
+        anchor_date=next_anchor_date,
+        day_of_month=next_day_of_month,
+        start_date=next_start_date,
+        end_date=next_end_date,
+    )
+
     if "title" in payload.model_fields_set and payload.title is not None:
         task.title = payload.title.strip()
     if "description" in payload.model_fields_set and payload.description is not None:
         task.description = payload.description
-    if "weekdays" in payload.model_fields_set and payload.weekdays is not None:
-        task.weekdays = weekdays_to_storage(payload.weekdays)
+    task.recurrence_type = next_recurrence_type
+    task.interval_weeks = recurrence_interval_for(next_recurrence_type)
+    task.weekdays = normalized_weekday_storage(next_recurrence_type, next_weekdays)
+    task.anchor_date = next_anchor_date if next_recurrence_type == "biweekly" else None
+    task.day_of_month = (
+        next_day_of_month if next_recurrence_type == "monthly_day" else None
+    )
+    task.start_date = next_start_date
+    task.end_date = next_end_date
     if "category_id" in payload.model_fields_set:
         validate_optional_category(db, payload.category_id)
         task.category_id = payload.category_id

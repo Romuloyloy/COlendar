@@ -28,7 +28,7 @@ import type {
   WeeklyTaskCompletion,
 } from "./types";
 import { DateNavigator, ErrorState, NoticeState } from "@/components/ui";
-import { formatDisplayDate, formatTime, todayIsoDate, weekdayFromIsoDate } from "@/lib/date";
+import { formatDisplayDate, formatTime, todayIsoDate } from "@/lib/date";
 
 const WEEKDAYS = [
   { value: 0, label: "Mon" },
@@ -40,8 +40,31 @@ const WEEKDAYS = [
   { value: 6, label: "Sun" },
 ];
 
+const RECURRENCE_TYPES = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Bi-weekly" },
+  { value: "monthly_day", label: "Monthly by day" },
+] as const;
+
 function weekdayLabel(value: number) {
   return WEEKDAYS.find((weekday) => weekday.value === value)?.label ?? `${value}`;
+}
+
+function recurringTaskMeta(task: WeeklyTask) {
+  if (task.recurrence_type === "monthly_day") {
+    const end = task.end_date ? ` until ${formatDisplayDate(task.end_date)}` : "";
+    return `Monthly on day ${task.day_of_month}${end}`;
+  }
+  const days = task.weekdays.map(weekdayLabel).join(", ");
+  if (task.recurrence_type === "biweekly") {
+    const anchor = task.anchor_date
+      ? ` from ${formatDisplayDate(task.anchor_date)}`
+      : "";
+    const end = task.end_date ? ` until ${formatDisplayDate(task.end_date)}` : "";
+    return `Every 2 weeks on ${days}${anchor}${end}`;
+  }
+  const end = task.end_date ? ` until ${formatDisplayDate(task.end_date)}` : "";
+  return `Weekly on ${days}${end}`;
 }
 
 function emptyToNull(value: string) {
@@ -91,7 +114,13 @@ export function TasksPage() {
   const [weeklyTitle, setWeeklyTitle] = useState("");
   const [weeklyDescription, setWeeklyDescription] = useState("");
   const [weeklyWeekdays, setWeeklyWeekdays] = useState<number[]>([]);
-  const [weeklyFilter, setWeeklyFilter] = useState("");
+  const [weeklyRecurrenceType, setWeeklyRecurrenceType] =
+    useState<WeeklyTask["recurrence_type"]>("weekly");
+  const [weeklyAnchorDate, setWeeklyAnchorDate] = useState(todayIsoDate());
+  const [weeklyDayOfMonth, setWeeklyDayOfMonth] = useState(
+    `${new Date(`${todayIsoDate()}T00:00:00`).getDate()}`,
+  );
+  const [weeklyEndDate, setWeeklyEndDate] = useState("");
   const [weeklyCategoryId, setWeeklyCategoryId] = useState("");
   const [weeklyCategoryFilter, setWeeklyCategoryFilter] = useState("");
   const [categoryName, setCategoryName] = useState("");
@@ -114,7 +143,6 @@ export function TasksPage() {
     () => new Set(weeklyCompletions.map((completion) => completion.weekly_task_id)),
     [weeklyCompletions],
   );
-  const selectedWeekday = weekdayFromIsoDate(selectedDate);
   const selectedCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId) ?? null,
     [categories, selectedCategoryId],
@@ -122,14 +150,13 @@ export function TasksPage() {
 
   async function loadData() {
     setError(null);
-    const weekday = weeklyFilter === "" ? undefined : Number(weeklyFilter);
     const dailyCategory =
       dailyCategoryFilter === "" ? undefined : Number(dailyCategoryFilter);
     const weeklyCategory =
       weeklyCategoryFilter === "" ? undefined : Number(weeklyCategoryFilter);
     const [dailyData, weeklyData, completionData, categoryData] = await Promise.all([
       getDailyTasks(selectedDate, dailyCategory),
-      getWeeklyTasks(weekday, weeklyCategory),
+      getWeeklyTasks(selectedDate, weeklyCategory),
       getWeeklyTaskCompletions(selectedDate),
       getTaskCategories(),
     ]);
@@ -157,7 +184,7 @@ export function TasksPage() {
     loadData()
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setIsLoading(false));
-  }, [selectedDate, weeklyFilter, dailyCategoryFilter, weeklyCategoryFilter]);
+  }, [selectedDate, dailyCategoryFilter, weeklyCategoryFilter]);
 
   useEffect(() => {
     function refreshAfterQuickAdd() {
@@ -167,7 +194,7 @@ export function TasksPage() {
     window.addEventListener("quick-add:created", refreshAfterQuickAdd);
     return () =>
       window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
-  }, [selectedDate, weeklyFilter, dailyCategoryFilter, weeklyCategoryFilter]);
+  }, [selectedDate, dailyCategoryFilter, weeklyCategoryFilter]);
 
   useEffect(() => {
     if (selectedDailyTask) {
@@ -185,6 +212,10 @@ export function TasksPage() {
       setWeeklyTitle(selectedWeeklyTask.title);
       setWeeklyDescription(selectedWeeklyTask.description);
       setWeeklyWeekdays(selectedWeeklyTask.weekdays);
+      setWeeklyRecurrenceType(selectedWeeklyTask.recurrence_type);
+      setWeeklyAnchorDate(selectedWeeklyTask.anchor_date ?? selectedDate);
+      setWeeklyDayOfMonth(selectedWeeklyTask.day_of_month?.toString() ?? "1");
+      setWeeklyEndDate(selectedWeeklyTask.end_date ?? "");
       setWeeklyCategoryId(selectedWeeklyTask.category_id?.toString() ?? "");
     }
   }, [selectedWeeklyTask]);
@@ -211,6 +242,10 @@ export function TasksPage() {
     setWeeklyTitle("");
     setWeeklyDescription("");
     setWeeklyWeekdays([]);
+    setWeeklyRecurrenceType("weekly");
+    setWeeklyAnchorDate(selectedDate);
+    setWeeklyDayOfMonth(`${new Date(`${selectedDate}T00:00:00`).getDate()}`);
+    setWeeklyEndDate("");
     setWeeklyCategoryId("");
   }
 
@@ -300,11 +335,19 @@ export function TasksPage() {
       const task = await createWeeklyTask({
         title: weeklyTitle,
         description: weeklyDescription,
+        recurrence_type: weeklyRecurrenceType,
         weekdays: weeklyWeekdays,
+        anchor_date:
+          weeklyRecurrenceType === "biweekly" ? emptyToNull(weeklyAnchorDate) : null,
+        day_of_month:
+          weeklyRecurrenceType === "monthly_day"
+            ? Number(weeklyDayOfMonth)
+            : null,
+        end_date: emptyToNull(weeklyEndDate),
         category_id: weeklyCategoryId ? Number(weeklyCategoryId) : null,
       });
       setSelectedWeeklyTaskId(task.id);
-      setNotice("Weekly task created.");
+      setNotice("Recurring task created.");
       await loadData();
     });
   }
@@ -318,20 +361,23 @@ export function TasksPage() {
       await updateWeeklyTask(selectedWeeklyTask.id, {
         title: weeklyTitle,
         description: weeklyDescription,
+        recurrence_type: weeklyRecurrenceType,
         weekdays: weeklyWeekdays,
+        anchor_date:
+          weeklyRecurrenceType === "biweekly" ? emptyToNull(weeklyAnchorDate) : null,
+        day_of_month:
+          weeklyRecurrenceType === "monthly_day"
+            ? Number(weeklyDayOfMonth)
+            : null,
+        end_date: emptyToNull(weeklyEndDate),
         category_id: weeklyCategoryId ? Number(weeklyCategoryId) : null,
       });
-      setNotice("Weekly task updated.");
+      setNotice("Recurring task updated.");
       await loadData();
     });
   }
 
   async function toggleWeeklyOccurrence(task: WeeklyTask) {
-    if (!task.weekdays.includes(selectedWeekday)) {
-      setError("This weekly task is not scheduled for the selected date.");
-      return;
-    }
-
     await runAction(async () => {
       if (completedWeeklyTaskIds.has(task.id)) {
         await incompleteWeeklyTask(task.id, selectedDate);
@@ -349,7 +395,7 @@ export function TasksPage() {
     await runAction(async () => {
       await archiveWeeklyTask(selectedWeeklyTask.id);
       resetWeeklyForm();
-      setNotice("Weekly task archived.");
+      setNotice("Recurring task archived.");
       await loadData();
     });
   }
@@ -427,12 +473,12 @@ export function TasksPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 text-neutral-900">
+    <main className="app-page">
       <section className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-2">
         <header className="xl:col-span-2">
           <h1 className="text-3xl font-semibold">Tasks</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-700">
-            Plan one-time tasks to complete and simple weekly recurring tasks.
+            Plan one-time tasks to complete and simple recurring tasks.
           </p>
           <div className="mt-4 flex flex-wrap items-end gap-4">
             <DateNavigator
@@ -700,23 +746,13 @@ export function TasksPage() {
 
         <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Weekly Tasks</h2>
+            <div>
+              <h2 className="text-xl font-semibold">Recurring Tasks</h2>
+              <p className="mt-1 text-sm text-neutral-600">
+                Showing occurrences scheduled for {formatDisplayDate(selectedDate)}.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
-              <label className="text-sm font-medium">
-                Day
-                <select
-                  className="ml-2 rounded border border-neutral-300 px-2 py-1.5"
-                  onChange={(event) => setWeeklyFilter(event.target.value)}
-                  value={weeklyFilter}
-                >
-                  <option value="">All days</option>
-                  {WEEKDAYS.map((weekday) => (
-                    <option key={weekday.value} value={weekday.value}>
-                      {weekday.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label className="text-sm font-medium">
                 Category
                 <select
@@ -736,13 +772,14 @@ export function TasksPage() {
           </div>
           <div className="mt-4 space-y-2">
             {isLoading ? (
-              <p className="text-sm text-neutral-600">Loading weekly tasks...</p>
+              <p className="text-sm text-neutral-600">Loading recurring tasks...</p>
             ) : weeklyTasks.length === 0 ? (
-              <p className="text-sm text-neutral-600">No weekly tasks yet.</p>
+              <p className="text-sm text-neutral-600">
+                No recurring tasks scheduled for this date.
+              </p>
             ) : (
               weeklyTasks.map((task) => {
                 const completed = completedWeeklyTaskIds.has(task.id);
-                const isScheduledForSelectedDate = task.weekdays.includes(selectedWeekday);
                 return (
                   <div
                     className={`rounded border px-3 py-2 ${
@@ -754,7 +791,7 @@ export function TasksPage() {
                       <input
                         checked={completed}
                         className="mt-1"
-                        disabled={!isScheduledForSelectedDate || isSaving}
+                        disabled={isSaving}
                         onChange={() => toggleWeeklyOccurrence(task)}
                         type="checkbox"
                       />
@@ -767,13 +804,8 @@ export function TasksPage() {
                           {task.title}
                         </span>
                         <span className="mt-1 block text-xs text-neutral-600">
-                          {task.weekdays.map(weekdayLabel).join(", ")}
+                          {recurringTaskMeta(task)}
                         </span>
-                        {!isScheduledForSelectedDate ? (
-                          <span className="mt-1 block text-xs text-neutral-500">
-                            Not scheduled for the selected date
-                          </span>
-                        ) : null}
                         {task.description ? (
                           <span className="mt-1 block text-xs text-neutral-600">
                         {task.description}
@@ -793,7 +825,7 @@ export function TasksPage() {
           >
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">
-                {selectedWeeklyTask ? "Edit Weekly Task" : "Create Weekly Task"}
+                {selectedWeeklyTask ? "Edit Recurring Task" : "Create Recurring Task"}
               </h3>
               <button
                 className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
@@ -821,29 +853,85 @@ export function TasksPage() {
                 value={weeklyDescription}
               />
             </label>
-            <fieldset>
-              <legend className="text-sm font-medium">Weekdays</legend>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {WEEKDAYS.map((weekday) => (
-                  <label
-                    className={`rounded border px-3 py-2 text-sm ${
-                      weeklyWeekdays.includes(weekday.value)
-                        ? "border-teal-700 bg-teal-50"
-                        : "border-neutral-300"
-                    }`}
-                    key={weekday.value}
-                  >
-                    <input
-                      checked={weeklyWeekdays.includes(weekday.value)}
-                      className="mr-2"
-                      onChange={() => toggleWeekday(weekday.value)}
-                      type="checkbox"
-                    />
-                    {weekday.label}
-                  </label>
+            <label className="block text-sm font-medium">
+              Recurrence
+              <select
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                onChange={(event) =>
+                  setWeeklyRecurrenceType(
+                    event.target.value as WeeklyTask["recurrence_type"],
+                  )
+                }
+                value={weeklyRecurrenceType}
+              >
+                {RECURRENCE_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
                 ))}
-              </div>
-            </fieldset>
+              </select>
+            </label>
+            {weeklyRecurrenceType === "monthly_day" ? (
+              <label className="block text-sm font-medium">
+                Day of month
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  max="31"
+                  min="1"
+                  onChange={(event) => setWeeklyDayOfMonth(event.target.value)}
+                  required
+                  type="number"
+                  value={weeklyDayOfMonth}
+                />
+              </label>
+            ) : (
+              <fieldset>
+                <legend className="text-sm font-medium">Weekdays</legend>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {WEEKDAYS.map((weekday) => (
+                    <label
+                      className={`rounded border px-3 py-2 text-sm ${
+                        weeklyWeekdays.includes(weekday.value)
+                          ? "border-teal-700 bg-teal-50"
+                          : "border-neutral-300"
+                      }`}
+                      key={weekday.value}
+                    >
+                      <input
+                        checked={weeklyWeekdays.includes(weekday.value)}
+                        className="mr-2"
+                        onChange={() => toggleWeekday(weekday.value)}
+                        type="checkbox"
+                      />
+                      {weekday.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {weeklyRecurrenceType === "biweekly" ? (
+                <label className="block text-sm font-medium">
+                  Anchor date
+                  <input
+                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                    onChange={(event) => setWeeklyAnchorDate(event.target.value)}
+                    required
+                    type="date"
+                    value={weeklyAnchorDate}
+                  />
+                </label>
+              ) : null}
+              <label className="block text-sm font-medium">
+                End date
+                <input
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setWeeklyEndDate(event.target.value)}
+                  type="date"
+                  value={weeklyEndDate}
+                />
+              </label>
+            </div>
             <label className="block text-sm font-medium">
               Category
               <select
@@ -865,7 +953,7 @@ export function TasksPage() {
                 disabled={isSaving}
                 type="submit"
               >
-                {selectedWeeklyTask ? "Update Weekly Task" : "Create Weekly Task"}
+                {selectedWeeklyTask ? "Update Recurring Task" : "Create Recurring Task"}
               </button>
               {selectedWeeklyTask ? (
                 <button

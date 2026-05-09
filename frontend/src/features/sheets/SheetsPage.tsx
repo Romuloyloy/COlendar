@@ -44,10 +44,12 @@ import {
 } from "@/features/tasks/api";
 import type { TaskCategory } from "@/features/tasks/types";
 import {
+  AppButton,
   DateNavigator,
   ErrorState,
   LoadingState,
   NoticeState,
+  inputClassName,
 } from "@/components/ui";
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
@@ -595,7 +597,7 @@ export function SheetsPage() {
       : null;
 
   return (
-    <main className="relative h-[calc(100vh-73px)] min-h-[680px] overflow-hidden bg-[#f2f4ef] text-neutral-900">
+    <main className="sheet-canvas relative h-[calc(100vh-73px)] min-h-[680px] overflow-hidden text-[#2c2925]">
       <TopCenterControls
         currentSheetName={currentSheetName}
         isControlOpen={isControlOpen}
@@ -627,24 +629,24 @@ export function SheetsPage() {
 
       <section className="flex h-full flex-col px-6 pb-6 pt-14">
         <div className="mb-3 flex min-h-10 items-center justify-between gap-4">
-          <button
-            className="rounded-md border border-neutral-300 bg-white/90 px-4 py-2 text-sm font-semibold text-neutral-800 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          <AppButton
+            className="bg-[#fffdf8]/80"
             disabled={isSaving || selectedSheetIndex <= 0}
             onClick={selectPreviousSheet}
             type="button"
           >
             Previous
-          </button>
+          </AppButton>
           <div className="min-w-0 text-center">
-            <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+            <p className="app-eyebrow">
               Sheet Workspace
             </p>
-            <h1 className="truncate text-2xl font-semibold text-neutral-950">
+            <h1 className="truncate text-2xl font-semibold text-[#2c2925]">
               {currentSheetName}
             </h1>
           </div>
-          <button
-            className="rounded-md border border-neutral-300 bg-white/90 px-4 py-2 text-sm font-semibold text-neutral-800 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          <AppButton
+            className="bg-[#fffdf8]/80"
             disabled={
               isSaving ||
               selectedSheetIndex < 0 ||
@@ -654,7 +656,7 @@ export function SheetsPage() {
             type="button"
           >
             Next
-          </button>
+          </AppButton>
         </div>
 
         <div className="mb-3 min-h-10">
@@ -663,7 +665,7 @@ export function SheetsPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-neutral-300 bg-white">
+          <div className="app-card flex min-h-0 flex-1 items-center justify-center">
             <LoadingState message="Loading sheet workspace..." />
           </div>
         ) : (
@@ -772,7 +774,7 @@ function TopCenterControls({
     <div className="absolute left-1/2 top-2 z-30 w-[min(92vw,760px)] -translate-x-1/2">
       <div className="flex justify-center">
         <button
-          className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+          className="rounded-full border border-[#d8d0c3] bg-[#fffdf8]/90 px-4 py-2 text-sm font-semibold text-[#2c2925] shadow-[0_8px_22px_rgb(82_70_55_/_0.10)] backdrop-blur hover:bg-white"
           onClick={() => onSetControlOpen(!isControlOpen)}
           type="button"
         >
@@ -781,16 +783,16 @@ function TopCenterControls({
       </div>
 
       {isControlOpen ? (
-        <div className="mt-2 rounded-md border border-neutral-300 bg-white p-4 shadow-xl">
+        <div className="sheet-floating-panel mt-2 p-4">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
             <section>
-              <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+              <p className="app-eyebrow">
                 App Areas
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {workspaceLinks.map(([label, href]) => (
                   <Link
-                    className="rounded-md border border-neutral-300 px-3 py-2 text-center text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                    className="app-button-secondary min-h-9 px-3 py-2 text-center"
                     href={href}
                     key={href}
                   >
@@ -799,13 +801,13 @@ function TopCenterControls({
                 ))}
               </div>
               <button
-                className="mt-3 w-full rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+                className="app-button-primary mt-3 w-full"
                 onClick={onOpenQuickAdd}
                 type="button"
               >
                 Quick Add
               </button>
-              <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-5 text-neutral-600">
+              <div className="mt-3 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] px-3 py-2 text-xs leading-5 text-[#766f66]">
                 Shortcuts: Left/Right changes sheets, Esc closes panels,
                 Ctrl+Shift+A opens Quick Add.
               </div>
@@ -817,8 +819,8 @@ function TopCenterControls({
               />
             </section>
 
-            <section className="border-t border-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-              <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+            <section className="border-t border-[#ded6ca] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+              <p className="app-eyebrow">
                 Sheet Controls
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
@@ -831,7 +833,7 @@ function TopCenterControls({
                   Previous
                 </button>
                 <select
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className={inputClassName}
                   disabled={isSaving || sheets.length === 0}
                   onChange={(event) => onSelectedSheetChange(Number(event.target.value))}
                   value={selectedSheetId ?? ""}
@@ -858,7 +860,7 @@ function TopCenterControls({
 
               <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={onCreateSheet}>
                 <input
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className={inputClassName}
                   onChange={(event) => setNewSheetName(event.target.value)}
                   placeholder="New sheet name"
                   required
@@ -866,7 +868,7 @@ function TopCenterControls({
                   value={newSheetName}
                 />
                 <button
-                  className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="app-button-primary"
                   disabled={isSaving}
                   type="submit"
                 >
@@ -876,7 +878,7 @@ function TopCenterControls({
 
               <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]" onSubmit={onRenameSheet}>
                 <input
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className={inputClassName}
                   disabled={isSaving || selectedSheetId === null}
                   onChange={(event) => setRenameValue(event.target.value)}
                   required
@@ -884,7 +886,7 @@ function TopCenterControls({
                   value={renameValue}
                 />
                 <button
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-secondary"
                   disabled={isSaving || selectedSheetId === null}
                   type="submit"
                 >
@@ -894,7 +896,7 @@ function TopCenterControls({
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="app-button-primary"
                   disabled={isSaving || selectedSheetId === null}
                   onClick={onOpenSlotEditor}
                   type="button"
@@ -902,7 +904,7 @@ function TopCenterControls({
                   Customize slots
                 </button>
                 <button
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-secondary"
                   disabled={isSaving || selectedSheetIndex <= 0}
                   onClick={onMoveSheetLeft}
                   type="button"
@@ -910,7 +912,7 @@ function TopCenterControls({
                   Move left
                 </button>
                 <button
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-secondary"
                   disabled={
                     isSaving ||
                     selectedSheetIndex < 0 ||
@@ -922,7 +924,7 @@ function TopCenterControls({
                   Move right
                 </button>
                 <button
-                  className="ml-auto rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                  className="app-button-secondary ml-auto"
                   onClick={() => onSetControlOpen(false)}
                   type="button"
                 >
@@ -930,13 +932,13 @@ function TopCenterControls({
                 </button>
               </div>
 
-              <details className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
-                <summary className="cursor-pointer text-sm font-semibold text-neutral-800">
+              <details className="mt-3 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-[#3b3732]">
                   Advanced
                 </summary>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="app-button-danger"
                     disabled={isSaving || selectedSheetId === null || sheets.length <= 1}
                     onClick={onRequestDeleteSheet}
                     type="button"
@@ -949,7 +951,7 @@ function TopCenterControls({
                     Delete sheet
                   </button>
                 <button
-                  className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-danger"
                   disabled={isSaving}
                   onClick={onResetSheets}
                   type="button"
@@ -957,7 +959,7 @@ function TopCenterControls({
                   Reset sheets
                 </button>
                 <button
-                  className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-danger"
                   disabled={isSaving || selectedSheetId === null}
                   onClick={onResetCurrentSheetFromDashboard}
                   type="button"
@@ -997,16 +999,16 @@ function SheetGrid({
           : undefined;
         return (
           <div
-            className="min-h-0 overflow-hidden rounded-md border border-neutral-300 bg-neutral-50 shadow-sm"
+            className="sheet-tile"
             key={slot.slot_index}
           >
             <div className="flex h-full min-h-0 flex-col">
-              <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-3">
-                <p className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
+              <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[#ded6ca] bg-[#fffdf8]/86 px-3">
+                <p className="text-xs font-semibold uppercase tracking-normal text-[#8b8176]">
                   Slot {slot.slot_index + 1}
                 </p>
                 <button
-                  className="min-w-0 truncate rounded-md px-2 py-1 text-right text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+                  className="min-w-0 truncate rounded-full px-2 py-1 text-right text-xs font-semibold text-[#625c55] hover:bg-[#f0f4ec]"
                   onClick={() => onEditSlot(slot.slot_index)}
                   title="Edit slot"
                   type="button"
@@ -1056,13 +1058,13 @@ function ConfirmModal({
   title: string;
 }) {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-6">
-      <section className="w-full max-w-md rounded-md border border-neutral-300 bg-white p-5 shadow-xl">
-        <h2 className="text-lg font-semibold text-neutral-950">{title}</h2>
-        <p className="mt-3 text-sm leading-6 text-neutral-700">{message}</p>
-        <div className="mt-5 flex justify-end gap-3 border-t border-neutral-200 pt-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#2c2925]/40 px-6 backdrop-blur-sm">
+      <section className="sheet-floating-panel w-full max-w-md p-5">
+        <h2 className="text-lg font-semibold text-[#2c2925]">{title}</h2>
+        <p className="app-muted mt-3 text-sm leading-6">{message}</p>
+        <div className="mt-5 flex justify-end gap-3 border-t border-[#ded6ca] pt-4">
           <button
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            className="app-button-secondary"
             disabled={isSaving}
             onClick={onCancel}
             type="button"
@@ -1070,7 +1072,7 @@ function ConfirmModal({
             Cancel
           </button>
           <button
-            className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+            className="app-button-danger bg-[#b46b73] text-white hover:bg-[#9d515b]"
             disabled={isSaving}
             onClick={onConfirm}
             type="button"
@@ -1091,22 +1093,22 @@ function NotePreviewModal({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-6">
-      <section className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#2c2925]/40 px-6 backdrop-blur-sm">
+      <section className="sheet-floating-panel flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-[#ded6ca] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+            <p className="app-eyebrow">
               Note Preview
             </p>
-            <h2 className="mt-1 truncate text-xl font-semibold text-neutral-950">
+            <h2 className="mt-1 truncate text-xl font-semibold text-[#2c2925]">
               {note.title}
             </h2>
-            <p className="mt-1 text-xs text-neutral-600">
+            <p className="app-muted mt-1 text-xs">
               Folder: {note.folder_id === null ? "None" : `#${note.folder_id}`}
             </p>
           </div>
           <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+            className="app-button-secondary min-h-8 px-3 py-1.5 text-xs"
             onClick={onClose}
             type="button"
           >
@@ -1114,20 +1116,20 @@ function NotePreviewModal({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-neutral-800">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[#3b3732]">
             {note.content.trim() || "No note body yet."}
           </p>
         </div>
-        <div className="flex justify-end gap-3 border-t border-neutral-200 px-5 py-4">
+        <div className="flex justify-end gap-3 border-t border-[#ded6ca] px-5 py-4">
           <button
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            className="app-button-secondary"
             onClick={onClose}
             type="button"
           >
             Close
           </button>
           <Link
-            className="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            className="app-button-primary"
             href="/notes"
           >
             Open in Notes
@@ -1178,24 +1180,24 @@ function SlotEditorPanel({
   const supportsTitleOverride = supportsTaskCategory;
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-neutral-950/30 px-6 py-6">
-      <section className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4">
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#2c2925]/35 px-6 py-6 backdrop-blur-sm">
+      <section className="sheet-floating-panel flex max-h-full w-full max-w-4xl flex-col overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-[#ded6ca] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
+            <p className="app-eyebrow">
               Slot Editor
             </p>
-            <h2 className="truncate text-xl font-semibold text-neutral-950">
+            <h2 className="truncate text-xl font-semibold text-[#2c2925]">
               {sheetName} - Slot {activeSlot.slot_index + 1}
             </h2>
-            <p className="mt-1 text-sm text-neutral-600">
+            <p className="app-muted mt-1 text-sm">
               {hasUnsavedChanges
                 ? "Unsaved slot changes"
                 : "All slot changes are saved"}
             </p>
           </div>
           <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+            className="app-button-secondary min-h-8 px-3 py-1.5 text-xs"
             onClick={onClose}
             type="button"
           >
@@ -1205,7 +1207,7 @@ function SlotEditorPanel({
 
         <div className="grid min-h-0 flex-1 gap-5 overflow-auto p-5 lg:grid-cols-[220px_1fr]">
           <div>
-            <p className="text-sm font-semibold text-neutral-900">Choose slot</p>
+            <p className="text-sm font-semibold text-[#2c2925]">Choose slot</p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
               {draftSlots.map((slot) => {
                 const definition = slot.widget_key
@@ -1216,8 +1218,8 @@ function SlotEditorPanel({
                   <button
                     className={`rounded-md border px-3 py-2 text-left text-sm ${
                       isActive
-                        ? "border-teal-700 bg-teal-50 text-teal-900"
-                        : "border-neutral-300 text-neutral-800 hover:bg-neutral-100"
+                        ? "border-[#5f8f83] bg-[#eef7f1] text-[#3f7168]"
+                        : "border-[#ded6ca] text-[#3b3732] hover:bg-[#f0f4ec]"
                     }`}
                     key={slot.slot_index}
                     onClick={() => onSelectSlot(slot.slot_index)}
@@ -1236,10 +1238,10 @@ function SlotEditorPanel({
           </div>
 
           <div className="min-w-0">
-            <label className="block text-sm font-semibold text-neutral-900">
+            <label className="block text-sm font-semibold text-[#2c2925]">
               Widget type for slot {activeSlot.slot_index + 1}
               <select
-                className="mt-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                className={inputClassName}
                 disabled={isSaving}
                 onChange={(event) =>
                   onUpdateSlot(activeSlot.slot_index, event.target.value)
@@ -1255,17 +1257,17 @@ function SlotEditorPanel({
               </select>
             </label>
 
-            <div className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-4">
-              <p className="text-sm font-semibold text-neutral-900">
+            <div className="mt-4 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] p-4">
+              <p className="text-sm font-semibold text-[#2c2925]">
                 {activeDefinition?.displayName ?? "Empty slot"}
               </p>
-              <p className="mt-1 text-sm leading-6 text-neutral-600">
+              <p className="app-muted mt-1 text-sm leading-6">
                 {activeDefinition?.description ??
                   "This slot will stay empty until you choose a widget type."}
               </p>
-              <dl className="mt-3 grid gap-2 text-xs text-neutral-700 sm:grid-cols-3">
+              <dl className="mt-3 grid gap-2 text-xs text-[#625c55] sm:grid-cols-3">
                 <div>
-                  <dt className="font-semibold uppercase text-neutral-500">
+                  <dt className="font-semibold uppercase text-[#8b8176]">
                     Widget
                   </dt>
                   <dd className="truncate">
@@ -1273,7 +1275,7 @@ function SlotEditorPanel({
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold uppercase text-neutral-500">
+                  <dt className="font-semibold uppercase text-[#8b8176]">
                     Category
                   </dt>
                   <dd className="truncate">
@@ -1286,7 +1288,7 @@ function SlotEditorPanel({
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold uppercase text-neutral-500">
+                  <dt className="font-semibold uppercase text-[#8b8176]">
                     Title
                   </dt>
                   <dd className="truncate">
@@ -1297,10 +1299,10 @@ function SlotEditorPanel({
             </div>
 
             {supportsTaskCategory ? (
-              <label className="mt-4 block text-sm font-semibold text-neutral-900">
+              <label className="mt-4 block text-sm font-semibold text-[#2c2925]">
                 Category filter
                 <select
-                  className="mt-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className={inputClassName}
                   disabled={isSaving}
                   onChange={(event) =>
                     onUpdateSlotConfig(
@@ -1322,13 +1324,13 @@ function SlotEditorPanel({
             ) : null}
 
             {supportsTitleOverride ? (
-              <label className="mt-4 block text-sm font-semibold text-neutral-900">
+              <label className="mt-4 block text-sm font-semibold text-[#2c2925]">
                 Title override
-                <span className="mt-1 block text-xs font-normal leading-5 text-neutral-600">
+                <span className="app-muted mt-1 block text-xs font-normal leading-5">
                   Optional label for this widget instance only.
                 </span>
                 <input
-                  className="mt-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className={inputClassName}
                   disabled={isSaving}
                   onChange={(event) =>
                     onUpdateSlotConfig(
@@ -1344,9 +1346,9 @@ function SlotEditorPanel({
               </label>
             ) : null}
 
-            <div className="mt-5 flex flex-wrap justify-between gap-3 border-t border-neutral-200 pt-4">
+            <div className="mt-5 flex flex-wrap justify-between gap-3 border-t border-[#ded6ca] pt-4">
               <button
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="app-button-secondary"
                 disabled={isSaving}
                 onClick={() => onClearSlot(activeSlot.slot_index)}
                 type="button"
@@ -1355,14 +1357,14 @@ function SlotEditorPanel({
               </button>
               <div className="flex flex-wrap gap-3">
                 <button
-                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+                  className="app-button-secondary"
                   onClick={onClose}
                   type="button"
                 >
                   Done
                 </button>
                 <button
-                  className="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="app-button-primary"
                   disabled={isSaving}
                   onClick={onSaveSlots}
                   type="button"
@@ -1384,16 +1386,16 @@ function SlotEditorPanel({
 
 function EmptySlot() {
   return (
-    <div className="flex h-full items-center justify-center rounded-md border border-dashed border-neutral-300 bg-white px-3 py-4 text-center">
-      <p className="text-sm text-neutral-500">Empty slot</p>
+    <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[#cbbfb0] bg-[#fbf8f2] px-3 py-4 text-center">
+      <p className="text-sm text-[#8b8176]">Empty slot</p>
     </div>
   );
 }
 
 function CompactState({ message }: { message: string }) {
   return (
-    <div className="flex h-full items-center justify-center rounded-md bg-white px-3 py-4 text-center">
-      <p className="text-sm text-neutral-600">{message}</p>
+    <div className="flex h-full items-center justify-center rounded-xl bg-[#fbf8f2] px-3 py-4 text-center">
+      <p className="text-sm text-[#766f66]">{message}</p>
     </div>
   );
 }

@@ -70,7 +70,9 @@ def test_search_weekly_tasks(client: TestClient) -> None:
     response = search(client, "workspace")
 
     assert response.status_code == 200
-    assert response.json()["results"]["weekly_tasks"][0]["id"] == task["id"]
+    result = response.json()["results"]["weekly_tasks"][0]
+    assert result["id"] == task["id"]
+    assert result["subtitle"] == "Recurring task"
 
 
 def test_search_calendar_events(client: TestClient) -> None:

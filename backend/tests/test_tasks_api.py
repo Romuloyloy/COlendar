@@ -289,7 +289,48 @@ def test_create_weekly_task(client: TestClient) -> None:
     data = response.json()
     assert data["title"] == "Gym"
     assert data["weekdays"] == [1, 3]
+    assert data["recurrence_type"] == "weekly"
+    assert data["interval_weeks"] == 1
+    assert data["anchor_date"] is None
+    assert data["day_of_month"] is None
+    assert data["end_date"] is None
     assert data["category_id"] is None
+
+
+def test_create_biweekly_task(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Deep clean",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+            "anchor_date": "2026-05-04",
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["recurrence_type"] == "biweekly"
+    assert data["interval_weeks"] == 2
+    assert data["anchor_date"] == "2026-05-04"
+    assert data["weekdays"] == [0]
+
+
+def test_create_monthly_day_task(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Pay rent",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 1,
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["recurrence_type"] == "monthly_day"
+    assert data["day_of_month"] == 1
+    assert data["weekdays"] == []
 
 
 def test_create_weekly_task_with_category(client: TestClient) -> None:
@@ -308,6 +349,50 @@ def test_reject_weekly_task_with_no_weekdays(client: TestClient) -> None:
     response = client.post(
         "/api/tasks/weekly",
         json={"title": "No days", "weekdays": []},
+    )
+
+    assert response.status_code == 422
+
+
+def test_reject_biweekly_task_without_anchor_date(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "No anchor",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_reject_monthly_task_without_day_of_month(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={"title": "No day", "recurrence_type": "monthly_day"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_reject_invalid_recurrence_type(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={"title": "Bad", "weekdays": [0], "recurrence_type": "yearly"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_reject_invalid_day_of_month(client: TestClient) -> None:
+    response = client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Bad day",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 32,
+        },
     )
 
     assert response.status_code == 422
@@ -334,6 +419,84 @@ def test_list_and_filter_weekly_tasks(client: TestClient) -> None:
     assert monday_response.status_code == 200
     assert len(monday_response.json()) == 1
     assert monday_response.json()[0]["title"] == "Monday"
+
+
+def test_list_biweekly_tasks_by_occurrence_date(client: TestClient) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Alternating Monday",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+            "anchor_date": "2026-05-04",
+        },
+    )
+
+    on_week = client.get("/api/tasks/weekly?date=2026-05-18")
+    off_week = client.get("/api/tasks/weekly?date=2026-05-11")
+
+    assert on_week.status_code == 200
+    assert [task["title"] for task in on_week.json()] == ["Alternating Monday"]
+    assert off_week.status_code == 200
+    assert off_week.json() == []
+
+
+def test_list_monthly_day_tasks_by_occurrence_date(client: TestClient) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Submit report",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 11,
+        },
+    )
+
+    matching = client.get("/api/tasks/weekly?date=2026-05-11")
+    non_matching = client.get("/api/tasks/weekly?date=2026-05-12")
+
+    assert matching.status_code == 200
+    assert [task["title"] for task in matching.json()] == ["Submit report"]
+    assert non_matching.status_code == 200
+    assert non_matching.json() == []
+
+
+def test_monthly_day_31_skips_short_months(client: TestClient) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Long month task",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 31,
+        },
+    )
+
+    short_month = client.get("/api/tasks/weekly?date=2026-04-30")
+    long_month = client.get("/api/tasks/weekly?date=2026-05-31")
+
+    assert short_month.status_code == 200
+    assert short_month.json() == []
+    assert long_month.status_code == 200
+    assert [task["title"] for task in long_month.json()] == ["Long month task"]
+
+
+def test_recurring_task_end_date_excludes_later_occurrences(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Temporary",
+            "weekdays": [0],
+            "recurrence_type": "weekly",
+            "end_date": "2026-05-11",
+        },
+    )
+
+    included = client.get("/api/tasks/weekly?date=2026-05-11")
+    excluded = client.get("/api/tasks/weekly?date=2026-05-18")
+
+    assert [task["title"] for task in included.json()] == ["Temporary"]
+    assert excluded.json() == []
 
 
 def test_filter_weekly_tasks_by_category(client: TestClient) -> None:
@@ -367,6 +530,7 @@ def test_update_weekly_task(client: TestClient) -> None:
             "title": "Updated",
             "description": "Edited",
             "weekdays": [2, 4],
+            "recurrence_type": "weekly",
             "category_id": category["id"],
         },
     )
@@ -376,7 +540,26 @@ def test_update_weekly_task(client: TestClient) -> None:
     assert data["title"] == "Updated"
     assert data["description"] == "Edited"
     assert data["weekdays"] == [2, 4]
+    assert data["recurrence_type"] == "weekly"
     assert data["category_id"] == category["id"]
+
+
+def test_update_weekly_task_to_monthly_day(client: TestClient) -> None:
+    task = client.post(
+        "/api/tasks/weekly",
+        json={"title": "Draft", "weekdays": [0]},
+    ).json()
+
+    response = client.patch(
+        f"/api/tasks/weekly/{task['id']}",
+        json={"recurrence_type": "monthly_day", "day_of_month": 15},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recurrence_type"] == "monthly_day"
+    assert data["day_of_month"] == 15
+    assert data["weekdays"] == []
 
 
 def test_reject_invalid_weekly_task_category_id(client: TestClient) -> None:
@@ -430,6 +613,53 @@ def test_complete_and_incomplete_weekly_task_occurrence(client: TestClient) -> N
     assert second_complete_response.json()["id"] == complete_response.json()["id"]
     assert incomplete_response.status_code == 204
     assert second_incomplete_response.status_code == 204
+
+
+def test_complete_and_incomplete_biweekly_task_occurrence(client: TestClient) -> None:
+    task = client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Review",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+            "anchor_date": "2026-05-04",
+        },
+    ).json()
+
+    complete_response = client.post(
+        f"/api/tasks/weekly/{task['id']}/complete?completion_date=2026-05-18"
+    )
+    off_week_response = client.post(
+        f"/api/tasks/weekly/{task['id']}/complete?completion_date=2026-05-11"
+    )
+    incomplete_response = client.post(
+        f"/api/tasks/weekly/{task['id']}/incomplete?completion_date=2026-05-18"
+    )
+
+    assert complete_response.status_code == 200
+    assert off_week_response.status_code == 400
+    assert incomplete_response.status_code == 204
+
+
+def test_complete_monthly_task_occurrence(client: TestClient) -> None:
+    task = client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Report",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 11,
+        },
+    ).json()
+
+    complete_response = client.post(
+        f"/api/tasks/weekly/{task['id']}/complete?completion_date=2026-05-11"
+    )
+    wrong_day_response = client.post(
+        f"/api/tasks/weekly/{task['id']}/complete?completion_date=2026-05-12"
+    )
+
+    assert complete_response.status_code == 200
+    assert wrong_day_response.status_code == 400
 
 
 def test_reject_weekly_completion_on_unscheduled_date(client: TestClient) -> None:

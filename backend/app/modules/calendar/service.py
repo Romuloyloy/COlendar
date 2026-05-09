@@ -1,11 +1,21 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.calendar.models import CalendarEvent
-from app.modules.calendar.schemas import CalendarEventUpdate
+from app.modules.calendar.schemas import (
+    CalendarOverviewDay,
+    CalendarOverviewRead,
+    CalendarRecurringTaskOccurrence,
+    CalendarEventUpdate,
+)
+from app.modules.planning.service import (
+    list_calendar_events_for_date,
+    list_daily_tasks_for_date,
+    list_weekly_task_occurrences_for_date,
+)
 
 
 def get_active_calendar_event_or_404(db: Session, event_id: int) -> CalendarEvent:
@@ -61,3 +71,30 @@ def upcoming_events_query(from_date: date):
             CalendarEvent.id.asc(),
         )
     )
+
+
+def get_calendar_overview(
+    db: Session,
+    from_date: date,
+    to_date: date,
+) -> CalendarOverviewRead:
+    day_count = (to_date - from_date).days + 1
+    days = [
+        CalendarOverviewDay(
+            date=selected_date,
+            calendar_events=list_calendar_events_for_date(db, selected_date),
+            daily_tasks=list_daily_tasks_for_date(db, selected_date),
+            recurring_tasks=[
+                CalendarRecurringTaskOccurrence.model_validate(
+                    occurrence.model_dump()
+                )
+                for occurrence in list_weekly_task_occurrences_for_date(
+                    db, selected_date
+                )
+            ],
+        )
+        for selected_date in (
+            from_date + timedelta(days=offset) for offset in range(day_count)
+        )
+    ]
+    return CalendarOverviewRead(from_date=from_date, to_date=to_date, days=days)

@@ -2,6 +2,8 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.modules.tasks.schemas import DailyTaskRead
+
 
 class CalendarEventBase(BaseModel):
     title: str = Field(min_length=1, max_length=250)
@@ -62,3 +64,31 @@ class CalendarEventRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CalendarRecurringTaskOccurrence(BaseModel):
+    id: int
+    title: str
+    description: str
+    weekdays: list[int]
+    recurrence_type: str
+    interval_weeks: int
+    anchor_date: date | None
+    day_of_month: int | None
+    start_date: date | None
+    end_date: date | None
+    is_completed: bool
+    completion_id: int | None
+
+
+class CalendarOverviewDay(BaseModel):
+    date: date
+    calendar_events: list[CalendarEventRead]
+    daily_tasks: list[DailyTaskRead]
+    recurring_tasks: list[CalendarRecurringTaskOccurrence]
+
+
+class CalendarOverviewRead(BaseModel):
+    from_date: date
+    to_date: date
+    days: list[CalendarOverviewDay]

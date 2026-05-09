@@ -14,22 +14,26 @@ This document defines the current product language around tasks, recurring tasks
 - One-time Tasks are currently implemented internally as daily tasks.
 - User-facing language should move toward "One-time Tasks."
 - One-time Tasks are completable things attached to a planned date.
-- Weekly Tasks are recurring task templates with weekday-based occurrences.
-- Weekly Task completion is tracked per occurrence date.
+- Recurring Tasks are templates with weekly, bi-weekly, or monthly-by-day occurrences.
+- Weekly recurrence uses one or more weekdays.
+- Bi-weekly recurrence uses one or more weekdays plus an anchor date.
+- Monthly recurrence uses a day of month and skips months that do not contain that day.
+- Recurring Task completion is tracked per occurrence date.
 
 ## Events, Planning, And Calendar
 
 - Calendar Events are scheduled happenings, appointments, or blocks.
 - Planning composes One-time Tasks, Weekly Tasks, and Calendar Events.
-- Calendar should eventually become a more visual calendar view.
+- Calendar is the visual date/time view and may display task occurrences next to events.
+- Showing tasks on Calendar does not merge task and event ownership or data models.
 
 ## Current Limitations
 
-- No monthly recurrence yet.
-- No bi-weekly recurrence yet.
 - No advanced recurrence engine yet.
+- No recurrence exceptions or skipped-occurrence editing yet.
 - Events and tasks are not unified yet.
 - Backend `/api/tasks/daily` may remain legacy naming for one-time dated tasks.
+- Backend `/api/tasks/weekly` may remain legacy naming for recurring task templates.
 
 ## Practical Rule
 

@@ -10,17 +10,33 @@ from app.modules.calendar.schemas import (
     CalendarEventCreate,
     CalendarEventRead,
     CalendarEventUpdate,
+    CalendarOverviewRead,
 )
 from app.modules.calendar.service import (
+    get_calendar_overview,
     get_active_calendar_event_or_404,
     upcoming_events_query,
     validate_calendar_event_update,
 )
 
-router = APIRouter(prefix="/api/calendar/events", tags=["calendar"])
+router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
 
-@router.get("", response_model=list[CalendarEventRead])
+@router.get("/overview", response_model=CalendarOverviewRead)
+def get_calendar_overview_endpoint(
+    from_date: date_type = Query(...),
+    to_date: date_type = Query(...),
+    db: Session = Depends(get_db),
+) -> CalendarOverviewRead:
+    if to_date < from_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="to_date cannot be before from_date",
+        )
+    return get_calendar_overview(db, from_date, to_date)
+
+
+@router.get("/events", response_model=list[CalendarEventRead])
 def list_calendar_events(
     date: date_type | None = Query(default=None),
     from_date: date_type | None = Query(default=None),
@@ -61,7 +77,7 @@ def list_calendar_events(
     return list(db.scalars(query))
 
 
-@router.post("", response_model=CalendarEventRead, status_code=status.HTTP_201_CREATED)
+@router.post("/events", response_model=CalendarEventRead, status_code=status.HTTP_201_CREATED)
 def create_calendar_event(
     payload: CalendarEventCreate,
     db: Session = Depends(get_db),
@@ -80,12 +96,12 @@ def create_calendar_event(
     return event
 
 
-@router.get("/{event_id}", response_model=CalendarEventRead)
+@router.get("/events/{event_id}", response_model=CalendarEventRead)
 def get_calendar_event(event_id: int, db: Session = Depends(get_db)) -> CalendarEvent:
     return get_active_calendar_event_or_404(db, event_id)
 
 
-@router.patch("/{event_id}", response_model=CalendarEventRead)
+@router.patch("/events/{event_id}", response_model=CalendarEventRead)
 def update_calendar_event(
     event_id: int,
     payload: CalendarEventUpdate,
@@ -112,7 +128,7 @@ def update_calendar_event(
     return event
 
 
-@router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_calendar_event(event_id: int, db: Session = Depends(get_db)) -> Response:
     event = get_active_calendar_event_or_404(db, event_id)
     event.is_archived = True

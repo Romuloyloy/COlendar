@@ -100,12 +100,12 @@ export function incompleteDailyTask(taskId: number): Promise<DailyTask> {
 }
 
 export function getWeeklyTasks(
-  weekday?: number,
+  date?: string,
   categoryId?: number,
 ): Promise<WeeklyTask[]> {
   const params = new URLSearchParams();
-  if (weekday !== undefined) {
-    params.set("weekday", String(weekday));
+  if (date !== undefined) {
+    params.set("date", date);
   }
   if (categoryId !== undefined) {
     params.set("category_id", String(categoryId));
@@ -118,6 +118,11 @@ export function createWeeklyTask(input: {
   title: string;
   description: string;
   weekdays: number[];
+  recurrence_type?: WeeklyTask["recurrence_type"];
+  anchor_date?: string | null;
+  day_of_month?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
   category_id?: number | null;
 }): Promise<WeeklyTask> {
   return apiRequest<WeeklyTask>("/api/tasks/weekly", {
@@ -128,7 +133,20 @@ export function createWeeklyTask(input: {
 
 export function updateWeeklyTask(
   taskId: number,
-  input: Partial<Pick<WeeklyTask, "title" | "description" | "weekdays" | "category_id">>,
+  input: Partial<
+    Pick<
+      WeeklyTask,
+      | "title"
+      | "description"
+      | "weekdays"
+      | "recurrence_type"
+      | "anchor_date"
+      | "day_of_month"
+      | "start_date"
+      | "end_date"
+      | "category_id"
+    >
+  >,
 ): Promise<WeeklyTask> {
   return apiRequest<WeeklyTask>(`/api/tasks/weekly/${taskId}`, {
     method: "PATCH",

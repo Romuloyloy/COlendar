@@ -2,6 +2,35 @@ import type { ReactNode } from "react";
 
 import { addDaysToIsoDate, todayIsoDate } from "@/lib/date";
 
+export const inputClassName = "app-input mt-1 w-full";
+
+type AppButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+
+const buttonVariantClass: Record<AppButtonVariant, string> = {
+  primary: "app-button-primary",
+  secondary: "app-button-secondary",
+  ghost: "app-button-ghost",
+  danger: "app-button-danger",
+};
+
+export function AppButton({
+  children,
+  className = "",
+  variant = "secondary",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: AppButtonVariant;
+}) {
+  return (
+    <button
+      className={`${buttonVariantClass[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 type PageHeaderProps = {
   title: string;
   description: string;
@@ -21,12 +50,10 @@ export function PageHeader({
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
         {eyebrow ? (
-          <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
-            {eyebrow}
-          </p>
+          <p className="app-eyebrow">{eyebrow}</p>
         ) : null}
-        <h1 className="mt-1 text-3xl font-semibold text-neutral-950">{title}</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-700">
+        <h1 className="mt-1 text-3xl font-semibold text-[#2c2925]">{title}</h1>
+        <p className="app-muted mt-2 max-w-2xl text-sm leading-6">
           {description}
         </p>
         {children}
@@ -53,18 +80,16 @@ export function SectionCard({
 }: SectionCardProps) {
   return (
     <section
-      className={`rounded-md border border-neutral-300 bg-white p-5 shadow-sm ${className}`}
+      className={`app-card p-5 ${className}`}
     >
       {title || eyebrow || action ? (
         <div className="flex items-start justify-between gap-4">
           <div>
             {eyebrow ? (
-              <p className="text-xs font-semibold uppercase tracking-normal text-teal-700">
-                {eyebrow}
-              </p>
+              <p className="app-eyebrow">{eyebrow}</p>
             ) : null}
             {title ? (
-              <h2 className="mt-1 text-xl font-semibold text-neutral-950">
+              <h2 className="mt-1 text-xl font-semibold text-[#2c2925]">
                 {title}
               </h2>
             ) : null}
@@ -78,16 +103,24 @@ export function SectionCard({
 }
 
 export function LoadingState({ message }: { message: string }) {
-  return <p className="text-sm text-neutral-600">{message}</p>;
+  return (
+    <p className="rounded-xl border border-[#ded6ca] bg-[#f0f4ec]/70 px-3 py-2 text-sm text-[#766f66]">
+      {message}
+    </p>
+  );
 }
 
 export function EmptyState({ message }: { message: string }) {
-  return <p className="text-sm text-neutral-600">{message}</p>;
+  return (
+    <p className="rounded-xl border border-dashed border-[#d8d0c3] bg-[#fbf8f2] px-3 py-3 text-sm text-[#766f66]">
+      {message}
+    </p>
+  );
 }
 
 export function ErrorState({ message }: { message: string }) {
   return (
-    <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+    <p className="rounded-xl border border-[#e7c5c9] bg-[#fff4f3] px-3 py-2 text-sm text-[#9d515b]">
       {message}
     </p>
   );
@@ -95,10 +128,30 @@ export function ErrorState({ message }: { message: string }) {
 
 export function NoticeState({ message }: { message: string }) {
   return (
-    <p className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+    <p className="rounded-xl border border-[#c9dfd7] bg-[#eef7f1] px-3 py-2 text-sm text-[#3f7168]">
       {message}
     </p>
   );
+}
+
+export function AppCard({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <section className={`app-card p-5 ${className}`}>{children}</section>;
+}
+
+export function Badge({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <span className={`app-pill ${className}`}>{children}</span>;
 }
 
 export function DateSelector({
@@ -113,10 +166,10 @@ export function DateSelector({
   className?: string;
 }) {
   return (
-    <label className={`block text-sm font-medium text-neutral-800 ${className}`}>
+    <label className={`block text-sm font-medium text-[#3b3732] ${className}`}>
       {label}
       <input
-        className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2"
+        className={inputClassName}
         onChange={(event) => onChange(event.target.value)}
         type="date"
         value={value}
@@ -137,36 +190,36 @@ export function DateNavigator({
   className?: string;
 }) {
   return (
-    <div className={`text-sm font-medium text-neutral-800 ${className}`}>
+    <div className={`text-sm font-medium text-[#3b3732] ${className}`}>
       <span className="block">{label}</span>
       <div className="mt-1 flex items-center gap-2">
-        <button
-          className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+        <AppButton
+          className="min-h-10 px-3"
           onClick={() => onChange(addDaysToIsoDate(value, -1))}
           type="button"
         >
           Prev
-        </button>
+        </AppButton>
         <input
-          className="h-10 rounded-md border border-neutral-300 px-3 text-sm"
+          className="app-input h-10"
           onChange={(event) => onChange(event.target.value)}
           type="date"
           value={value}
         />
-        <button
-          className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+        <AppButton
+          className="min-h-10 px-3"
           onClick={() => onChange(todayIsoDate())}
           type="button"
         >
           Today
-        </button>
-        <button
-          className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+        </AppButton>
+        <AppButton
+          className="min-h-10 px-3"
           onClick={() => onChange(addDaysToIsoDate(value, 1))}
           type="button"
         >
           Next
-        </button>
+        </AppButton>
       </div>
     </div>
   );

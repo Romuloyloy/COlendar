@@ -180,6 +180,36 @@ def test_dashboard_summary_includes_weekly_tasks_scheduled_for_date(
     assert data["counts"]["incomplete_weekly_task_count"] == 1
 
 
+def test_dashboard_summary_includes_biweekly_and_monthly_occurrences(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Bi-weekly",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+            "anchor_date": "2026-05-04",
+        },
+    )
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Monthly",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 18,
+        },
+    )
+
+    response = client.get("/api/dashboard/summary?date=2026-05-18")
+
+    assert response.status_code == 200
+    assert [task["title"] for task in response.json()["weekly_tasks"]] == [
+        "Bi-weekly",
+        "Monthly",
+    ]
+
+
 def test_dashboard_summary_marks_completed_weekly_occurrences(
     client: TestClient,
 ) -> None:

@@ -5,14 +5,21 @@ import { FormEvent, useMemo, useState } from "react";
 
 import { globalSearch } from "./api";
 import type { SearchResponse, SearchResult, SearchResultGroups } from "./types";
-import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard } from "@/components/ui";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SectionCard,
+  inputClassName,
+} from "@/components/ui";
 import { formatDisplayDate } from "@/lib/date";
 
 const groupLabels: Array<[keyof SearchResultGroups, string]> = [
   ["notes", "Notes"],
   ["folders", "Folders"],
   ["daily_tasks", "One-time Tasks"],
-  ["weekly_tasks", "Weekly Tasks"],
+  ["weekly_tasks", "Recurring Tasks"],
   ["calendar_events", "Calendar Events"],
 ];
 
@@ -56,7 +63,7 @@ export function SearchPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 text-neutral-900">
+    <main className="app-page">
       <section className="mx-auto max-w-6xl">
         <div className="mb-6">
           <PageHeader
@@ -72,7 +79,7 @@ export function SearchPage() {
               <label className="min-w-72 flex-1 text-sm font-medium text-neutral-800">
                 Search query
                 <input
-                  className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className={inputClassName}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search notes, tasks, and events"
                   type="search"

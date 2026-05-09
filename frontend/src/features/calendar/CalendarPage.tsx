@@ -1,19 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   archiveCalendarEvent,
   createCalendarEvent,
-  getCalendarEventsForDateRange,
+  getCalendarOverview,
   getUpcomingCalendarEvents,
   updateCalendarEvent,
 } from "./api";
-import type { CalendarEvent } from "./types";
+import type {
+  CalendarEvent,
+  CalendarOverviewDay,
+  CalendarRecurringTaskOccurrence,
+} from "./types";
 import { ErrorState, NoticeState } from "@/components/ui";
+import {
+  completeDailyTask,
+  completeWeeklyTask,
+  incompleteDailyTask,
+  incompleteWeeklyTask,
+} from "@/features/tasks/api";
+import type { DailyTask } from "@/features/tasks/types";
 import {
   addDaysToIsoDate,
   formatDisplayDate,
+  formatTime,
   todayIsoDate,
   weekdayFromIsoDate,
 } from "@/lib/date";
@@ -79,6 +92,39 @@ function sameMonth(value: string, monthStart: string) {
   return value.slice(0, 7) === monthStart.slice(0, 7);
 }
 
+function oneTimeTaskMeta(task: DailyTask) {
+  const meta = [];
+  const plannedTime = formatTime(task.planned_time);
+  const dueTime = formatTime(task.due_time);
+  if (plannedTime) {
+    meta.push(`Planned ${plannedTime}`);
+  }
+  if (task.due_date) {
+    meta.push(
+      dueTime
+        ? `Due ${formatDisplayDate(task.due_date, {
+            month: "short",
+            day: "numeric",
+          })} ${dueTime}`
+        : `Due ${formatDisplayDate(task.due_date, {
+            month: "short",
+            day: "numeric",
+          })}`,
+    );
+  }
+  return meta.join(" - ");
+}
+
+function recurringTaskMeta(task: CalendarRecurringTaskOccurrence) {
+  if (task.recurrence_type === "monthly_day") {
+    return `Monthly on day ${task.day_of_month}`;
+  }
+  if (task.recurrence_type === "biweekly") {
+    return "Bi-weekly";
+  }
+  return "Weekly";
+}
+
 function EventCard({
   event,
   isSelected,
@@ -118,12 +164,134 @@ function EventCard({
   );
 }
 
+function TaskCompletionButton({
+  isCompleted,
+  onToggle,
+}: {
+  isCompleted: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      className={`h-8 rounded border px-3 text-xs font-semibold ${
+        isCompleted
+          ? "border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+          : "border-teal-700 bg-teal-700 text-white hover:bg-teal-800"
+      }`}
+      onClick={onToggle}
+      type="button"
+    >
+      {isCompleted ? "Undo" : "Complete"}
+    </button>
+  );
+}
+
+function OneTimeTaskRow({
+  task,
+  onToggle,
+}: {
+  task: DailyTask;
+  onToggle: (task: DailyTask) => void;
+}) {
+  const meta = oneTimeTaskMeta(task);
+  return (
+    <div className="rounded border border-neutral-200 px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p
+            className={`text-sm font-medium ${
+              task.is_completed
+                ? "text-neutral-500 line-through"
+                : "text-neutral-950"
+            }`}
+          >
+            {task.title}
+          </p>
+          {task.description ? (
+            <p className="mt-1 text-xs leading-5 text-neutral-600">
+              {task.description}
+            </p>
+          ) : null}
+          {meta ? (
+            <p className="mt-1 text-xs font-medium text-neutral-600">{meta}</p>
+          ) : null}
+        </div>
+        <TaskCompletionButton
+          isCompleted={task.is_completed}
+          onToggle={() => onToggle(task)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RecurringTaskRow({
+  task,
+  onToggle,
+}: {
+  task: CalendarRecurringTaskOccurrence;
+  onToggle: (task: CalendarRecurringTaskOccurrence) => void;
+}) {
+  return (
+    <div className="rounded border border-neutral-200 px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p
+            className={`text-sm font-medium ${
+              task.is_completed
+                ? "text-neutral-500 line-through"
+                : "text-neutral-950"
+            }`}
+          >
+            {task.title}
+          </p>
+          {task.description ? (
+            <p className="mt-1 text-xs leading-5 text-neutral-600">
+              {task.description}
+            </p>
+          ) : null}
+          <p className="mt-1 text-xs text-neutral-600">{recurringTaskMeta(task)}</p>
+        </div>
+        <TaskCompletionButton
+          isCompleted={task.is_completed}
+          onToggle={() => onToggle(task)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function VisibilityToggle({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800">
+      <input
+        checked={checked}
+        className="h-4 w-4 accent-teal-700"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      {label}
+    </label>
+  );
+}
+
 export function CalendarPage() {
   const today = todayIsoDate();
   const [selectedDate, setSelectedDate] = useState(today);
   const [visibleMonth, setVisibleMonth] = useState(monthStartIso(today));
-  const [monthEvents, setMonthEvents] = useState<CalendarEvent[]>([]);
+  const [overviewDays, setOverviewDays] = useState<CalendarOverviewDay[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+  const [showEvents, setShowEvents] = useState(true);
+  const [showOneTimeTasks, setShowOneTimeTasks] = useState(true);
+  const [showRecurringTasks, setShowRecurringTasks] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -140,15 +308,21 @@ export function CalendarPage() {
   const monthRangeStart = monthDays[0];
   const monthRangeEnd = monthDays[monthDays.length - 1];
 
-  const eventsByDate = useMemo(() => {
-    return monthEvents.reduce<Record<string, CalendarEvent[]>>((grouped, event) => {
-      grouped[event.event_date] = grouped[event.event_date] ?? [];
-      grouped[event.event_date].push(event);
+  const overviewByDate = useMemo(() => {
+    return overviewDays.reduce<Record<string, CalendarOverviewDay>>((grouped, day) => {
+      grouped[day.date] = day;
       return grouped;
     }, {});
-  }, [monthEvents]);
+  }, [overviewDays]);
 
-  const selectedDateEvents = eventsByDate[selectedDate] ?? [];
+  const monthEvents = useMemo(
+    () => overviewDays.flatMap((day) => day.calendar_events),
+    [overviewDays],
+  );
+  const selectedOverviewDay = overviewByDate[selectedDate];
+  const selectedDateEvents = selectedOverviewDay?.calendar_events ?? [];
+  const selectedDateDailyTasks = selectedOverviewDay?.daily_tasks ?? [];
+  const selectedDateRecurringTasks = selectedOverviewDay?.recurring_tasks ?? [];
 
   const selectedEvent = useMemo(
     () =>
@@ -160,16 +334,16 @@ export function CalendarPage() {
 
   async function loadData() {
     setError(null);
-    const [monthData, upcomingData] = await Promise.all([
-      getCalendarEventsForDateRange(monthRangeStart, monthRangeEnd),
+    const [overview, upcomingData] = await Promise.all([
+      getCalendarOverview(monthRangeStart, monthRangeEnd),
       getUpcomingCalendarEvents(selectedDate),
     ]);
-    setMonthEvents(monthData);
+    setOverviewDays(overview.days);
     setUpcomingEvents(upcomingData);
 
     if (
       selectedEventId !== null &&
-      ![...monthData, ...upcomingData].some(
+      ![...overview.days.flatMap((day) => day.calendar_events), ...upcomingData].some(
         (event) => event.id === selectedEventId,
       )
     ) {
@@ -309,8 +483,40 @@ export function CalendarPage() {
     });
   }
 
+  async function handleToggleDailyTask(task: DailyTask) {
+    await runAction(async () => {
+      if (task.is_completed) {
+        await incompleteDailyTask(task.id);
+      } else {
+        await completeDailyTask(task.id);
+      }
+      setNotice(
+        task.is_completed
+          ? "One-time task marked incomplete."
+          : "One-time task completed.",
+      );
+      await loadData();
+    });
+  }
+
+  async function handleToggleRecurringTask(task: CalendarRecurringTaskOccurrence) {
+    await runAction(async () => {
+      if (task.is_completed) {
+        await incompleteWeeklyTask(task.id, selectedDate);
+      } else {
+        await completeWeeklyTask(task.id, selectedDate);
+      }
+      setNotice(
+        task.is_completed
+          ? "Recurring task marked incomplete."
+          : "Recurring task completed.",
+      );
+      await loadData();
+    });
+  }
+
   return (
-    <main className="min-h-screen px-6 py-8 text-neutral-900">
+    <main className="app-page">
       <section className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-6">
           <section className="rounded-md border border-neutral-300 bg-white p-5 shadow-sm">
@@ -323,8 +529,8 @@ export function CalendarPage() {
                   {monthLabel(visibleMonth)}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-700">
-                  View scheduled events by month, select a day, and manage the
-                  events that happen on that date.
+                  View events, one-time tasks, and recurring task occurrences
+                  together without merging how they are managed.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -351,6 +557,23 @@ export function CalendarPage() {
                 </button>
               </div>
             </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <VisibilityToggle
+                checked={showEvents}
+                label="Show events"
+                onChange={setShowEvents}
+              />
+              <VisibilityToggle
+                checked={showOneTimeTasks}
+                label="Show one-time tasks"
+                onChange={setShowOneTimeTasks}
+              />
+              <VisibilityToggle
+                checked={showRecurringTasks}
+                label="Show recurring tasks"
+                onChange={setShowRecurringTasks}
+              />
+            </div>
             {error ? (
               <div className="mt-4">
                 <ErrorState message={error} />
@@ -371,7 +594,14 @@ export function CalendarPage() {
             </div>
             <div className="mt-2 grid grid-cols-7 gap-1">
               {monthDays.map((date) => {
-                const dayEvents = eventsByDate[date] ?? [];
+                const dayOverview = overviewByDate[date];
+                const dayEvents = dayOverview?.calendar_events ?? [];
+                const dayDailyTasks = dayOverview?.daily_tasks ?? [];
+                const dayRecurringTasks = dayOverview?.recurring_tasks ?? [];
+                const visibleItemCount =
+                  (showEvents ? dayEvents.length : 0) +
+                  (showOneTimeTasks ? dayDailyTasks.length : 0) +
+                  (showRecurringTasks ? dayRecurringTasks.length : 0);
                 const isSelected = date === selectedDate;
                 const isToday = date === todayIsoDate();
                 const isCurrentMonth = sameMonth(date, visibleMonth);
@@ -397,21 +627,25 @@ export function CalendarPage() {
                     <span className="mt-2 flex flex-1 flex-col gap-1 overflow-hidden">
                       {isLoading ? (
                         <span className="text-xs text-neutral-500">Loading...</span>
-                      ) : dayEvents.length === 0 ? (
-                        <span className="text-xs text-neutral-400">No events</span>
+                      ) : visibleItemCount === 0 ? (
+                        <span className="text-xs text-neutral-400">No items</span>
                       ) : (
                         <>
-                          {dayEvents.slice(0, 3).map((event) => (
-                            <span
-                              className="truncate rounded bg-neutral-100 px-2 py-1 text-xs text-neutral-800"
-                              key={event.id}
-                            >
-                              {formatEventTime(event)} - {event.title}
+                          {showEvents && dayEvents.length > 0 ? (
+                            <span className="rounded bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
+                              {dayEvents.length} event
+                              {dayEvents.length === 1 ? "" : "s"}
                             </span>
-                          ))}
-                          {dayEvents.length > 3 ? (
-                            <span className="text-xs font-medium text-neutral-600">
-                              +{dayEvents.length - 3} more
+                          ) : null}
+                          {showOneTimeTasks && dayDailyTasks.length > 0 ? (
+                            <span className="rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                              {dayDailyTasks.length} task
+                              {dayDailyTasks.length === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
+                          {showRecurringTasks && dayRecurringTasks.length > 0 ? (
+                            <span className="rounded bg-teal-50 px-2 py-1 text-xs font-medium text-teal-800">
+                              {dayRecurringTasks.length} recurring
                             </span>
                           ) : null}
                         </>
@@ -432,7 +666,10 @@ export function CalendarPage() {
                   </h2>
                   <p className="mt-1 text-sm text-neutral-600">
                     {selectedDateEvents.length} event
-                    {selectedDateEvents.length === 1 ? "" : "s"} scheduled
+                    {selectedDateEvents.length === 1 ? "" : "s"},{" "}
+                    {selectedDateDailyTasks.length} one-time task
+                    {selectedDateDailyTasks.length === 1 ? "" : "s"},{" "}
+                    {selectedDateRecurringTasks.length} recurring
                   </p>
                 </div>
                 <button
@@ -443,23 +680,94 @@ export function CalendarPage() {
                   New
                 </button>
               </div>
-              <div className="mt-4 space-y-2">
-                {isLoading ? (
-                  <p className="text-sm text-neutral-600">Loading events...</p>
-                ) : selectedDateEvents.length === 0 ? (
-                  <p className="text-sm text-neutral-600">
-                    No events for this date.
-                  </p>
-                ) : (
-                  selectedDateEvents.map((event) => (
-                    <EventCard
-                      event={event}
-                      isSelected={selectedEventId === event.id}
-                      key={event.id}
-                      onSelect={(selected) => setSelectedEventId(selected.id)}
-                    />
-                  ))
-                )}
+              <div className="mt-4 space-y-5">
+                {showEvents ? (
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold">Events</h3>
+                    <div className="space-y-2">
+                      {isLoading ? (
+                        <p className="text-sm text-neutral-600">Loading events...</p>
+                      ) : selectedDateEvents.length === 0 ? (
+                        <p className="text-sm text-neutral-600">
+                          No events for this date.
+                        </p>
+                      ) : (
+                        selectedDateEvents.map((event) => (
+                          <EventCard
+                            event={event}
+                            isSelected={selectedEventId === event.id}
+                            key={event.id}
+                            onSelect={(selected) => setSelectedEventId(selected.id)}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {showOneTimeTasks ? (
+                  <section>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold">One-time Tasks</h3>
+                      <Link
+                        className="text-xs font-semibold text-teal-700 hover:text-teal-900"
+                        href="/tasks"
+                      >
+                        Open Tasks
+                      </Link>
+                    </div>
+                    <div className="space-y-2">
+                      {isLoading ? (
+                        <p className="text-sm text-neutral-600">Loading tasks...</p>
+                      ) : selectedDateDailyTasks.length === 0 ? (
+                        <p className="text-sm text-neutral-600">
+                          No one-time tasks for this date.
+                        </p>
+                      ) : (
+                        selectedDateDailyTasks.map((task) => (
+                          <OneTimeTaskRow
+                            key={task.id}
+                            onToggle={handleToggleDailyTask}
+                            task={task}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {showRecurringTasks ? (
+                  <section>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold">Recurring Tasks</h3>
+                      <Link
+                        className="text-xs font-semibold text-teal-700 hover:text-teal-900"
+                        href="/tasks"
+                      >
+                        Open Tasks
+                      </Link>
+                    </div>
+                    <div className="space-y-2">
+                      {isLoading ? (
+                        <p className="text-sm text-neutral-600">
+                          Loading recurring tasks...
+                        </p>
+                      ) : selectedDateRecurringTasks.length === 0 ? (
+                        <p className="text-sm text-neutral-600">
+                          No recurring tasks scheduled for this date.
+                        </p>
+                      ) : (
+                        selectedDateRecurringTasks.map((task) => (
+                          <RecurringTaskRow
+                            key={task.id}
+                            onToggle={handleToggleRecurringTask}
+                            task={task}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </section>
 

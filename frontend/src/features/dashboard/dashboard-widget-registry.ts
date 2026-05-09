@@ -40,8 +40,8 @@ export const DASHBOARD_WIDGET_REGISTRY: DashboardWidgetDefinition[] = [
   },
   {
     id: "weekly-tasks",
-    displayName: "Weekly Tasks",
-    description: "Weekly recurring task occurrences for the selected date.",
+    displayName: "Recurring Tasks",
+    description: "Recurring task occurrences for the selected date.",
     category: "tasks",
     defaultOrder: 3,
     defaultSize: "standard",

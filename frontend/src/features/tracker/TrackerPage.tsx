@@ -270,7 +270,7 @@ export function TrackerPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 text-neutral-900">
+    <main className="app-page">
       <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[320px_1fr]">
         <aside className="space-y-6">
           <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">

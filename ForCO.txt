@@ -1,46 +1,46 @@
-Hi! This pass adds Calendar Month View v1.
+Hi! This pass implements UI Foundation v1.
 
 What changed:
-- `/calendar` now shows a visual monthly calendar grid.
-- The Calendar page has previous month, Today, and next month controls.
-- Users can select a day from the month grid.
-- Events appear inside day cells as compact time/title indicators.
-- The selected-day panel shows events for the chosen date.
-- Creating an event defaults to the selected date.
-- Existing edit and archive behavior still works.
-- Archive now asks for confirmation before hiding an event.
-- The frontend reuses the existing date-range Calendar API for visible month data.
-- Added a backend test confirming archived events are excluded from date-range results.
-- Updated `README.md` with the month view behavior and current limitations.
+- Added the first shared visual token layer in `frontend/app/globals.css`.
+- Established a soft minimalist workspace direction: warm off-white backgrounds, pale cream surfaces, muted sage/teal primary actions, lavender/sage accents, soft rose danger actions, rounded cards, gentle shadows, and low-contrast borders.
+- Expanded shared frontend UI primitives in `frontend/src/components/ui.tsx` with `AppButton`, `AppCard`, `Badge`, shared input classes, and softer loading/empty/error/notice states.
+- Updated the app shell and Quick Add modal to feel calmer and more workspace-like.
+- Updated dashboard cards/widgets and dashboard customization modal to use the softer card/button language.
+- Updated `/sheets` with a softer workspace canvas, floating control panel, and calmer tile-like sheet cells while preserving the existing fixed 4x2 grid.
+- Applied the shared page background treatment across major routes.
+- Added `docs/UI_SYSTEM.md`.
+- Updated `README.md` and `docs/UX_GUIDELINES.md`.
 
-How to test it:
+How to visually inspect it:
 1. `docker compose up --build -d`
 2. `docker compose exec backend alembic upgrade head`
 3. `docker compose exec backend alembic current`
 4. `docker compose exec backend pytest`
 5. `docker compose exec frontend npm run build`
-6. Open `/calendar`.
-7. Navigate previous/next month and return to Today.
-8. Select a day, create an event, edit it, and archive it.
-9. Confirm dashboard upcoming events, planning, Quick Add, and Global Search still work.
+6. Open `/`, `/sheets`, `/tasks`, `/calendar`, `/notes`, `/tracker`, `/planning`, and `/search`.
+7. Open Quick Add from the top navigation.
+8. On `/sheets`, open the workspace dropdown and slot editor.
 
 What success looks like:
-- Calendar shows a month grid with scheduled events in day cells.
-- Month navigation updates the visible calendar.
-- Selected-day events are clear.
-- Created events appear in the correct day cell.
-- Edited events update normally.
-- Archived events disappear from normal calendar views.
+- The app feels calmer and less like a default technical dashboard.
+- Navigation is readable and softer.
+- Dashboard widgets have a coherent card language.
+- Sheet cells feel like workspace tiles, not harsh grid boxes.
+- Forms, buttons, and common states feel more consistent.
+- Existing behavior is unchanged.
 - Backend tests and frontend build pass.
 
-Known limitations:
-- No external sync.
-- No recurring calendar events.
-- No reminders or notifications.
-- No drag-and-drop event moving.
-- No advanced week/day views.
-- Tasks and events are still separate product concepts.
+Intentionally postponed:
+- No new product features.
+- No backend behavior changes.
+- No migrations.
+- No auth, AI, notifications, reminders, or external integrations.
+- No dark mode.
+- No drag-and-drop, widget resizing, or sheet layout model changes.
+- No full branding/logo system.
+- No complete component library or design-system package.
 
 Recommended next phase:
-- Add lightweight browser QA around event creation/edit/archive in the month grid.
-- Later consider a focused week/day visual view spec if the month view feels stable.
+- Do a focused visual QA pass with screenshots of each major route.
+- Gradually replace remaining one-off form/button/card classes with the shared UI primitives during future feature work.
+- Consider a second UI polish pass for dense feature pages like Tasks, Notes, Calendar, and Tracker after this foundation settles.

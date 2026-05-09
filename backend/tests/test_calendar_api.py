@@ -129,6 +129,105 @@ def test_list_calendar_events_for_date_range_excludes_archived(
     assert [event["title"] for event in response.json()] == ["Active"]
 
 
+def test_calendar_overview_composes_events_and_tasks(client: TestClient) -> None:
+    client.post(
+        "/api/calendar/events",
+        json={"title": "Appointment", "event_date": "2026-05-07"},
+    )
+    client.post(
+        "/api/tasks/daily",
+        json={"title": "One-time", "task_date": "2026-05-07"},
+    )
+    recurring = client.post(
+        "/api/tasks/weekly",
+        json={"title": "Recurring", "weekdays": [3]},
+    ).json()
+    client.post(f"/api/tasks/weekly/{recurring['id']}/complete?completion_date=2026-05-07")
+
+    response = client.get(
+        "/api/calendar/overview?from_date=2026-05-07&to_date=2026-05-08"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["from_date"] == "2026-05-07"
+    assert data["to_date"] == "2026-05-08"
+    first_day = data["days"][0]
+    second_day = data["days"][1]
+    assert first_day["date"] == "2026-05-07"
+    assert [event["title"] for event in first_day["calendar_events"]] == [
+        "Appointment"
+    ]
+    assert [task["title"] for task in first_day["daily_tasks"]] == ["One-time"]
+    assert [task["title"] for task in first_day["recurring_tasks"]] == ["Recurring"]
+    assert first_day["recurring_tasks"][0]["is_completed"] is True
+    assert second_day["calendar_events"] == []
+    assert second_day["daily_tasks"] == []
+    assert second_day["recurring_tasks"] == []
+
+
+def test_calendar_overview_excludes_archived_items(client: TestClient) -> None:
+    event = client.post(
+        "/api/calendar/events",
+        json={"title": "Archived event", "event_date": "2026-05-07"},
+    ).json()
+    daily_task = client.post(
+        "/api/tasks/daily",
+        json={"title": "Archived one-time", "task_date": "2026-05-07"},
+    ).json()
+    recurring = client.post(
+        "/api/tasks/weekly",
+        json={"title": "Archived recurring", "weekdays": [3]},
+    ).json()
+    client.delete(f"/api/calendar/events/{event['id']}")
+    client.delete(f"/api/tasks/daily/{daily_task['id']}")
+    client.delete(f"/api/tasks/weekly/{recurring['id']}")
+
+    response = client.get(
+        "/api/calendar/overview?from_date=2026-05-07&to_date=2026-05-07"
+    )
+
+    assert response.status_code == 200
+    day = response.json()["days"][0]
+    assert day["calendar_events"] == []
+    assert day["daily_tasks"] == []
+    assert day["recurring_tasks"] == []
+
+
+def test_calendar_overview_respects_recurring_rules(client: TestClient) -> None:
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Bi-weekly Monday",
+            "weekdays": [0],
+            "recurrence_type": "biweekly",
+            "anchor_date": "2026-05-04",
+        },
+    )
+    client.post(
+        "/api/tasks/weekly",
+        json={
+            "title": "Monthly 31",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 31,
+        },
+    )
+
+    response = client.get(
+        "/api/calendar/overview?from_date=2026-05-11&to_date=2026-05-31"
+    )
+
+    assert response.status_code == 200
+    by_date = {day["date"]: day for day in response.json()["days"]}
+    assert by_date["2026-05-11"]["recurring_tasks"] == []
+    assert [task["title"] for task in by_date["2026-05-18"]["recurring_tasks"]] == [
+        "Bi-weekly Monday"
+    ]
+    assert [task["title"] for task in by_date["2026-05-31"]["recurring_tasks"]] == [
+        "Monthly 31"
+    ]
+
+
 def test_reject_invalid_calendar_event_date_query(client: TestClient) -> None:
     response = client.get(
         "/api/calendar/events?from_date=2026-05-08&to_date=2026-05-07"

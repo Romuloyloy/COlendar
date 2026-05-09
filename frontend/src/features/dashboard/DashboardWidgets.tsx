@@ -7,7 +7,7 @@ import type { DashboardSummary, DashboardWeeklyTask } from "./types";
 import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types";
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
-import { DateNavigator, EmptyState, SectionCard } from "@/components/ui";
+import { AppButton, DateNavigator, EmptyState, SectionCard } from "@/components/ui";
 import { formatDisplayDate, formatTime, weekdayFromIsoDate } from "@/lib/date";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -63,10 +63,20 @@ function taskMetadata(task: DailyTask) {
   return meta.join(" - ");
 }
 
+function recurringTaskMetadata(task: DashboardWeeklyTask) {
+  if (task.recurrence_type === "monthly_day") {
+    return `Monthly on day ${task.day_of_month}`;
+  }
+  if (task.recurrence_type === "biweekly") {
+    return `Every 2 weeks on ${task.weekdays.map((day) => WEEKDAYS[day]).join(", ")}`;
+  }
+  return `Weekly on ${task.weekdays.map((day) => WEEKDAYS[day]).join(", ")}`;
+}
+
 function ManageLink({ href }: { href: string }) {
   return (
     <Link
-      className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+      className="app-button-secondary min-h-8 px-3 py-1.5 text-xs"
       href={href}
     >
       Manage
@@ -88,15 +98,15 @@ function CompactWidgetCard({
   children: ReactNode;
 }) {
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-md bg-white p-3">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#ded6ca] bg-[#fffdf8]/90 p-3">
       <div className="shrink-0">
-        <h2 className="truncate text-sm font-semibold text-neutral-950">{title}</h2>
-        {meta ? <p className="mt-1 text-xs text-neutral-600">{meta}</p> : null}
+        <h2 className="truncate text-sm font-semibold text-[#2c2925]">{title}</h2>
+        {meta ? <p className="app-muted mt-1 text-xs">{meta}</p> : null}
       </div>
       <div className="mt-3 min-h-0 flex-1 overflow-auto">{children}</div>
       {actionHref ? (
         <Link
-          className="mt-3 shrink-0 rounded-md border border-neutral-300 px-2 py-1.5 text-center text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+          className="app-button-secondary mt-3 min-h-8 shrink-0 px-2 py-1.5 text-center text-xs"
           href={actionHref}
         >
           {actionLabel}
@@ -107,7 +117,7 @@ function CompactWidgetCard({
 }
 
 function CompactEmpty({ message }: { message: string }) {
-  return <p className="text-sm text-neutral-500">{message}</p>;
+  return <p className="rounded-xl bg-[#fbf8f2] px-3 py-2 text-sm text-[#766f66]">{message}</p>;
 }
 
 function StatCell({
@@ -120,12 +130,12 @@ function StatCell({
   detail?: string;
 }) {
   return (
-    <div className="border-t border-neutral-200 px-4 py-3 first:border-t-0 sm:border-t-0">
-      <p className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
+    <div className="border-t border-[#ded6ca] px-4 py-3 first:border-t-0 sm:border-t-0">
+      <p className="text-xs font-semibold uppercase tracking-normal text-[#8b8176]">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold text-neutral-950">{value}</p>
-      {detail ? <p className="mt-1 text-xs text-neutral-600">{detail}</p> : null}
+      <p className="mt-1 text-lg font-semibold text-[#2c2925]">{value}</p>
+      {detail ? <p className="app-muted mt-1 text-xs">{detail}</p> : null}
     </div>
   );
 }
@@ -146,7 +156,7 @@ export function TodayOverviewWidget({
       <CompactWidgetCard title={formatDisplayDate(selectedDate)} meta={weekday}>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <CompactMetric label="One-time" value={dailyOpen} />
-          <CompactMetric label="Weekly" value={weeklyOpen} />
+          <CompactMetric label="Recurring" value={weeklyOpen} />
           <CompactMetric label="Events" value={upcomingEvents} />
           <CompactMetric label="Day" value={weekday} />
         </div>
@@ -168,10 +178,10 @@ export function TodayOverviewWidget({
       eyebrow="Today Overview"
       title={formatDisplayDate(selectedDate)}
     >
-      <div className="mt-5 grid border-y border-neutral-200 sm:grid-cols-4 sm:divide-x sm:divide-neutral-200">
+      <div className="mt-5 grid rounded-2xl border-y border-[#ded6ca] bg-[#fbf8f2]/70 sm:grid-cols-4 sm:divide-x sm:divide-[#ded6ca]">
         <StatCell label="Day" value={weekday} />
         <StatCell label="One-time Left" value={dailyOpen} />
-        <StatCell label="Weekly Left" value={weeklyOpen} />
+        <StatCell label="Recurring Left" value={weeklyOpen} />
         <StatCell label="Upcoming" value={upcomingEvents} />
       </div>
     </SectionCard>
@@ -189,15 +199,15 @@ export function QuickActionsWidget({
     return (
       <CompactWidgetCard title="Quick Actions">
         <div className="grid gap-2">
-          <button
-            className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+          <AppButton
+            variant="primary"
             onClick={openQuickAdd}
             type="button"
           >
             Quick Add
-          </button>
+          </AppButton>
           <Link
-            className="rounded-md border border-neutral-300 px-3 py-2 text-center text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            className="app-button-secondary"
             href="/search"
           >
             Search
@@ -210,13 +220,13 @@ export function QuickActionsWidget({
   return (
     <SectionCard eyebrow="Shortcuts" title="Quick Actions">
       <div className="mt-4 flex flex-wrap gap-3">
-        <button
-          className="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+        <AppButton
+          variant="primary"
           onClick={openQuickAdd}
           type="button"
         >
           Quick Add
-        </button>
+        </AppButton>
         {[
           ["Search", "/search"],
           ["Open Tasks", "/tasks"],
@@ -226,7 +236,7 @@ export function QuickActionsWidget({
           ["Open Tracker", "/tracker"],
         ].map(([label, href]) => (
           <Link
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+            className="app-button-secondary"
             href={href}
             key={href}
           >
@@ -327,7 +337,7 @@ function DashboardTaskList({
       ) : (
         tasks.map((task) => (
           <label
-            className="flex items-start gap-3 rounded-md border border-neutral-200 px-3 py-2 hover:border-neutral-300"
+            className="flex items-start gap-3 rounded-xl border border-[#ded6ca] bg-[#fffdf8]/70 px-3 py-2 hover:border-[#cbbfb0]"
             key={task.id}
           >
             <input
@@ -378,7 +388,7 @@ export function WeeklyTasksWidget({
       ? summary.weekly_tasks
       : summary.weekly_tasks.filter((task) => task.category_id === categoryId);
   const openTasks = tasks.filter((task) => !task.is_completed);
-  const title = configuredTitle("Weekly Tasks", widgetConfig);
+  const title = configuredTitle("Recurring Tasks", widgetConfig);
   const hiddenTaskCount = Math.max(tasks.length - 5, 0);
 
   if (renderMode === "compact") {
@@ -391,7 +401,7 @@ export function WeeklyTasksWidget({
       >
         <div className="space-y-2">
           {tasks.length === 0 ? (
-            <CompactEmpty message="No weekly tasks." />
+            <CompactEmpty message="No recurring tasks." />
           ) : (
             tasks.slice(0, 5).map((task) => (
               <label className="flex min-w-0 items-start gap-2 text-sm" key={task.id}>
@@ -426,11 +436,11 @@ export function WeeklyTasksWidget({
     <SectionCard action={<ManageLink href="/tasks" />} eyebrow={weekday} title={title}>
       <div className="mt-4 space-y-2">
         {tasks.length === 0 ? (
-          <EmptyState message="No weekly tasks are scheduled for this date." />
+          <EmptyState message="No recurring tasks are scheduled for this date." />
         ) : (
           tasks.map((task) => (
             <label
-              className="flex items-start gap-3 rounded-md border border-neutral-200 px-3 py-2 hover:border-neutral-300"
+            className="flex items-start gap-3 rounded-xl border border-[#ded6ca] bg-[#fffdf8]/70 px-3 py-2 hover:border-[#cbbfb0]"
               key={task.id}
             >
               <input
@@ -449,7 +459,7 @@ export function WeeklyTasksWidget({
                   {task.title}
                 </span>
                 <span className="mt-1 block text-xs text-neutral-600">
-                  {task.weekdays.map((day) => WEEKDAYS[day]).join(", ")}
+                  {recurringTaskMetadata(task)}
                 </span>
                 {task.description ? (
                   <span className="mt-1 block text-xs leading-5 text-neutral-600">
@@ -617,7 +627,7 @@ export function TrackerSummaryWidget({
 
   return (
     <SectionCard action={<ManageLink href="/tracker" />} eyebrow="Tracker" title="Daily Tracking">
-      <div className="mt-4 grid border-y border-neutral-200 sm:grid-cols-3 sm:divide-x sm:divide-neutral-200">
+      <div className="mt-4 grid rounded-2xl border-y border-[#ded6ca] bg-[#fbf8f2]/70 sm:grid-cols-3 sm:divide-x sm:divide-[#ded6ca]">
         <StatCell label="Water" value={`${trackerSummary.total_water_ml} ml`} />
         <StatCell
           detail={`${trackerSummary.total_activity_minutes} minutes`}
@@ -668,11 +678,11 @@ function CompactMetric({
   value: string | number;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2">
-      <p className="truncate text-xs font-semibold uppercase tracking-normal text-neutral-500">
+    <div className="min-w-0 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] px-2 py-2">
+      <p className="truncate text-xs font-semibold uppercase tracking-normal text-[#8b8176]">
         {label}
       </p>
-      <p className="mt-1 truncate text-sm font-semibold text-neutral-950">{value}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-[#2c2925]">{value}</p>
     </div>
   );
 }
