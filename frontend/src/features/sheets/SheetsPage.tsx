@@ -627,10 +627,10 @@ export function SheetsPage() {
         sheets={sheets}
       />
 
-      <section className="flex h-full flex-col px-6 pb-6 pt-14">
-        <div className="mb-3 flex min-h-10 items-center justify-between gap-4">
+      <section className="flex h-full flex-col px-6 pb-6 pt-16">
+        <div className="mb-3 grid min-h-12 grid-cols-[minmax(120px,1fr)_minmax(0,2fr)_minmax(120px,1fr)] items-center gap-4">
           <AppButton
-            className="bg-[#fffdf8]/80"
+            className="justify-self-start shadow-sm"
             disabled={isSaving || selectedSheetIndex <= 0}
             onClick={selectPreviousSheet}
             type="button"
@@ -644,9 +644,14 @@ export function SheetsPage() {
             <h1 className="truncate text-2xl font-semibold text-[#2c2925]">
               {currentSheetName}
             </h1>
+            <p className="mt-1 text-xs font-medium text-[#766f66]">
+              {selectedSheetIndex >= 0
+                ? `${selectedSheetIndex + 1} of ${sheets.length} sheets`
+                : "Preparing workspace"}
+            </p>
           </div>
           <AppButton
-            className="bg-[#fffdf8]/80"
+            className="justify-self-end shadow-sm"
             disabled={
               isSaving ||
               selectedSheetIndex < 0 ||
@@ -665,18 +670,21 @@ export function SheetsPage() {
         </div>
 
         {isLoading ? (
-          <div className="app-card flex min-h-0 flex-1 items-center justify-center">
+          <div className="sheet-surface flex min-h-0 flex-1 items-center justify-center">
             <LoadingState message="Loading sheet workspace..." />
           </div>
         ) : (
-          <SheetGrid
-            draftSlots={draftSlots}
-            isSummaryReady={summary !== null}
-            onEditSlot={openSlotEditor}
-            onPreviewNote={setPreviewNote}
-            taskCategories={categories}
-            widgetProps={widgetProps}
-          />
+          <div className="sheet-surface min-h-0 flex-1">
+            <SheetGrid
+              draftSlots={draftSlots}
+              isSummaryReady={summary !== null}
+              onEditSlot={openSlotEditor}
+              onOpenQuickAdd={openQuickAdd}
+              onPreviewNote={setPreviewNote}
+              taskCategories={categories}
+              widgetProps={widgetProps}
+            />
+          </div>
         )}
       </section>
 
@@ -771,19 +779,22 @@ function TopCenterControls({
   sheets: Sheet[];
 }) {
   return (
-    <div className="absolute left-1/2 top-2 z-30 w-[min(92vw,760px)] -translate-x-1/2">
+    <div className="absolute left-1/2 top-3 z-30 w-[min(92vw,780px)] -translate-x-1/2">
       <div className="flex justify-center">
         <button
-          className="rounded-full border border-[#d8d0c3] bg-[#fffdf8]/90 px-4 py-2 text-sm font-semibold text-[#2c2925] shadow-[0_8px_22px_rgb(82_70_55_/_0.10)] backdrop-blur hover:bg-white"
+          aria-expanded={isControlOpen}
+          className="sheet-control-chip"
           onClick={() => onSetControlOpen(!isControlOpen)}
           type="button"
         >
-          {currentSheetName} - Workspace
+          <span className="text-[var(--color-primary)]">Workspace</span>
+          <span className="mx-2 text-[#cbbfb0]">/</span>
+          {currentSheetName}
         </button>
       </div>
 
       {isControlOpen ? (
-        <div className="sheet-floating-panel mt-2 p-4">
+        <div className="sheet-floating-panel mt-3 animate-[sheetPanelIn_160ms_ease-out] p-4">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
             <section>
               <p className="app-eyebrow">
@@ -792,7 +803,7 @@ function TopCenterControls({
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {workspaceLinks.map(([label, href]) => (
                   <Link
-                    className="app-button-secondary min-h-9 px-3 py-2 text-center"
+                    className="app-button-secondary min-h-9 px-3 py-2 text-center text-xs"
                     href={href}
                     key={href}
                   >
@@ -807,7 +818,7 @@ function TopCenterControls({
               >
                 Quick Add
               </button>
-              <div className="mt-3 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] px-3 py-2 text-xs leading-5 text-[#766f66]">
+              <div className="app-soft-box mt-3 px-3 py-2 text-xs leading-5 text-[#766f66]">
                 Shortcuts: Left/Right changes sheets, Esc closes panels,
                 Ctrl+Shift+A opens Quick Add.
               </div>
@@ -825,7 +836,7 @@ function TopCenterControls({
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
                 <button
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-secondary min-h-10 px-3"
                   disabled={isSaving || selectedSheetIndex <= 0}
                   onClick={onPreviousSheet}
                   type="button"
@@ -845,7 +856,7 @@ function TopCenterControls({
                   ))}
                 </select>
                 <button
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="app-button-secondary min-h-10 px-3"
                   disabled={
                     isSaving ||
                     selectedSheetIndex < 0 ||
@@ -932,7 +943,7 @@ function TopCenterControls({
                 </button>
               </div>
 
-              <details className="mt-3 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] p-3">
+              <details className="mt-3 rounded-xl border border-[#e7c5c9]/80 bg-[#fff4f3]/60 p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-[#3b3732]">
                   Advanced
                 </summary>
@@ -980,6 +991,7 @@ function SheetGrid({
   draftSlots,
   isSummaryReady,
   onEditSlot,
+  onOpenQuickAdd,
   onPreviewNote,
   taskCategories,
   widgetProps,
@@ -987,12 +999,13 @@ function SheetGrid({
   draftSlots: DraftSlot[];
   isSummaryReady: boolean;
   onEditSlot: (slotIndex: number) => void;
+  onOpenQuickAdd: () => void;
   onPreviewNote: (note: Note) => void;
   taskCategories: TaskCategory[];
   widgetProps: DashboardWidgetProps | null;
 }) {
   return (
-    <section className="grid min-h-0 flex-1 grid-cols-4 grid-rows-2 gap-3">
+    <section className="grid h-full min-h-0 grid-cols-4 grid-rows-2 gap-3">
       {draftSlots.map((slot) => {
         const definition = slot.widget_key
           ? getDashboardWidgetDefinition(slot.widget_key)
@@ -1003,12 +1016,12 @@ function SheetGrid({
             key={slot.slot_index}
           >
             <div className="flex h-full min-h-0 flex-col">
-              <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[#ded6ca] bg-[#fffdf8]/86 px-3">
-                <p className="text-xs font-semibold uppercase tracking-normal text-[#8b8176]">
+              <div className="sheet-slot-header">
+                <p className="text-[11px] font-semibold uppercase tracking-normal text-[#8b8176]">
                   Slot {slot.slot_index + 1}
                 </p>
                 <button
-                  className="min-w-0 truncate rounded-full px-2 py-1 text-right text-xs font-semibold text-[#625c55] hover:bg-[#f0f4ec]"
+                  className="sheet-slot-label"
                   onClick={() => onEditSlot(slot.slot_index)}
                   title="Edit slot"
                   type="button"
@@ -1016,7 +1029,7 @@ function SheetGrid({
                   {definition?.displayName ?? "Empty"}
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-auto p-2 [&>section]:h-full [&>section]:overflow-auto [&>section]:shadow-none">
+              <div className="sheet-scroll min-h-0 flex-1 overflow-auto p-2.5 [&>section]:h-full [&>section]:overflow-auto [&>section]:shadow-none">
                 {definition && widgetProps ? (
                   <WidgetRenderer
                     definition={definition}
@@ -1031,7 +1044,7 @@ function SheetGrid({
                 ) : definition && !isSummaryReady ? (
                   <CompactState message="Loading..." />
                 ) : (
-                  <EmptySlot />
+                  <EmptySlot onOpenQuickAdd={onOpenQuickAdd} />
                 )}
               </div>
             </div>
@@ -1216,10 +1229,10 @@ function SlotEditorPanel({
                 const isActive = slot.slot_index === activeSlot.slot_index;
                 return (
                   <button
-                    className={`rounded-md border px-3 py-2 text-left text-sm ${
+                    className={`sheet-slot-choice ${
                       isActive
-                        ? "border-[#5f8f83] bg-[#eef7f1] text-[#3f7168]"
-                        : "border-[#ded6ca] text-[#3b3732] hover:bg-[#f0f4ec]"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)] shadow-sm"
+                        : "sheet-slot-choice-idle"
                     }`}
                     key={slot.slot_index}
                     onClick={() => onSelectSlot(slot.slot_index)}
@@ -1257,7 +1270,7 @@ function SlotEditorPanel({
               </select>
             </label>
 
-            <div className="mt-4 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] p-4">
+            <div className="sheet-config-summary mt-4">
               <p className="text-sm font-semibold text-[#2c2925]">
                 {activeDefinition?.displayName ?? "Empty slot"}
               </p>
@@ -1384,17 +1397,30 @@ function SlotEditorPanel({
   );
 }
 
-function EmptySlot() {
+function EmptySlot({ onOpenQuickAdd }: { onOpenQuickAdd: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[#cbbfb0] bg-[#fbf8f2] px-3 py-4 text-center">
-      <p className="text-sm text-[#8b8176]">Empty slot</p>
-    </div>
+    <button
+      className="sheet-add-slot group"
+      onClick={onOpenQuickAdd}
+      title="Open Quick Add"
+      type="button"
+    >
+      <span className="flex flex-col items-center gap-2">
+        <span className="sheet-add-icon flex size-9 items-center justify-center rounded-full border border-current text-xl leading-none transition group-hover:scale-105">
+          +
+        </span>
+        <span className="text-sm font-semibold">Add something</span>
+        <span className="text-xs font-medium text-[#766f66]">
+          Opens Quick Add
+        </span>
+      </span>
+    </button>
   );
 }
 
 function CompactState({ message }: { message: string }) {
   return (
-    <div className="flex h-full items-center justify-center rounded-xl bg-[#fbf8f2] px-3 py-4 text-center">
+    <div className="app-soft-box flex h-full items-center justify-center px-3 py-4 text-center">
       <p className="text-sm text-[#766f66]">{message}</p>
     </div>
   );

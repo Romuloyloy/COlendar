@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 
 import {
@@ -35,6 +36,16 @@ const navItems = [
   ["Planning", "/planning"],
   ["Tracker", "/tracker"],
 ];
+
+const PALETTE_STORAGE_KEY = "calendar:palette";
+
+const palettes = [
+  { value: "robot-vanilla", label: "Robot Vanilla" },
+  { value: "duckberry", label: "DuckBerry" },
+  { value: "bozzywheat", label: "BozzyWheat" },
+] as const;
+
+type PaletteValue = (typeof palettes)[number]["value"];
 
 const quickAddTypes = [
   { value: "daily-task", label: "One-time Task" },
@@ -135,6 +146,23 @@ const inputClass = inputClassName;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [palette, setPalette] = useState<PaletteValue>("robot-vanilla");
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const savedPalette = window.localStorage.getItem(PALETTE_STORAGE_KEY);
+    const nextPalette = isPaletteValue(savedPalette)
+      ? savedPalette
+      : "robot-vanilla";
+    setPalette(nextPalette);
+    document.documentElement.dataset.palette = nextPalette;
+  }, []);
+
+  function updatePalette(nextPalette: PaletteValue) {
+    setPalette(nextPalette);
+    window.localStorage.setItem(PALETTE_STORAGE_KEY, nextPalette);
+    document.documentElement.dataset.palette = nextPalette;
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -160,7 +188,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-[#ded6ca]/80 bg-[#fffdf8]/88 backdrop-blur">
+      <header className="app-shell-header">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <Link className="text-lg font-semibold text-[#2c2925]" href="/">
             COlendar
@@ -168,13 +196,33 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
             {navItems.map(([label, href]) => (
               <Link
-                className="rounded-full px-3 py-1.5 text-[#625c55] transition hover:bg-[#f0f4ec] hover:text-[#3f7168]"
+                className={`app-nav-link ${
+                  isActiveNavItem(pathname, href) ? "app-nav-link-active" : ""
+                }`}
                 href={href}
                 key={href}
               >
                 {label}
               </Link>
             ))}
+            <label className="sr-only" htmlFor="app-palette">
+              Palette
+            </label>
+            <select
+              className="app-palette-select"
+              id="app-palette"
+              onChange={(event) =>
+                updatePalette(event.target.value as PaletteValue)
+              }
+              title="Palette"
+              value={palette}
+            >
+              {palettes.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
             <AppButton
               className="min-h-9 px-3 py-1.5"
               variant="primary"
@@ -193,6 +241,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
     </>
   );
+}
+
+function isPaletteValue(value: string | null): value is PaletteValue {
+  return palettes.some((palette) => palette.value === value);
+}
+
+function isActiveNavItem(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function isEditableTarget(target: EventTarget | null) {

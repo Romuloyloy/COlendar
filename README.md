@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events and task occurrences, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events and task occurrences, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -389,16 +389,43 @@ Examples:
 
 Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
 
+Sheets Visual Refinement v1 keeps that behavior intact and focuses on polish:
+
+- `/sheets` now reads more like a dedicated workspace canvas, with a warmer layered background, a softly separated sheet surface, and tile hover states that stay subtle.
+- The top-center workspace control has a stronger floating-control identity, a clearer active sheet label, grouped app links, grouped sheet controls, and visually separated advanced actions.
+- The workspace header shows the active sheet name plus its position in the sheet order, while previous/next controls keep the same simple navigation model.
+- Compact widgets use a calmer shared card treatment, softer list rows, clearer metadata, consistent empty states, and less default admin-table styling.
+- Motion is intentionally light: hover transitions and dropdown appearance only. There are no dramatic animations or new product behaviors.
+
+Palette + Empty Slot Quick Add v1 adds two small frontend-only refinements:
+
+- The default/current palette is named `Robot Vanilla`.
+- Users can switch the accent palette to `DuckBerry` or `BozzyWheat` from the app shell palette selector.
+- Palette choice is stored in browser `localStorage`, not the backend.
+- Palette changes affect the global accent layer plus a subtle surface tint: primary buttons, focus rings, active/hover nav states, eyebrows, pills, sheet add affordances, selected sheet/widget accents, cards, panels, inputs, and other soft white surfaces.
+- Empty sheet slots now show a soft plus/Add something affordance.
+- Clicking an empty slot in normal `/sheets` viewing mode opens the existing global Quick Add modal.
+- Slot assignment still happens through the existing Customize slots flow and slot editor; no sheet slot storage model changed.
+
+Interaction philosophy for sheets:
+
+- keep the workspace calm and scan-friendly
+- preserve keyboard usability and visible focus states
+- keep destructive sheet actions behind confirmation
+- prefer contained internal scrolling inside slots over broken grid layout
+- keep the fixed 4x2 grid and current widget model until a future feature spec changes it
+
 Current sheet limitations:
 
 - no drag-and-drop
 - no widget resizing
 - no `x/y/w/h` grid placement
-- no final animation system
+- no advanced animation system
 - no full command palette
 - no final no-scroll workspace guarantee on every viewport
 - no widget config beyond the current simple `category_id` and `title_override`
 - no database-defined widgets, plugin system, auth, AI, external integrations, notifications, or reminders
+- no backend-stored palette preference or per-sheet palette
 - mobile is not heavily optimized yet
 - Use dashboard layout copies visible dashboard widget order into the current sheet but does not create advanced per-widget config
 
@@ -666,9 +693,9 @@ The frontend now has a small shared foundation to keep the MVP pages from feelin
 - `frontend/src/lib/api.ts`: shared API request wrapper, environment-backed API base URL, consistent JSON headers, `204 No Content` handling, and validation/error message formatting.
 - `frontend/src/lib/date.ts`: shared local ISO date, local day math, display-date, and weekday helpers.
 
-UI Foundation v1 gives the app a soft minimalist personal-workspace direction: warm off-white backgrounds, pale cream surfaces, muted sage/teal primary actions, lavender/sage supporting accents, soft rose danger actions, low-contrast borders, rounded cards, readable typography, and gentle shadows.
+UI Foundation v1 gives the app a soft minimalist personal-workspace direction: warm off-white backgrounds, pale cream surfaces, muted sage/teal primary actions, lavender/sage supporting accents, soft rose danger actions, low-contrast borders, rounded cards, readable typography, and gentle shadows. The current/default palette is `Robot Vanilla`; `DuckBerry` and `BozzyWheat` are local-only palette options saved in browser `localStorage` that tint both accents and soft white surfaces.
 
-Dashboard widgets and sheet widgets now share a calmer card language. The `/sheets` page has a softer workspace-canvas treatment with floating controls and rounded tile-like cells while preserving the existing fixed 4x2 layout and behavior.
+Dashboard widgets and sheet widgets now share a calmer card language. Sheets Visual Refinement v1 extends that foundation for `/sheets` with a dedicated workspace-canvas surface, softer tile elevation, more coherent compact widget rows, and a more intentional floating workspace dropdown while preserving the existing fixed 4x2 layout and behavior.
 
 Feature modules still own their product-specific API functions and page behavior. The shared layer is intentionally small and practical; it is not a full design system, brand system, or state framework.
 

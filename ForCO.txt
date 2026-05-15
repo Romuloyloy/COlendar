@@ -1,46 +1,44 @@
-Hi! This pass implements UI Foundation v1.
+Hi! This pass implements Palette + Empty Slot Quick Add v1.
 
 What changed:
-- Added the first shared visual token layer in `frontend/app/globals.css`.
-- Established a soft minimalist workspace direction: warm off-white backgrounds, pale cream surfaces, muted sage/teal primary actions, lavender/sage accents, soft rose danger actions, rounded cards, gentle shadows, and low-contrast borders.
-- Expanded shared frontend UI primitives in `frontend/src/components/ui.tsx` with `AppButton`, `AppCard`, `Badge`, shared input classes, and softer loading/empty/error/notice states.
-- Updated the app shell and Quick Add modal to feel calmer and more workspace-like.
-- Updated dashboard cards/widgets and dashboard customization modal to use the softer card/button language.
-- Updated `/sheets` with a softer workspace canvas, floating control panel, and calmer tile-like sheet cells while preserving the existing fixed 4x2 grid.
-- Applied the shared page background treatment across major routes.
-- Added `docs/UI_SYSTEM.md`.
-- Updated `README.md` and `docs/UX_GUIDELINES.md`.
+- Named the default/current accent palette `Robot Vanilla`.
+- Added `DuckBerry` and `BozzyWheat` as simple frontend-only accent palette options.
+- Added a small palette selector to the app shell.
+- Stored the selected palette in browser `localStorage`; no backend storage or user account behavior was added.
+- Moved key accent styling onto CSS variables so palette changes affect primary buttons, focus rings, nav hover/active states, eyebrows, pills, sheet add affordances, and selected slot accents.
+- Empty slots on `/sheets` now show a soft plus/Add something affordance.
+- Clicking an empty slot in normal sheet viewing mode opens the existing Quick Add modal.
+- The existing Customize slots flow still handles widget/slot assignment, including empty slots.
 
-How to visually inspect it:
+How to inspect/test it:
 1. `docker compose up --build -d`
 2. `docker compose exec backend alembic upgrade head`
 3. `docker compose exec backend alembic current`
 4. `docker compose exec backend pytest`
 5. `docker compose exec frontend npm run build`
-6. Open `/`, `/sheets`, `/tasks`, `/calendar`, `/notes`, `/tracker`, `/planning`, and `/search`.
-7. Open Quick Add from the top navigation.
-8. On `/sheets`, open the workspace dropdown and slot editor.
+6. Open `/sheets`.
+7. Use Customize slots to clear a slot if no empty slot is visible.
+8. Click the empty slot's Add something affordance and confirm Quick Add opens.
+9. Open Customize slots and confirm empty slots can still be selected/configured there.
+10. Switch between Robot Vanilla, DuckBerry, and BozzyWheat from the app shell palette selector.
+11. Refresh the page and confirm the selected palette persists.
 
 What success looks like:
-- The app feels calmer and less like a default technical dashboard.
-- Navigation is readable and softer.
-- Dashboard widgets have a coherent card language.
-- Sheet cells feel like workspace tiles, not harsh grid boxes.
-- Forms, buttons, and common states feel more consistent.
-- Existing behavior is unchanged.
+- Palette changes are noticeable in accent areas and softly tint white surfaces without recoloring the whole app.
+- Robot Vanilla matches the previous default visual direction.
+- DuckBerry feels deep berry/lavender but calm.
+- BozzyWheat feels muted wheat/olive/golden without harsh yellow.
+- Empty sheet slots feel actionable but still fit the soft workspace style.
+- Existing Quick Add behavior still works normally.
+- No backend behavior changes, migrations, or new storage tables were introduced.
 - Backend tests and frontend build pass.
 
 Intentionally postponed:
-- No new product features.
-- No backend behavior changes.
-- No migrations.
-- No auth, AI, notifications, reminders, or external integrations.
-- No dark mode.
-- No drag-and-drop, widget resizing, or sheet layout model changes.
-- No full branding/logo system.
-- No complete component library or design-system package.
+- No backend palette preferences.
+- No user accounts, auth, dark mode, custom color picker, per-sheet palettes, or per-widget palettes.
+- No drag-and-drop, widget resizing, or `x/y/w/h` layout.
+- No new product modules.
 
 Recommended next phase:
-- Do a focused visual QA pass with screenshots of each major route.
-- Gradually replace remaining one-off form/button/card classes with the shared UI primitives during future feature work.
-- Consider a second UI polish pass for dense feature pages like Tasks, Notes, Calendar, and Tracker after this foundation settles.
+- Visual QA the three palettes across `/`, `/sheets`, `/tasks`, `/calendar`, `/notes`, `/tracker`, `/planning`, and `/search`.
+- Keep any future theme work small and token-based unless a broader design-system spec is written.

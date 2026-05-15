@@ -104,7 +104,7 @@ export function SectionCard({
 
 export function LoadingState({ message }: { message: string }) {
   return (
-    <p className="rounded-xl border border-[#ded6ca] bg-[#f0f4ec]/70 px-3 py-2 text-sm text-[#766f66]">
+    <p className="rounded-xl border border-[#ded6ca] bg-[var(--color-surface-muted)] px-3 py-2 text-sm text-[#766f66]">
       {message}
     </p>
   );
@@ -112,7 +112,7 @@ export function LoadingState({ message }: { message: string }) {
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <p className="rounded-xl border border-dashed border-[#d8d0c3] bg-[#fbf8f2] px-3 py-3 text-sm text-[#766f66]">
+    <p className="rounded-xl border border-dashed border-[#d8d0c3] bg-[var(--color-app-bg-soft)] px-3 py-3 text-sm text-[#766f66]">
       {message}
     </p>
   );
@@ -128,7 +128,7 @@ export function ErrorState({ message }: { message: string }) {
 
 export function NoticeState({ message }: { message: string }) {
   return (
-    <p className="rounded-xl border border-[#c9dfd7] bg-[#eef7f1] px-3 py-2 text-sm text-[#3f7168]">
+    <p className="rounded-xl border border-[var(--color-primary-ring)] bg-[var(--color-primary-soft)] px-3 py-2 text-sm text-[var(--color-primary-strong)]">
       {message}
     </p>
   );

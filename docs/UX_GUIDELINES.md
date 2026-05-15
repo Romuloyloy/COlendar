@@ -23,6 +23,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Prefer rounded cards, low-contrast borders, and gentle shadows over harsh panels.
 - Keep typography calm: clear page titles, concise subtitles, readable section titles, and muted metadata.
 - Avoid neon colors, heavy gradients, dense admin-table styling, and overanimated UI.
+- Palette options should change the accent layer and softly tint white surfaces. Robot Vanilla is the default; DuckBerry and BozzyWheat should stay calm, readable, and local-only unless a later spec asks for backend preferences.
 
 ## UI Behavior
 
@@ -40,6 +41,10 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Keep sheet controls obvious and reversible where practical.
 - Sheets should feel like a soft workspace canvas, not a rigid table.
 - Sheet cells should feel like calm workspace tiles while preserving the fixed grid.
+- The workspace dropdown should feel like a lightweight floating control surface, with app navigation, sheet controls, and dangerous actions visually grouped.
+- Compact widget rows should prioritize fast scanning: clear titles, muted metadata, soft row hover states, and calm empty states.
+- Sheet motion should stay subtle and functional: hover, opacity, and small position changes only.
+- Empty sheet slots should feel gently actionable in normal viewing mode and open Quick Add, while slot/widget assignment remains in the Customize slots flow.
 
 ## Engineering UX Rules
 

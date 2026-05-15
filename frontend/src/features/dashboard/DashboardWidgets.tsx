@@ -98,12 +98,12 @@ function CompactWidgetCard({
   children: ReactNode;
 }) {
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#ded6ca] bg-[#fffdf8]/90 p-3">
+    <section className="sheet-compact-card">
       <div className="shrink-0">
         <h2 className="truncate text-sm font-semibold text-[#2c2925]">{title}</h2>
-        {meta ? <p className="app-muted mt-1 text-xs">{meta}</p> : null}
+        {meta ? <p className="app-muted mt-1 truncate text-xs font-medium">{meta}</p> : null}
       </div>
-      <div className="mt-3 min-h-0 flex-1 overflow-auto">{children}</div>
+      <div className="sheet-scroll mt-3 min-h-0 flex-1 overflow-auto">{children}</div>
       {actionHref ? (
         <Link
           className="app-button-secondary mt-3 min-h-8 shrink-0 px-2 py-1.5 text-center text-xs"
@@ -117,7 +117,7 @@ function CompactWidgetCard({
 }
 
 function CompactEmpty({ message }: { message: string }) {
-  return <p className="rounded-xl bg-[#fbf8f2] px-3 py-2 text-sm text-[#766f66]">{message}</p>;
+  return <p className="sheet-compact-muted-box">{message}</p>;
 }
 
 function StatCell({
@@ -178,7 +178,7 @@ export function TodayOverviewWidget({
       eyebrow="Today Overview"
       title={formatDisplayDate(selectedDate)}
     >
-      <div className="mt-5 grid rounded-2xl border-y border-[#ded6ca] bg-[#fbf8f2]/70 sm:grid-cols-4 sm:divide-x sm:divide-[#ded6ca]">
+      <div className="app-stat-grid mt-5 grid rounded-2xl border-y border-[#ded6ca] sm:grid-cols-4 sm:divide-x sm:divide-[#ded6ca]">
         <StatCell label="Day" value={weekday} />
         <StatCell label="One-time Left" value={dailyOpen} />
         <StatCell label="Recurring Left" value={weeklyOpen} />
@@ -277,7 +277,7 @@ export function DailyTasksWidget({
             <CompactEmpty message="No one-time tasks." />
           ) : (
             tasks.slice(0, 5).map((task) => (
-              <label className="flex min-w-0 items-start gap-2 text-sm" key={task.id}>
+              <label className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
                 <input
                   checked={task.is_completed}
                   className="mt-1"
@@ -287,12 +287,12 @@ export function DailyTasksWidget({
                 />
                 <span
                   className={`min-w-0 flex-1 truncate ${
-                    task.is_completed ? "text-neutral-500 line-through" : ""
+                    task.is_completed ? "text-[#8b8176] line-through" : "text-[#3b3732]"
                   }`}
                 >
                   {task.title}
                   {taskMetadata(task) ? (
-                    <span className="block truncate text-xs font-normal text-neutral-500">
+                    <span className="block truncate text-xs font-normal text-[#766f66]">
                       {taskMetadata(task)}
                     </span>
                   ) : null}
@@ -301,7 +301,7 @@ export function DailyTasksWidget({
             ))
           )}
           {hiddenTaskCount > 0 ? (
-            <p className="text-xs font-medium text-neutral-600">
+            <p className="px-2 text-xs font-medium text-[#766f66]">
               +{hiddenTaskCount} more
             </p>
           ) : null}
@@ -337,7 +337,7 @@ function DashboardTaskList({
       ) : (
         tasks.map((task) => (
           <label
-            className="flex items-start gap-3 rounded-xl border border-[#ded6ca] bg-[#fffdf8]/70 px-3 py-2 hover:border-[#cbbfb0]"
+            className="app-soft-row flex items-start gap-3 rounded-xl border border-[#ded6ca] px-3 py-2 hover:border-[#cbbfb0]"
             key={task.id}
           >
             <input
@@ -404,7 +404,7 @@ export function WeeklyTasksWidget({
             <CompactEmpty message="No recurring tasks." />
           ) : (
             tasks.slice(0, 5).map((task) => (
-              <label className="flex min-w-0 items-start gap-2 text-sm" key={task.id}>
+              <label className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
                 <input
                   checked={task.is_completed}
                   className="mt-1"
@@ -414,7 +414,7 @@ export function WeeklyTasksWidget({
                 />
                 <span
                   className={`min-w-0 flex-1 truncate ${
-                    task.is_completed ? "text-neutral-500 line-through" : ""
+                    task.is_completed ? "text-[#8b8176] line-through" : "text-[#3b3732]"
                   }`}
                 >
                   {task.title}
@@ -423,7 +423,7 @@ export function WeeklyTasksWidget({
             ))
           )}
           {hiddenTaskCount > 0 ? (
-            <p className="text-xs font-medium text-neutral-600">
+            <p className="px-2 text-xs font-medium text-[#766f66]">
               +{hiddenTaskCount} more
             </p>
           ) : null}
@@ -440,7 +440,7 @@ export function WeeklyTasksWidget({
         ) : (
           tasks.map((task) => (
             <label
-            className="flex items-start gap-3 rounded-xl border border-[#ded6ca] bg-[#fffdf8]/70 px-3 py-2 hover:border-[#cbbfb0]"
+            className="app-soft-row flex items-start gap-3 rounded-xl border border-[#ded6ca] px-3 py-2 hover:border-[#cbbfb0]"
               key={task.id}
             >
               <input
@@ -494,22 +494,22 @@ export function RecentNotesWidget({
           ) : (
             summary.recent_notes.slice(0, 5).map((note) => (
               <button
-                className="block w-full min-w-0 rounded-md px-1 py-1 text-left hover:bg-neutral-50"
+                className="sheet-compact-list-item block w-full min-w-0 text-left"
                 key={note.id}
                 onClick={() => onPreviewNote?.(note)}
                 type="button"
               >
-                <p className="truncate text-sm font-medium text-neutral-900">
+                <p className="truncate text-sm font-medium text-[#3b3732]">
                   {note.title}
                 </p>
-                <p className="truncate text-xs text-neutral-600">
+                <p className="truncate text-xs text-[#766f66]">
                   {notePreview(note.content)}
                 </p>
               </button>
             ))
           )}
           {summary.recent_notes.length > 5 ? (
-            <p className="text-xs font-medium text-neutral-600">
+            <p className="px-2 text-xs font-medium text-[#766f66]">
               +{summary.recent_notes.length - 5} more
             </p>
           ) : null}
@@ -555,18 +555,18 @@ export function UpcomingEventsWidget({
             <CompactEmpty message="No upcoming events." />
           ) : (
             summary.upcoming_events.slice(0, 4).map((event) => (
-              <div className="min-w-0" key={event.id}>
-                <p className="truncate text-sm font-medium text-neutral-900">
+              <div className="sheet-compact-list-item min-w-0" key={event.id}>
+                <p className="truncate text-sm font-medium text-[#3b3732]">
                   {event.title}
                 </p>
-                <p className="text-xs text-neutral-600">
-                  {formatDisplayDate(event.event_date)}
+                <p className="truncate text-xs font-medium text-[#766f66]">
+                  {formatDisplayDate(event.event_date)} - {formatEventTime(event)}
                 </p>
               </div>
             ))
           )}
           {summary.upcoming_events.length > 4 ? (
-            <p className="text-xs font-medium text-neutral-600">
+            <p className="px-2 text-xs font-medium text-[#766f66]">
               +{summary.upcoming_events.length - 4} more
             </p>
           ) : null}
@@ -627,7 +627,7 @@ export function TrackerSummaryWidget({
 
   return (
     <SectionCard action={<ManageLink href="/tracker" />} eyebrow="Tracker" title="Daily Tracking">
-      <div className="mt-4 grid rounded-2xl border-y border-[#ded6ca] bg-[#fbf8f2]/70 sm:grid-cols-3 sm:divide-x sm:divide-[#ded6ca]">
+      <div className="app-stat-grid mt-4 grid rounded-2xl border-y border-[#ded6ca] sm:grid-cols-3 sm:divide-x sm:divide-[#ded6ca]">
         <StatCell label="Water" value={`${trackerSummary.total_water_ml} ml`} />
         <StatCell
           detail={`${trackerSummary.total_activity_minutes} minutes`}
@@ -652,7 +652,7 @@ export function PlanningSummaryWidget({
   if (renderMode === "compact") {
     return (
       <CompactWidgetCard title="Plan Review">
-        <p className="text-sm leading-6 text-neutral-700">
+        <p className="sheet-compact-muted-box leading-6">
           Plan for {formatDisplayDate(selectedDate)}.
         </p>
         <ManageLink href="/planning" />
@@ -678,7 +678,7 @@ function CompactMetric({
   value: string | number;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-[#ded6ca] bg-[#fbf8f2] px-2 py-2">
+    <div className="app-soft-metric min-w-0 rounded-xl border border-[#ded6ca]/80 px-2 py-2">
       <p className="truncate text-xs font-semibold uppercase tracking-normal text-[#8b8176]">
         {label}
       </p>

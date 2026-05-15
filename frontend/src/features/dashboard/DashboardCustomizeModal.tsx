@@ -161,7 +161,7 @@ export function DashboardCustomizeModal({
 
                 return (
                   <div
-                    className="flex flex-col gap-3 rounded-xl border border-[#ded6ca] bg-[#fffdf8]/72 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="app-soft-row flex flex-col gap-3 rounded-xl border border-[#ded6ca] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                     key={widget.widget_key}
                   >
                     <label className="flex min-w-0 items-start gap-3">
