@@ -115,7 +115,7 @@ Invoke-RestMethod http://localhost:8000/health/db
 ```
 
 - The dashboard shows today's overview, quick actions, one-time tasks, recurring tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
-- The Sheets page is an experimental 4x2 workspace prototype that renders code-defined dashboard widgets in persisted sheet slots.
+- The Sheets page is an experimental 4x2 workspace prototype that renders code-defined dashboard widgets in persisted sheet slots, with controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page lets you create folders and notes.
@@ -358,7 +358,13 @@ Slot editing behavior:
 
 - Customize slots opens a focused slot editor panel
 - the editor clearly shows the sheet name and active slot number
-- the user selects one of the 8 slots, then chooses a widget type or Empty
+- the user selects one of the 8 slots, then chooses a widget from a code-defined widget library or sets the slot Empty
+- occupied slots can use controlled size presets: `1x1`, `2x1`, `1x2`, or `2x2`
+- unavailable size presets are disabled when they would cross the 4x2 grid edge or overlap another widget
+- covered cells visually merge into the anchor widget area and are freed when the anchor widget is cleared
+- empty slots in the editor are labeled as Add widget/configuration targets, while empty slots in normal sheet mode still open Quick Add
+- the widget library groups existing registry widgets by Overview / Utility, Tasks, Notes, Calendar, Tracker, and Planning
+- widget library cards show display name, short preview text, group/type, and whether extra configuration is supported
 - Clear slot empties the active slot
 - One-time Tasks and Recurring Tasks expose category filter controls
 - One-time Tasks and Recurring Tasks expose `title_override`
@@ -375,7 +381,9 @@ Current persisted sheet behavior:
 - sheet order is saved in `sort_order` and normalized after destructive changes
 - each sheet has exactly 8 slot positions, indexed 0 through 7
 - each slot can hold one known `widget_key` or be empty
-- each occupied slot is a widget instance with its own `widget_key` and `config_json`
+- each occupied slot is a widget instance with its own `widget_key`, `config_json`, `col_span`, and `row_span`
+- `col_span` and `row_span` are constrained to the supported presets and must fit inside the fixed 4x2 grid
+- overlapping spans are rejected by the backend
 - duplicate widgets on the same sheet are allowed
 - task widget instances can store `category_id` and `title_override` in `config_json`
 - slot layout persists after refresh
@@ -388,6 +396,8 @@ Examples:
 - Recurring Tasks widgets can do the same for categories such as `Health` or `Work`
 
 Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
+
+Workspace Focus Mode v1 adds a temporary frontend-only Focus action to occupied sheet widgets. Focus mode opens the selected widget in a centered, enlarged overlay while the sheet remains preserved underneath. It uses the richer normal widget rendering for more breathing room, can be closed with the Close button or `Escape`, and is not persisted across refresh.
 
 Sheets Visual Refinement v1 keeps that behavior intact and focuses on polish:
 
@@ -407,24 +417,29 @@ Palette + Empty Slot Quick Add v1 adds two small frontend-only refinements:
 - Clicking an empty slot in normal `/sheets` viewing mode opens the existing global Quick Add modal.
 - Slot assignment still happens through the existing Customize slots flow and slot editor; no sheet slot storage model changed.
 
+Widget Library + Slot Editor UX v2 keeps widget definitions frontend/code-defined and uses the existing dashboard widget registry as the source of truth. Widget Spanning v1 adds controlled slot spans without adding drag-and-drop, freeform resizing, arbitrary `x/y/w/h` placement, backend widget APIs, or a plugin system. Workspace Focus Mode v1 adds only temporary enlarged viewing, not permanent resizing or floating windows. Duplicate widget instances remain supported because each sheet slot still stores its own `widget_key`, `config_json`, and span preset.
+
 Interaction philosophy for sheets:
 
 - keep the workspace calm and scan-friendly
 - preserve keyboard usability and visible focus states
 - keep destructive sheet actions behind confirmation
+- keep focus mode temporary and easy to exit
 - prefer contained internal scrolling inside slots over broken grid layout
 - keep the fixed 4x2 grid and current widget model until a future feature spec changes it
 
 Current sheet limitations:
 
 - no drag-and-drop
-- no widget resizing
+- no freeform widget resizing
+- no persisted focus state or floating windows
 - no `x/y/w/h` grid placement
 - no advanced animation system
 - no full command palette
 - no final no-scroll workspace guarantee on every viewport
-- no widget config beyond the current simple `category_id` and `title_override`
+- no widget config beyond the current simple `category_id`, `title_override`, and controlled span preset
 - no database-defined widgets, plugin system, auth, AI, external integrations, notifications, or reminders
+- no backend widget library API
 - no backend-stored palette preference or per-sheet palette
 - mobile is not heavily optimized yet
 - Use dashboard layout copies visible dashboard widget order into the current sheet but does not create advanced per-widget config
@@ -472,6 +487,8 @@ Slot updates use this simple shape:
     {
       "slot_index": 0,
       "widget_key": "daily-tasks",
+      "col_span": 2,
+      "row_span": 1,
       "config_json": {
         "category_id": 1,
         "title_override": "School Tasks"
@@ -486,7 +503,7 @@ Slot updates use this simple shape:
 }
 ```
 
-`slot_index` must be from 0 to 7. `widget_key` must be one of the code-defined dashboard widget keys or `null` for an empty slot. `config_json` must be an object. For `daily-tasks` and `weekly-tasks`, `category_id` must reference an existing task category when provided.
+`slot_index` must be from 0 to 7. `widget_key` must be one of the code-defined dashboard widget keys or `null` for an empty slot. `config_json` must be an object. `col_span` and `row_span` default to `1` and may only produce the supported sizes: `1x1`, `2x1`, `1x2`, or `2x2`. Spans must fit inside the 4x2 grid and cannot overlap another occupied widget. For `daily-tasks` and `weekly-tasks`, `category_id` must reference an existing task category when provided.
 
 ## Global Quick Add
 
@@ -980,7 +997,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table. The eleventh migration adds recurrence fields to `weekly_tasks` while keeping the existing table and API names.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table. The eleventh migration adds recurrence fields to `weekly_tasks` while keeping the existing table and API names. The twelfth migration adds `col_span` and `row_span` to sheet widget slots for controlled widget spanning.
 
 ## Create A New Migration
 
@@ -1010,7 +1027,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, recurring task weekly/bi-weekly/monthly validation, recurring task editing/filtering/category assignment/category filtering, recurring occurrence completion idempotency, invalid occurrence dates, recurring task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, recurring task weekly/bi-weekly/monthly validation, recurring task editing/filtering/category assignment/category filtering, recurring occurrence completion idempotency, invalid occurrence dates, recurring task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, controlled widget spans, span edge/overlap rejection, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 
@@ -1081,7 +1098,7 @@ This phase does not include:
 - Authentication or users
 - AI features
 - Redis, workers, background jobs, pgvector, or semantic search
-- Drag-and-drop, resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
+- Drag-and-drop, freeform resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
 - Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet-scoped widget settings
 - A formal command palette engine
 - External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications

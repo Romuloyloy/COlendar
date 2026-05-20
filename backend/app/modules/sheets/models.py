@@ -34,5 +34,7 @@ class SheetWidgetSlot(TimestampMixin, Base):
     widget_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
     config_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     slot_index: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    col_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    row_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     sheet: Mapped[Sheet] = relationship("Sheet", back_populates="slots")

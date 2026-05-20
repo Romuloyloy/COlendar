@@ -24,12 +24,20 @@ export type DashboardWidgetCategory =
   | "tracker"
   | "navigation";
 
+export type DashboardWidgetLibraryGroup =
+  | "Overview / Utility"
+  | "Tasks"
+  | "Notes"
+  | "Calendar"
+  | "Tracker"
+  | "Planning";
+
 export type DashboardWidgetProps = {
   selectedDate: string;
   summary: DashboardSummary;
   isSaving: boolean;
   widgetConfig?: DashboardWidgetConfig;
-  renderMode?: "normal" | "compact";
+  renderMode?: "normal" | "compact" | "focus";
   taskCategories?: TaskCategory[];
   onDateChange: (date: string) => void;
   onToggleDailyTask: (task: DailyTask) => void;
@@ -47,6 +55,10 @@ export type DashboardWidgetDefinition = {
   displayName: string;
   description: string;
   category: DashboardWidgetCategory;
+  libraryGroup: DashboardWidgetLibraryGroup;
+  compactPreviewLabel: string;
+  supportsCategoryFilter?: boolean;
+  supportsTitleOverride?: boolean;
   defaultOrder: number;
   defaultSize: WidgetSizeHint;
   component: ComponentType<DashboardWidgetProps>;

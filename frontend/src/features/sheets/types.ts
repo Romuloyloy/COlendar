@@ -15,6 +15,8 @@ export type SheetWidgetSlot = {
     title_override?: string;
   };
   slot_index: number;
+  col_span: number;
+  row_span: number;
   created_at: string;
   updated_at: string;
 };
@@ -31,5 +33,7 @@ export type SheetSlotsUpdate = {
       category_id?: number | null;
       title_override?: string;
     };
+    col_span?: number;
+    row_span?: number;
   }[];
 };

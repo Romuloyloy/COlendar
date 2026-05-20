@@ -1,14 +1,13 @@
-Hi! This pass implements Palette + Empty Slot Quick Add v1.
+Hi! This pass implements Workspace Focus Mode v1 for `/sheets`.
 
 What changed:
-- Named the default/current accent palette `Robot Vanilla`.
-- Added `DuckBerry` and `BozzyWheat` as simple frontend-only accent palette options.
-- Added a small palette selector to the app shell.
-- Stored the selected palette in browser `localStorage`; no backend storage or user account behavior was added.
-- Moved key accent styling onto CSS variables so palette changes affect primary buttons, focus rings, nav hover/active states, eyebrows, pills, sheet add affordances, and selected slot accents.
-- Empty slots on `/sheets` now show a soft plus/Add something affordance.
-- Clicking an empty slot in normal sheet viewing mode opens the existing Quick Add modal.
-- The existing Customize slots flow still handles widget/slot assignment, including empty slots.
+- Occupied sheet widgets now show a lightweight Focus action in the tile header.
+- Focus opens the selected widget in a centered, enlarged overlay while preserving the sheet layout underneath.
+- Focus mode reuses existing frontend data and widget rendering; there are no backend changes or migrations.
+- Focus can be closed with the Close button or the Escape key.
+- The background sheet is subdued while focus mode is open, and normal background interaction is blocked by the overlay.
+- Widget spanning, duplicate widget instances, task category filters, title overrides, palette selection, and Quick Add behavior remain intact.
+- No permanent resizing, drag-and-drop, floating windows, persisted focus state, arbitrary `x/y/w/h` layout, or unrelated features were added.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
@@ -17,28 +16,20 @@ How to inspect/test it:
 4. `docker compose exec backend pytest`
 5. `docker compose exec frontend npm run build`
 6. Open `/sheets`.
-7. Use Customize slots to clear a slot if no empty slot is visible.
-8. Click the empty slot's Add something affordance and confirm Quick Add opens.
-9. Open Customize slots and confirm empty slots can still be selected/configured there.
-10. Switch between Robot Vanilla, DuckBerry, and BozzyWheat from the app shell palette selector.
-11. Refresh the page and confirm the selected palette persists.
+7. Use Focus on Notes, Calendar, Tasks, or Tracker widgets.
+8. Confirm the widget opens in a larger centered overlay.
+9. Close with the Close button and with Escape.
+10. Confirm the underlying sheet layout and widget spans are unchanged.
 
 What success looks like:
-- Palette changes are noticeable in accent areas and softly tint white surfaces without recoloring the whole app.
-- Robot Vanilla matches the previous default visual direction.
-- DuckBerry feels deep berry/lavender but calm.
-- BozzyWheat feels muted wheat/olive/golden without harsh yellow.
-- Empty sheet slots feel actionable but still fit the soft workspace style.
-- Existing Quick Add behavior still works normally.
-- No backend behavior changes, migrations, or new storage tables were introduced.
-- Backend tests and frontend build pass.
+- Compact widgets still work in the grid.
+- Focus mode gives cramped widgets more readable space without feeling like a separate app window.
+- The sheet remains calm and visually consistent.
+- Existing `/sheets` controls and persistence continue to work.
 
 Intentionally postponed:
-- No backend palette preferences.
-- No user accounts, auth, dark mode, custom color picker, per-sheet palettes, or per-widget palettes.
-- No drag-and-drop, widget resizing, or `x/y/w/h` layout.
-- No new product modules.
-
-Recommended next phase:
-- Visual QA the three palettes across `/`, `/sheets`, `/tasks`, `/calendar`, `/notes`, `/tracker`, `/planning`, and `/search`.
-- Keep any future theme work small and token-based unless a broader design-system spec is written.
+- No permanent resizing.
+- No drag-and-drop.
+- No floating windows.
+- No backend focus persistence.
+- No new layout model.

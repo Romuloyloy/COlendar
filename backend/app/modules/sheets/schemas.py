@@ -31,6 +31,8 @@ class SheetWidgetSlotRead(BaseModel):
     widget_key: str | None
     config_json: dict
     slot_index: int
+    col_span: int
+    row_span: int
     created_at: datetime
     updated_at: datetime
 
@@ -41,6 +43,8 @@ class SheetWidgetSlotUpdate(BaseModel):
     slot_index: int = Field(ge=0, le=7)
     widget_key: str | None = Field(default=None, max_length=100)
     config_json: dict = Field(default_factory=dict)
+    col_span: int = Field(default=1, ge=1, le=2)
+    row_span: int = Field(default=1, ge=1, le=2)
 
     @field_validator("widget_key")
     @classmethod

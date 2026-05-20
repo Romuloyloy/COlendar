@@ -13,6 +13,9 @@ from app.modules.sheets.schemas import (
 from app.modules.tasks.models import TaskCategory
 
 GRID_SLOT_COUNT = 8
+GRID_COLUMNS = 4
+GRID_ROWS = 2
+ALLOWED_SPANS = {(1, 1), (2, 1), (1, 2), (2, 2)}
 VALID_SLOT_INDEXES = set(range(GRID_SLOT_COUNT))
 
 
@@ -78,7 +81,9 @@ def update_sheet_slots(
         slot = slots_by_index[slot_index]
         update = updates_by_index.get(slot_index)
         slot.widget_key = update.widget_key if update is not None else None
-        slot.config_json = update.config_json if update is not None else {}
+        slot.config_json = update.config_json if update is not None and update.widget_key else {}
+        slot.col_span = update.col_span if update is not None and update.widget_key else 1
+        slot.row_span = update.row_span if update is not None and update.widget_key else 1
 
     db.commit()
     return get_sheet(db, sheet.id)
@@ -179,6 +184,8 @@ def _configured_sheet(
                 widget_keys[slot_index] if slot_index < len(widget_keys) else None,
                 task_config,
             ),
+            col_span=1,
+            row_span=1,
         )
         for slot_index in range(GRID_SLOT_COUNT)
     ]
@@ -204,7 +211,13 @@ def _find_active_health_category_id(db: Session) -> int | None:
 
 
 def _new_empty_slot(slot_index: int) -> SheetWidgetSlot:
-    return SheetWidgetSlot(slot_index=slot_index, widget_key=None, config_json={})
+    return SheetWidgetSlot(
+        slot_index=slot_index,
+        widget_key=None,
+        config_json={},
+        col_span=1,
+        row_span=1,
+    )
 
 
 def _ordered_sheets(db: Session) -> list[Sheet]:
@@ -235,6 +248,14 @@ def _ensure_sheet_slots(db: Session, sheet: Sheet) -> None:
         if slot_index not in slots_by_index:
             sheet.slots.append(_new_empty_slot(slot_index))
             did_change = True
+        else:
+            slot = slots_by_index[slot_index]
+            if slot.col_span is None:
+                slot.col_span = 1
+                did_change = True
+            if slot.row_span is None:
+                slot.row_span = 1
+                did_change = True
 
     if did_change:
         db.commit()
@@ -264,6 +285,8 @@ def _serialize_sheet_detail(sheet: Sheet) -> SheetDetailRead:
 
 
 def _validate_slots(db: Session, slots) -> None:
+    occupied_cells: dict[int, int] = {}
+
     for slot in slots:
         widget_key = slot.widget_key
         if widget_key is not None and widget_key not in VALID_DASHBOARD_WIDGET_KEYS:
@@ -273,6 +296,39 @@ def _validate_slots(db: Session, slots) -> None:
             )
         if widget_key in {"daily-tasks", "weekly-tasks"}:
             _validate_task_widget_config(db, slot.config_json)
+        if widget_key is not None:
+            _validate_slot_span(slot, occupied_cells)
+
+
+def _validate_slot_span(slot, occupied_cells: dict[int, int]) -> None:
+    span = (slot.col_span, slot.row_span)
+    if span not in ALLOWED_SPANS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sheet widget size must be 1x1, 2x1, 1x2, or 2x2",
+        )
+
+    start_column = slot.slot_index % GRID_COLUMNS
+    start_row = slot.slot_index // GRID_COLUMNS
+    if start_column + slot.col_span > GRID_COLUMNS or start_row + slot.row_span > GRID_ROWS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sheet widget span does not fit in the grid",
+        )
+
+    for row_offset in range(slot.row_span):
+        for column_offset in range(slot.col_span):
+            occupied_index = (
+                (start_row + row_offset) * GRID_COLUMNS
+                + start_column
+                + column_offset
+            )
+            if occupied_index in occupied_cells:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Sheet widget spans cannot overlap",
+                )
+            occupied_cells[occupied_index] = slot.slot_index
 
 
 def _validate_task_widget_config(db: Session, config_json: dict) -> None:

@@ -31,6 +31,8 @@ def test_sheet_detail_returns_slots_in_predictable_order(client: TestClient) -> 
     assert [slot["slot_index"] for slot in slots] == list(range(8))
     assert [slot["widget_key"] for slot in slots] == TODAY_WIDGET_KEYS
     assert all(slot["config_json"] == {} for slot in slots)
+    assert all(slot["col_span"] == 1 for slot in slots)
+    assert all(slot["row_span"] == 1 for slot in slots)
 
 
 def test_create_sheet(client: TestClient) -> None:
@@ -105,6 +107,120 @@ def test_set_widget_slots(client: TestClient) -> None:
     assert slots[2]["widget_key"] == "recent-notes"
     assert slots[2]["config_json"] == {"title_override": "Notes"}
     assert slots[3]["widget_key"] is None
+    assert all(slot["col_span"] == 1 for slot in slots)
+    assert all(slot["row_span"] == 1 for slot in slots)
+
+
+def test_set_spanning_widget_slot(client: TestClient) -> None:
+    sheet_id = client.get("/api/sheets").json()[0]["id"]
+
+    response = client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={
+            "slots": [
+                {
+                    "slot_index": 0,
+                    "widget_key": "daily-tasks",
+                    "col_span": 2,
+                    "row_span": 1,
+                },
+                {
+                    "slot_index": 2,
+                    "widget_key": "recent-notes",
+                    "col_span": 1,
+                    "row_span": 2,
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    slots = response.json()["slots"]
+    assert slots[0]["widget_key"] == "daily-tasks"
+    assert slots[0]["col_span"] == 2
+    assert slots[0]["row_span"] == 1
+    assert slots[2]["widget_key"] == "recent-notes"
+    assert slots[2]["col_span"] == 1
+    assert slots[2]["row_span"] == 2
+
+
+def test_reject_spanning_widget_that_crosses_grid_edge(
+    client: TestClient,
+) -> None:
+    sheet_id = client.get("/api/sheets").json()[0]["id"]
+
+    response = client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={
+            "slots": [
+                {
+                    "slot_index": 3,
+                    "widget_key": "daily-tasks",
+                    "col_span": 2,
+                    "row_span": 1,
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Sheet widget span does not fit in the grid"
+
+
+def test_reject_overlapping_spanning_widgets(client: TestClient) -> None:
+    sheet_id = client.get("/api/sheets").json()[0]["id"]
+
+    response = client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={
+            "slots": [
+                {
+                    "slot_index": 0,
+                    "widget_key": "daily-tasks",
+                    "col_span": 2,
+                    "row_span": 1,
+                },
+                {"slot_index": 1, "widget_key": "recent-notes"},
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Sheet widget spans cannot overlap"
+
+
+def test_clearing_spanning_widget_frees_covered_cells(client: TestClient) -> None:
+    sheet_id = client.get("/api/sheets").json()[0]["id"]
+    client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={
+            "slots": [
+                {
+                    "slot_index": 0,
+                    "widget_key": "daily-tasks",
+                    "col_span": 2,
+                    "row_span": 1,
+                }
+            ]
+        },
+    )
+
+    response = client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={
+            "slots": [
+                {"slot_index": 0, "widget_key": None},
+                {"slot_index": 1, "widget_key": "recent-notes"},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    slots = response.json()["slots"]
+    assert slots[0]["widget_key"] is None
+    assert slots[0]["col_span"] == 1
+    assert slots[0]["row_span"] == 1
+    assert slots[1]["widget_key"] == "recent-notes"
 
 
 def test_reject_invalid_slot_index(client: TestClient) -> None:

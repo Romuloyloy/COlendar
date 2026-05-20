@@ -45,6 +45,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Compact widget rows should prioritize fast scanning: clear titles, muted metadata, soft row hover states, and calm empty states.
 - Sheet motion should stay subtle and functional: hover, opacity, and small position changes only.
 - Empty sheet slots should feel gently actionable in normal viewing mode and open Quick Add, while slot/widget assignment remains in the Customize slots flow.
+- Widget focus mode should feel temporary and calm: centered overlay, subdued sheet background, clear close affordance, and Escape-to-close behavior when available.
 
 ## Engineering UX Rules
 

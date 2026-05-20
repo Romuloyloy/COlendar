@@ -33,7 +33,7 @@ import {
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 export function DashboardPage() {
-  const [selectedDate, setSelectedDate] = useState(todayIsoDate());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [layout, setLayout] = useState<DashboardWidgetLayout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +43,7 @@ export function DashboardPage() {
   const [layoutWarning, setLayoutWarning] = useState<string | null>(null);
 
   const selectedDateLabel = useMemo(
-    () => formatDisplayDate(selectedDate),
+    () => (selectedDate ? formatDisplayDate(selectedDate) : "today"),
     [selectedDate],
   );
   const visibleWidgetDefinitions = useMemo(
@@ -52,12 +52,20 @@ export function DashboardPage() {
   );
 
   async function loadSummary() {
+    if (!selectedDate) {
+      return;
+    }
+
     setError(null);
     const data = await getDashboardSummary(selectedDate);
     setSummary(data);
   }
 
   async function loadDashboardData() {
+    if (!selectedDate) {
+      return;
+    }
+
     setError(null);
     setLayoutWarning(null);
 
@@ -83,6 +91,14 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
+    setSelectedDate(todayIsoDate());
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      return;
+    }
+
     setIsLoading(true);
     loadDashboardData()
       .catch((caught: Error) => setError(caught.message))
@@ -123,6 +139,10 @@ export function DashboardPage() {
   }
 
   function toggleWeeklyTask(task: DashboardWeeklyTask) {
+    if (!selectedDate) {
+      return;
+    }
+
     void runTaskAction(async () => {
       if (task.is_completed) {
         await incompleteWeeklyTask(task.id, selectedDate);
@@ -165,7 +185,7 @@ export function DashboardPage() {
           <SectionCard>
             <LoadingState message="Loading dashboard..." />
           </SectionCard>
-        ) : summary ? (
+        ) : summary && selectedDate ? (
           visibleWidgetDefinitions.length > 0 ? (
             <div className="grid gap-5 lg:grid-cols-2">
               {visibleWidgetDefinitions.map((definition) => (
@@ -175,7 +195,7 @@ export function DashboardPage() {
                   props={
                     {
                       isSaving,
-                      onDateChange: setSelectedDate,
+                      onDateChange: (value) => setSelectedDate(value),
                       onToggleDailyTask: toggleDailyTask,
                       onToggleWeeklyTask: toggleWeeklyTask,
                       selectedDate,

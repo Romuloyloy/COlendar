@@ -62,6 +62,8 @@ Dashboard widgets and sheet widgets should feel related, while sheet widgets may
 - floating top-center controls
 - calm tile-like sheet cells
 - compact readable widgets
+- controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans that visually merge covered cells
+- temporary widget focus overlays for deeper reading without changing the saved grid
 - clear dangerous-action separation
 - no drag-and-drop, resizing, or coordinate layout until a future spec asks for it
 
@@ -75,6 +77,13 @@ Sheets Visual Refinement v1 adds a more intentional workspace layer without chan
 - compact widget cards with consistent row, metadata, metric, empty, and link treatments
 - light motion only for hover and dropdown entrance
 - empty slots that show a soft add affordance and open Quick Add in normal viewing mode
+- a calm slot editor with a grouped widget library for configuration mode
+
+Widget Library + Slot Editor UX v2 keeps the library frontend/code-defined. Widget cards should be compact and readable, show a widget name, group/type, short preview, and configuration support, and keep duplicate widget instances possible by assigning widgets to individual slots.
+
+Widget Spanning v1 keeps spans calm and preset-based. Larger widgets should occupy the correct fixed-grid area, hide covered empty cells, and preserve the same rounded tile language without introducing handles, drag states, or technical coordinate controls.
+
+Workspace Focus Mode v1 should feel like a quiet enlargement of the current widget: softened backdrop, centered large panel, clear close affordance, and no floating-window language or permanent resize controls.
 
 The visual goal is cozy focus, not a dense dashboard, spreadsheet, kanban board, or command palette.
 

@@ -31,6 +31,7 @@ import type {
 import type {
   DashboardWidgetDefinition,
   DashboardWidgetId,
+  DashboardWidgetLibraryGroup,
   DashboardWidgetProps,
 } from "@/features/dashboard/widget-types";
 import type { DailyTask } from "@/features/tasks/types";
@@ -54,6 +55,7 @@ import {
 import { formatDisplayDate, todayIsoDate } from "@/lib/date";
 
 const SLOT_COUNT = 8;
+const GRID_COLUMNS = 4;
 const LAST_ACTIVE_SHEET_STORAGE_KEY = "calendar:last-active-sheet-id";
 
 const workspaceLinks = [
@@ -66,9 +68,27 @@ const workspaceLinks = [
   ["Search", "/search"],
 ] as const;
 
+const WIDGET_LIBRARY_GROUPS: DashboardWidgetLibraryGroup[] = [
+  "Overview / Utility",
+  "Tasks",
+  "Notes",
+  "Calendar",
+  "Tracker",
+  "Planning",
+];
+
+const SLOT_SIZE_OPTIONS = [
+  { label: "Normal", description: "1 cell", colSpan: 1, rowSpan: 1 },
+  { label: "Wide", description: "2 columns", colSpan: 2, rowSpan: 1 },
+  { label: "Tall", description: "2 rows", colSpan: 1, rowSpan: 2 },
+  { label: "Large", description: "2 by 2", colSpan: 2, rowSpan: 2 },
+] as const;
+
 type DraftSlot = {
   slot_index: number;
   widget_key: DashboardWidgetId | null;
+  col_span: number;
+  row_span: number;
   config_json: {
     category_id?: number | null;
     title_override?: string;
@@ -96,6 +116,7 @@ export function SheetsPage() {
   const [renameValue, setRenameValue] = useState("");
   const [isControlOpen, setIsControlOpen] = useState(false);
   const [isSlotEditorOpen, setIsSlotEditorOpen] = useState(false);
+  const [focusedSlotIndex, setFocusedSlotIndex] = useState<number | null>(null);
   const [editingSlotIndex, setEditingSlotIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -232,6 +253,11 @@ export function SheetsPage() {
       }
 
       if (event.key === "Escape") {
+        if (focusedSlotIndex !== null) {
+          event.preventDefault();
+          setFocusedSlotIndex(null);
+          return;
+        }
         if (isSlotEditorOpen) {
           event.preventDefault();
           setIsSlotEditorOpen(false);
@@ -244,7 +270,7 @@ export function SheetsPage() {
         return;
       }
 
-      if (isSlotEditorOpen || isControlOpen) {
+      if (focusedSlotIndex !== null || isSlotEditorOpen || isControlOpen) {
         return;
       }
 
@@ -270,7 +296,13 @@ export function SheetsPage() {
 
     window.addEventListener("keydown", handleWorkspaceKeyDown);
     return () => window.removeEventListener("keydown", handleWorkspaceKeyDown);
-  }, [isControlOpen, isSlotEditorOpen, selectedSheetIndex, sheets.length]);
+  }, [
+    focusedSlotIndex,
+    isControlOpen,
+    isSlotEditorOpen,
+    selectedSheetIndex,
+    sheets.length,
+  ]);
 
   async function runAction(action: () => Promise<void>) {
     setIsSaving(true);
@@ -305,6 +337,7 @@ export function SheetsPage() {
 
   function openSlotEditor(slotIndex = editingSlotIndex) {
     setEditingSlotIndex(slotIndex);
+    setFocusedSlotIndex(null);
     setIsSlotEditorOpen(true);
     setIsControlOpen(false);
   }
@@ -372,6 +405,7 @@ export function SheetsPage() {
         setDraftSlots(emptyDraftSlots());
       }
       setIsSlotEditorOpen(false);
+      setFocusedSlotIndex(null);
       setIsControlOpen(false);
       setNotice("Sheet deleted.");
     });
@@ -398,6 +432,7 @@ export function SheetsPage() {
       }
       setEditingSlotIndex(0);
       setIsSlotEditorOpen(false);
+      setFocusedSlotIndex(null);
       setIsControlOpen(false);
       setNotice("Default sheets restored.");
     });
@@ -434,6 +469,8 @@ export function SheetsPage() {
         slot_index: slotIndex,
         widget_key: visibleWidgetKeys[slotIndex] ?? null,
         config_json: {},
+        col_span: 1,
+        row_span: 1,
       }));
 
       const updated = await updateSheetSlots(sheetDetail.id, {
@@ -443,6 +480,7 @@ export function SheetsPage() {
       setDraftSlots(createDraftSlots(updated));
       setEditingSlotIndex(0);
       setIsSlotEditorOpen(false);
+      setFocusedSlotIndex(null);
       setIsControlOpen(false);
       setNotice("Current sheet reset to dashboard-style layout.");
     });
@@ -494,6 +532,8 @@ export function SheetsPage() {
           slot_index: slot.slot_index,
           widget_key: slot.widget_key,
           config_json: slot.widget_key ? normalizedSlotConfig(slot) : {},
+          col_span: slot.widget_key ? slot.col_span : 1,
+          row_span: slot.widget_key ? slot.row_span : 1,
         })),
       });
       setSheetDetail(updated);
@@ -539,6 +579,8 @@ export function SheetsPage() {
               ...slot,
               widget_key: widgetKey ? (widgetKey as DashboardWidgetId) : null,
               config_json: widgetKey ? slot.config_json : {},
+              col_span: widgetKey ? slot.col_span : 1,
+              row_span: widgetKey ? slot.row_span : 1,
             }
           : slot,
       ),
@@ -550,7 +592,28 @@ export function SheetsPage() {
     setDraftSlots((current) =>
       current.map((slot) =>
         slot.slot_index === slotIndex
-          ? { ...slot, widget_key: null, config_json: {} }
+          ? {
+              ...slot,
+              widget_key: null,
+              config_json: {},
+              col_span: 1,
+              row_span: 1,
+            }
+          : slot,
+      ),
+    );
+  }
+
+  function updateDraftSlotSize(
+    slotIndex: number,
+    colSpan: number,
+    rowSpan: number,
+  ) {
+    setNotice(null);
+    setDraftSlots((current) =>
+      current.map((slot) =>
+        slot.slot_index === slotIndex
+          ? { ...slot, col_span: colSpan, row_span: rowSpan }
           : slot,
       ),
     );
@@ -679,6 +742,7 @@ export function SheetsPage() {
               draftSlots={draftSlots}
               isSummaryReady={summary !== null}
               onEditSlot={openSlotEditor}
+              onFocusSlot={setFocusedSlotIndex}
               onOpenQuickAdd={openQuickAdd}
               onPreviewNote={setPreviewNote}
               taskCategories={categories}
@@ -700,8 +764,19 @@ export function SheetsPage() {
           onSelectSlot={setEditingSlotIndex}
           onUpdateSlot={updateDraftSlot}
           onUpdateSlotConfig={updateDraftSlotConfig}
+          onUpdateSlotSize={updateDraftSlotSize}
           hasUnsavedChanges={hasUnsavedSlotChanges}
           sheetName={currentSheetName}
+        />
+      ) : null}
+      {focusedSlotIndex !== null ? (
+        <FocusOverlay
+          draftSlots={draftSlots}
+          focusedSlotIndex={focusedSlotIndex}
+          onClose={() => setFocusedSlotIndex(null)}
+          onPreviewNote={setPreviewNote}
+          taskCategories={categories}
+          widgetProps={widgetProps}
         />
       ) : null}
       {previewNote ? (
@@ -991,6 +1066,7 @@ function SheetGrid({
   draftSlots,
   isSummaryReady,
   onEditSlot,
+  onFocusSlot,
   onOpenQuickAdd,
   onPreviewNote,
   taskCategories,
@@ -999,14 +1075,20 @@ function SheetGrid({
   draftSlots: DraftSlot[];
   isSummaryReady: boolean;
   onEditSlot: (slotIndex: number) => void;
+  onFocusSlot: (slotIndex: number) => void;
   onOpenQuickAdd: () => void;
   onPreviewNote: (note: Note) => void;
   taskCategories: TaskCategory[];
   widgetProps: DashboardWidgetProps | null;
 }) {
+  const coveredSlots = coveredSlotAnchors(draftSlots);
+
   return (
     <section className="grid h-full min-h-0 grid-cols-4 grid-rows-2 gap-3">
       {draftSlots.map((slot) => {
+        if (coveredSlots.has(slot.slot_index)) {
+          return null;
+        }
         const definition = slot.widget_key
           ? getDashboardWidgetDefinition(slot.widget_key)
           : undefined;
@@ -1014,20 +1096,36 @@ function SheetGrid({
           <div
             className="sheet-tile"
             key={slot.slot_index}
+            style={{
+              gridColumn: `${(slot.slot_index % GRID_COLUMNS) + 1} / span ${slot.col_span}`,
+              gridRow: `${Math.floor(slot.slot_index / GRID_COLUMNS) + 1} / span ${slot.row_span}`,
+            }}
           >
             <div className="flex h-full min-h-0 flex-col">
               <div className="sheet-slot-header">
                 <p className="text-[11px] font-semibold uppercase tracking-normal text-[#8b8176]">
-                  Slot {slot.slot_index + 1}
+                  Slot {slot.slot_index + 1} / {slot.col_span}x{slot.row_span}
                 </p>
-                <button
-                  className="sheet-slot-label"
-                  onClick={() => onEditSlot(slot.slot_index)}
-                  title="Edit slot"
-                  type="button"
-                >
-                  {definition?.displayName ?? "Empty"}
-                </button>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {definition && widgetProps ? (
+                    <button
+                      className="sheet-focus-button"
+                      onClick={() => onFocusSlot(slot.slot_index)}
+                      title={`Focus ${definition.displayName}`}
+                      type="button"
+                    >
+                      Focus
+                    </button>
+                  ) : null}
+                  <button
+                    className="sheet-slot-label"
+                    onClick={() => onEditSlot(slot.slot_index)}
+                    title="Edit slot"
+                    type="button"
+                  >
+                    {definition?.displayName ?? "Empty"}
+                  </button>
+                </div>
               </div>
               <div className="sheet-scroll min-h-0 flex-1 overflow-auto p-2.5 [&>section]:h-full [&>section]:overflow-auto [&>section]:shadow-none">
                 {definition && widgetProps ? (
@@ -1052,6 +1150,76 @@ function SheetGrid({
         );
       })}
     </section>
+  );
+}
+
+function FocusOverlay({
+  draftSlots,
+  focusedSlotIndex,
+  onClose,
+  onPreviewNote,
+  taskCategories,
+  widgetProps,
+}: {
+  draftSlots: DraftSlot[];
+  focusedSlotIndex: number;
+  onClose: () => void;
+  onPreviewNote: (note: Note) => void;
+  taskCategories: TaskCategory[];
+  widgetProps: DashboardWidgetProps | null;
+}) {
+  const slot = draftSlots.find(
+    (draftSlot) => draftSlot.slot_index === focusedSlotIndex,
+  );
+  const definition = slot?.widget_key
+    ? getDashboardWidgetDefinition(slot.widget_key)
+    : undefined;
+
+  if (!slot || !definition || !widgetProps) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-label={`${definition.displayName} focus mode`}
+      aria-modal="true"
+      className="sheet-focus-backdrop"
+      role="dialog"
+    >
+      <section className="sheet-focus-panel">
+        <div className="sheet-focus-header">
+          <div className="min-w-0">
+            <p className="app-eyebrow">Focus Mode</p>
+            <h2 className="mt-1 truncate text-xl font-semibold text-[#2c2925]">
+              {definition.displayName}
+            </h2>
+            <p className="app-muted mt-1 text-xs">
+              Slot {slot.slot_index + 1} / {slot.col_span}x{slot.row_span}
+            </p>
+          </div>
+          <button
+            autoFocus
+            className="app-button-secondary min-h-8 px-3 py-1.5 text-xs"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+        <div className="sheet-focus-content">
+          <WidgetRenderer
+            definition={definition}
+            props={{
+              ...widgetProps,
+              onPreviewNote,
+              renderMode: "focus",
+              taskCategories,
+              widgetConfig: slot.config_json,
+            }}
+          />
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1165,6 +1333,7 @@ function SlotEditorPanel({
   onSelectSlot,
   onUpdateSlot,
   onUpdateSlotConfig,
+  onUpdateSlotSize,
   sheetName,
 }: {
   activeSlot: DraftSlot;
@@ -1182,15 +1351,26 @@ function SlotEditorPanel({
     key: "category_id" | "title_override",
     value: string,
   ) => void;
+  onUpdateSlotSize: (
+    slotIndex: number,
+    colSpan: number,
+    rowSpan: number,
+  ) => void;
   sheetName: string;
 }) {
   const activeDefinition = activeSlot.widget_key
     ? getDashboardWidgetDefinition(activeSlot.widget_key)
     : undefined;
-  const supportsTaskCategory =
-    activeSlot.widget_key === "daily-tasks" ||
-    activeSlot.widget_key === "weekly-tasks";
-  const supportsTitleOverride = supportsTaskCategory;
+  const supportsTaskCategory = Boolean(activeDefinition?.supportsCategoryFilter);
+  const supportsTitleOverride = Boolean(activeDefinition?.supportsTitleOverride);
+  const selectedSlotLocation = sheetSlotLocation(activeSlot.slot_index);
+  const selectedCategoryName = activeSlot.config_json.category_id
+    ? categories.find(
+        (category) => category.id === activeSlot.config_json.category_id,
+      )?.name ?? "Unknown"
+    : "All";
+  const coveredSlots = coveredSlotAnchors(draftSlots);
+  const activeCoveredBy = coveredSlots.get(activeSlot.slot_index);
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#2c2925]/35 px-6 py-6 backdrop-blur-sm">
@@ -1218,15 +1398,24 @@ function SlotEditorPanel({
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-5 overflow-auto p-5 lg:grid-cols-[220px_1fr]">
+        <div className="grid min-h-0 flex-1 gap-5 overflow-auto p-5 lg:grid-cols-[230px_1fr]">
           <div>
             <p className="text-sm font-semibold text-[#2c2925]">Choose slot</p>
+            <p className="app-muted mt-1 text-xs leading-5">
+              Empty slots open widget configuration here. In normal sheet mode,
+              empty slots open Quick Add.
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
               {draftSlots.map((slot) => {
                 const definition = slot.widget_key
                   ? getDashboardWidgetDefinition(slot.widget_key)
                   : undefined;
                 const isActive = slot.slot_index === activeSlot.slot_index;
+                const coveredBy = coveredSlots.get(slot.slot_index);
+                const coveredAnchor =
+                  coveredBy !== undefined
+                    ? draftSlots.find((draftSlot) => draftSlot.slot_index === coveredBy)
+                    : undefined;
                 return (
                   <button
                     className={`sheet-slot-choice ${
@@ -1235,14 +1424,21 @@ function SlotEditorPanel({
                         : "sheet-slot-choice-idle"
                     }`}
                     key={slot.slot_index}
-                    onClick={() => onSelectSlot(slot.slot_index)}
+                    onClick={() => onSelectSlot(coveredBy ?? slot.slot_index)}
                     type="button"
                   >
                     <span className="block font-semibold">
                       Slot {slot.slot_index + 1}
                     </span>
-                    <span className="block truncate text-xs">
-                      {definition?.displayName ?? "Empty"}
+                    <span className="mt-0.5 block truncate text-xs">
+                      {coveredAnchor
+                        ? `Covered by slot ${coveredAnchor.slot_index + 1}`
+                        : definition?.displayName ?? "Add widget"}
+                    </span>
+                    <span className="app-muted mt-1 block text-[11px]">
+                      {coveredAnchor
+                        ? `${coveredAnchor.col_span}x${coveredAnchor.row_span} widget`
+                        : `${sheetSlotLocation(slot.slot_index)} / ${slot.col_span}x${slot.row_span}`}
                     </span>
                   </button>
                 );
@@ -1250,35 +1446,29 @@ function SlotEditorPanel({
             </div>
           </div>
 
-          <div className="min-w-0">
-            <label className="block text-sm font-semibold text-[#2c2925]">
-              Widget type for slot {activeSlot.slot_index + 1}
-              <select
-                className={inputClassName}
-                disabled={isSaving}
-                onChange={(event) =>
-                  onUpdateSlot(activeSlot.slot_index, event.target.value)
-                }
-                value={activeSlot.widget_key ?? ""}
-              >
-                <option value="">Empty</option>
-                {DEFAULT_DASHBOARD_WIDGET_DEFINITIONS.map((definition) => (
-                  <option key={definition.id} value={definition.id}>
-                    {definition.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="sheet-config-summary mt-4">
-              <p className="text-sm font-semibold text-[#2c2925]">
-                {activeDefinition?.displayName ?? "Empty slot"}
-              </p>
-              <p className="app-muted mt-1 text-sm leading-6">
-                {activeDefinition?.description ??
-                  "This slot will stay empty until you choose a widget type."}
-              </p>
-              <dl className="mt-3 grid gap-2 text-xs text-[#625c55] sm:grid-cols-3">
+          <div className="min-w-0 space-y-4">
+            <div className="sheet-config-summary">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="app-eyebrow">Selected Slot</p>
+                  <h3 className="mt-1 text-lg font-semibold text-[#2c2925]">
+                    Slot {activeSlot.slot_index + 1} - {selectedSlotLocation}
+                  </h3>
+                  <p className="app-muted mt-1 text-sm leading-6">
+                    {activeDefinition
+                      ? activeDefinition.description
+                      : "Choose a widget from the library below. This slot is empty until you save changes."}
+                  </p>
+                </div>
+                <span
+                  className={`app-pill ${
+                    hasUnsavedChanges ? "border-[var(--color-primary-ring)]" : ""
+                  }`}
+                >
+                  {hasUnsavedChanges ? "Unsaved" : "Saved"}
+                </span>
+              </div>
+              <dl className="mt-4 grid gap-2 text-xs text-[#625c55] sm:grid-cols-4">
                 <div>
                   <dt className="font-semibold uppercase text-[#8b8176]">
                     Widget
@@ -1289,15 +1479,18 @@ function SlotEditorPanel({
                 </div>
                 <div>
                   <dt className="font-semibold uppercase text-[#8b8176]">
+                    Type
+                  </dt>
+                  <dd className="truncate">
+                    {activeDefinition?.libraryGroup ?? "None"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase text-[#8b8176]">
                     Category
                   </dt>
                   <dd className="truncate">
-                    {activeSlot.config_json.category_id
-                      ? categories.find(
-                          (category) =>
-                            category.id === activeSlot.config_json.category_id,
-                        )?.name ?? "Unknown"
-                      : "All"}
+                    {supportsTaskCategory ? selectedCategoryName : "Not used"}
                   </dd>
                 </div>
                 <div>
@@ -1305,14 +1498,139 @@ function SlotEditorPanel({
                     Title
                   </dt>
                   <dd className="truncate">
-                    {activeSlot.config_json.title_override?.trim() || "Default"}
+                    {supportsTitleOverride
+                      ? activeSlot.config_json.title_override?.trim() || "Default"
+                      : "Default"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase text-[#8b8176]">
+                    Size
+                  </dt>
+                  <dd className="truncate">
+                    {activeSlot.col_span}x{activeSlot.row_span}
                   </dd>
                 </div>
               </dl>
             </div>
 
+            <section>
+              <p className="text-sm font-semibold text-[#2c2925]">Widget size</p>
+              <p className="app-muted mt-1 text-xs leading-5">
+                Larger widgets occupy neighboring cells in the fixed grid.
+              </p>
+              {activeCoveredBy !== undefined ? (
+                <div className="app-soft-box mt-3 px-3 py-2 text-xs leading-5 text-[#766f66]">
+                  Slot {activeSlot.slot_index + 1} is covered by slot{" "}
+                  {activeCoveredBy + 1}. Select the anchor slot to edit or clear
+                  the widget.
+                </div>
+              ) : null}
+              <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                {SLOT_SIZE_OPTIONS.map((option) => {
+                  const unavailableReason = slotSizeUnavailableReason(
+                    activeSlot.slot_index,
+                    option.colSpan,
+                    option.rowSpan,
+                    draftSlots,
+                  );
+                  const isActiveSize =
+                    activeSlot.col_span === option.colSpan &&
+                    activeSlot.row_span === option.rowSpan;
+                  return (
+                    <button
+                      className={`sheet-size-option ${
+                        isActiveSize ? "sheet-size-option-active" : ""
+                      }`}
+                      disabled={
+                        isSaving ||
+                        activeSlot.widget_key === null ||
+                        activeCoveredBy !== undefined ||
+                        unavailableReason !== null
+                      }
+                      key={`${option.colSpan}x${option.rowSpan}`}
+                      onClick={() =>
+                        onUpdateSlotSize(
+                          activeSlot.slot_index,
+                          option.colSpan,
+                          option.rowSpan,
+                        )
+                      }
+                      title={
+                        activeSlot.widget_key === null
+                          ? "Choose a widget before selecting a larger size."
+                          : unavailableReason ?? undefined
+                      }
+                      type="button"
+                    >
+                      <span className="block text-sm font-semibold">
+                        {option.label}
+                      </span>
+                      <span className="app-muted mt-0.5 block text-[11px]">
+                        {option.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#2c2925]">
+                    Widget library
+                  </p>
+                  <p className="app-muted mt-1 text-xs leading-5">
+                    Select a widget for this slot. Duplicate widget types are
+                    allowed on different slots.
+                  </p>
+                </div>
+                <button
+                  className="app-button-secondary min-h-8 px-3 py-1.5 text-xs"
+                  disabled={isSaving || activeSlot.widget_key === null}
+                  onClick={() => onUpdateSlot(activeSlot.slot_index, "")}
+                  type="button"
+                >
+                  Set empty
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-4">
+                {WIDGET_LIBRARY_GROUPS.map((group) => {
+                  const definitions = DEFAULT_DASHBOARD_WIDGET_DEFINITIONS.filter(
+                    (definition) => definition.libraryGroup === group,
+                  );
+                  if (definitions.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <div key={group}>
+                      <p className="text-xs font-semibold uppercase tracking-normal text-[#8b8176]">
+                        {group}
+                      </p>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        {definitions.map((definition) => (
+                          <WidgetLibraryCard
+                            definition={definition}
+                            isActive={activeSlot.widget_key === definition.id}
+                            isSaving={isSaving}
+                            key={definition.id}
+                            onSelect={() =>
+                              onUpdateSlot(activeSlot.slot_index, definition.id)
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
             {supportsTaskCategory ? (
-              <label className="mt-4 block text-sm font-semibold text-[#2c2925]">
+              <label className="block text-sm font-semibold text-[#2c2925]">
                 Category filter
                 <select
                   className={inputClassName}
@@ -1337,7 +1655,7 @@ function SlotEditorPanel({
             ) : null}
 
             {supportsTitleOverride ? (
-              <label className="mt-4 block text-sm font-semibold text-[#2c2925]">
+              <label className="block text-sm font-semibold text-[#2c2925]">
                 Title override
                 <span className="app-muted mt-1 block text-xs font-normal leading-5">
                   Optional label for this widget instance only.
@@ -1397,6 +1715,74 @@ function SlotEditorPanel({
   );
 }
 
+function WidgetLibraryCard({
+  definition,
+  isActive,
+  isSaving,
+  onSelect,
+}: {
+  definition: DashboardWidgetDefinition;
+  isActive: boolean;
+  isSaving: boolean;
+  onSelect: () => void;
+}) {
+  const configBadges = [
+    definition.supportsCategoryFilter ? "Category filter" : null,
+    definition.supportsTitleOverride ? "Title override" : null,
+  ].filter((badge): badge is string => Boolean(badge));
+
+  return (
+    <button
+      className={`sheet-widget-library-card ${
+        isActive ? "sheet-widget-library-card-active" : ""
+      }`}
+      disabled={isSaving}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="flex items-start gap-3">
+        <span className="sheet-widget-library-icon">
+          {widgetLibraryInitial(definition)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-semibold">
+              {definition.displayName}
+            </span>
+            {isActive ? (
+              <span className="rounded-full bg-white/55 px-2 py-0.5 text-[11px] font-semibold">
+                Active
+              </span>
+            ) : null}
+          </span>
+          <span className="app-muted mt-1 block text-xs leading-5">
+            {definition.compactPreviewLabel}
+          </span>
+          <span className="mt-2 flex flex-wrap gap-1.5">
+            <span className="app-pill border-[#ded6ca]/70 px-2 py-0.5 text-[11px]">
+              {definition.libraryGroup}
+            </span>
+            {configBadges.length > 0 ? (
+              configBadges.map((badge) => (
+                <span
+                  className="app-pill border-[#ded6ca]/70 px-2 py-0.5 text-[11px]"
+                  key={badge}
+                >
+                  {badge}
+                </span>
+              ))
+            ) : (
+              <span className="app-muted text-[11px] font-medium">
+                No extra config
+              </span>
+            )}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function EmptySlot({ onOpenQuickAdd }: { onOpenQuickAdd: () => void }) {
   return (
     <button
@@ -1418,6 +1804,20 @@ function EmptySlot({ onOpenQuickAdd }: { onOpenQuickAdd: () => void }) {
   );
 }
 
+function widgetLibraryInitial(definition: DashboardWidgetDefinition) {
+  return definition.displayName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2);
+}
+
+function sheetSlotLocation(slotIndex: number) {
+  const row = slotIndex < 4 ? "Top row" : "Bottom row";
+  const column = (slotIndex % 4) + 1;
+  return `${row}, column ${column}`;
+}
+
 function CompactState({ message }: { message: string }) {
   return (
     <div className="app-soft-box flex h-full items-center justify-center px-3 py-4 text-center">
@@ -1430,6 +1830,8 @@ function emptyDraftSlots(): DraftSlot[] {
   return Array.from({ length: SLOT_COUNT }, (_, slotIndex) => ({
     slot_index: slotIndex,
     widget_key: null,
+    col_span: 1,
+    row_span: 1,
     config_json: {},
   }));
 }
@@ -1450,7 +1852,89 @@ function normalizedDraftSlotForCompare(slot: DraftSlot) {
     slot_index: slot.slot_index,
     widget_key: slot.widget_key,
     config_json: slot.widget_key ? normalizedSlotConfig(slot) : {},
+    col_span: slot.widget_key ? slot.col_span : 1,
+    row_span: slot.widget_key ? slot.row_span : 1,
   };
+}
+
+function coveredSlotAnchors(slots: DraftSlot[]) {
+  const covered = new Map<number, number>();
+  slots.forEach((slot) => {
+    if (!slot.widget_key) {
+      return;
+    }
+
+    coveredSlotIndexes(slot).forEach((coveredIndex) => {
+      if (coveredIndex !== slot.slot_index) {
+        covered.set(coveredIndex, slot.slot_index);
+      }
+    });
+  });
+  return covered;
+}
+
+function coveredSlotIndexes(slot: DraftSlot) {
+  const indexes: number[] = [];
+  const startColumn = slot.slot_index % GRID_COLUMNS;
+  const startRow = Math.floor(slot.slot_index / GRID_COLUMNS);
+
+  for (let rowOffset = 0; rowOffset < slot.row_span; rowOffset += 1) {
+    for (let columnOffset = 0; columnOffset < slot.col_span; columnOffset += 1) {
+      const coveredIndex =
+        (startRow + rowOffset) * GRID_COLUMNS + startColumn + columnOffset;
+      if (coveredIndex >= 0 && coveredIndex < SLOT_COUNT) {
+        indexes.push(coveredIndex);
+      }
+    }
+  }
+
+  return indexes;
+}
+
+function slotSizeUnavailableReason(
+  slotIndex: number,
+  colSpan: number,
+  rowSpan: number,
+  slots: DraftSlot[],
+) {
+  const startColumn = slotIndex % GRID_COLUMNS;
+  const startRow = Math.floor(slotIndex / GRID_COLUMNS);
+  if (startColumn + colSpan > GRID_COLUMNS || startRow + rowSpan > 2) {
+    return "This size would cross the sheet edge.";
+  }
+
+  const activeSlot = slots.find((slot) => slot.slot_index === slotIndex);
+  const occupiedByOther = occupiedSlotAnchors(
+    slots.filter((slot) => slot.slot_index !== slotIndex),
+  );
+  const proposedSlot = {
+    ...(activeSlot ?? {
+      slot_index: slotIndex,
+      widget_key: null,
+      config_json: {},
+    }),
+    col_span: colSpan,
+    row_span: rowSpan,
+  } as DraftSlot;
+
+  const overlaps = coveredSlotIndexes(proposedSlot).some((coveredIndex) =>
+    occupiedByOther.has(coveredIndex),
+  );
+  return overlaps ? "This size would overlap another widget." : null;
+}
+
+function occupiedSlotAnchors(slots: DraftSlot[]) {
+  const occupied = new Map<number, number>();
+  slots.forEach((slot) => {
+    if (!slot.widget_key) {
+      return;
+    }
+
+    coveredSlotIndexes(slot).forEach((coveredIndex) => {
+      occupied.set(coveredIndex, slot.slot_index);
+    });
+  });
+  return occupied;
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -1480,6 +1964,8 @@ function createDraftSlots(sheet: SheetDetail): DraftSlot[] {
     return {
       slot_index: slotIndex,
       widget_key: definition ? definition.id : null,
+      col_span: definition ? slot?.col_span ?? 1 : 1,
+      row_span: definition ? slot?.row_span ?? 1 : 1,
       config_json: definition ? slot?.config_json ?? {} : {},
     };
   });

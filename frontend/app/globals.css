@@ -280,6 +280,35 @@ body {
     background-color: var(--color-primary-soft);
   }
 
+  .sheet-focus-button {
+    @apply rounded-full border border-[#ded6ca] px-2 py-1 text-[11px] font-semibold text-[var(--color-primary-strong)] transition hover:border-[var(--color-primary-ring)];
+    background-color: color-mix(in srgb, var(--color-primary-soft) 62%, var(--color-surface));
+  }
+
+  .sheet-focus-button:hover {
+    background-color: var(--color-primary-soft);
+  }
+
+  .sheet-focus-backdrop {
+    @apply absolute inset-0 z-40 flex items-center justify-center bg-[#2c2925]/30 px-6 py-6 backdrop-blur-[2px];
+  }
+
+  .sheet-focus-panel {
+    @apply flex h-[min(82vh,760px)] w-[min(88vw,1040px)] flex-col overflow-hidden rounded-[24px] border border-[#d8d0c3]/90 shadow-[0_22px_56px_rgb(82_70_55_/_0.16)];
+    background-color: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  }
+
+  .sheet-focus-header {
+    @apply flex shrink-0 items-start justify-between gap-4 border-b border-[#ded6ca]/80 px-5 py-4;
+    background-color: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  }
+
+  .sheet-focus-content {
+    @apply min-h-0 flex-1 overflow-auto p-5 [&>section]:h-full [&>section]:overflow-auto [&>section]:shadow-none;
+    scrollbar-color: #cbbfb0 transparent;
+    scrollbar-width: thin;
+  }
+
   .sheet-slot-choice {
     @apply rounded-xl border px-3 py-2 text-left text-sm transition;
   }
@@ -291,6 +320,46 @@ body {
 
   .sheet-slot-choice-idle:hover {
     background-color: var(--color-primary-soft);
+  }
+
+  .sheet-size-option {
+    @apply rounded-xl border border-[#ded6ca] px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50;
+    background-color: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  }
+
+  .sheet-size-option:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-surface));
+    border-color: var(--color-primary-ring);
+  }
+
+  .sheet-size-option-active {
+    background-color: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    color: var(--color-primary-strong);
+  }
+
+  .sheet-widget-library-card {
+    @apply rounded-xl border px-3 py-3 text-left transition;
+    background-color: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    border-color: #ded6ca;
+  }
+
+  .sheet-widget-library-card:hover {
+    background-color: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-surface));
+    border-color: var(--color-primary-ring);
+  }
+
+  .sheet-widget-library-card-active {
+    background-color: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    color: var(--color-primary-strong);
+  }
+
+  .sheet-widget-library-icon {
+    @apply flex size-9 shrink-0 items-center justify-center rounded-xl border text-sm font-semibold;
+    background-color: color-mix(in srgb, var(--color-surface) 78%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary-ring) 50%, #ded6ca);
+    color: var(--color-primary-strong);
   }
 
   .sheet-config-summary {
