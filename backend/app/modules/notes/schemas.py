@@ -42,6 +42,7 @@ class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=250)
     content: str = ""
     folder_id: int | None = None
+    category_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -55,6 +56,7 @@ class NoteUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=250)
     content: str | None = None
     folder_id: int | None = None
+    category_id: int | None = None
 
     @field_validator("title")
     @classmethod
@@ -69,6 +71,7 @@ class NoteRead(BaseModel):
     title: str
     content: str
     folder_id: int | None
+    category_id: int | None
     is_archived: bool
     created_at: datetime
     updated_at: datetime

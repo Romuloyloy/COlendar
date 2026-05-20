@@ -74,8 +74,11 @@ const WIDGET_LIBRARY_GROUPS: DashboardWidgetLibraryGroup[] = [
   "Notes",
   "Calendar",
   "Tracker",
-  "Planning",
 ];
+
+const SHEET_WIDGET_DEFINITIONS = DEFAULT_DASHBOARD_WIDGET_DEFINITIONS.filter(
+  (definition) => definition.id !== "planning-summary",
+);
 
 const SLOT_SIZE_OPTIONS = [
   { label: "Normal", description: "1 cell", colSpan: 1, rowSpan: 1 },
@@ -743,7 +746,6 @@ export function SheetsPage() {
               isSummaryReady={summary !== null}
               onEditSlot={openSlotEditor}
               onFocusSlot={setFocusedSlotIndex}
-              onOpenQuickAdd={openQuickAdd}
               onPreviewNote={setPreviewNote}
               taskCategories={categories}
               widgetProps={widgetProps}
@@ -1067,7 +1069,6 @@ function SheetGrid({
   isSummaryReady,
   onEditSlot,
   onFocusSlot,
-  onOpenQuickAdd,
   onPreviewNote,
   taskCategories,
   widgetProps,
@@ -1076,7 +1077,6 @@ function SheetGrid({
   isSummaryReady: boolean;
   onEditSlot: (slotIndex: number) => void;
   onFocusSlot: (slotIndex: number) => void;
-  onOpenQuickAdd: () => void;
   onPreviewNote: (note: Note) => void;
   taskCategories: TaskCategory[];
   widgetProps: DashboardWidgetProps | null;
@@ -1142,7 +1142,9 @@ function SheetGrid({
                 ) : definition && !isSummaryReady ? (
                   <CompactState message="Loading..." />
                 ) : (
-                  <EmptySlot onOpenQuickAdd={onOpenQuickAdd} />
+                  <EmptySlot
+                    onConfigure={() => onEditSlot(slot.slot_index)}
+                  />
                 )}
               </div>
             </div>
@@ -1361,7 +1363,7 @@ function SlotEditorPanel({
   const activeDefinition = activeSlot.widget_key
     ? getDashboardWidgetDefinition(activeSlot.widget_key)
     : undefined;
-  const supportsTaskCategory = Boolean(activeDefinition?.supportsCategoryFilter);
+  const supportsCategoryFilter = Boolean(activeDefinition?.supportsCategoryFilter);
   const supportsTitleOverride = Boolean(activeDefinition?.supportsTitleOverride);
   const selectedSlotLocation = sheetSlotLocation(activeSlot.slot_index);
   const selectedCategoryName = activeSlot.config_json.category_id
@@ -1403,7 +1405,7 @@ function SlotEditorPanel({
             <p className="text-sm font-semibold text-[#2c2925]">Choose slot</p>
             <p className="app-muted mt-1 text-xs leading-5">
               Empty slots open widget configuration here. In normal sheet mode,
-              empty slots open Quick Add.
+              empty slots open this slot editor.
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
               {draftSlots.map((slot) => {
@@ -1490,7 +1492,7 @@ function SlotEditorPanel({
                     Category
                   </dt>
                   <dd className="truncate">
-                    {supportsTaskCategory ? selectedCategoryName : "Not used"}
+                    {supportsCategoryFilter ? selectedCategoryName : "Not used"}
                   </dd>
                 </div>
                 <div>
@@ -1598,7 +1600,7 @@ function SlotEditorPanel({
 
               <div className="mt-3 space-y-4">
                 {WIDGET_LIBRARY_GROUPS.map((group) => {
-                  const definitions = DEFAULT_DASHBOARD_WIDGET_DEFINITIONS.filter(
+                  const definitions = SHEET_WIDGET_DEFINITIONS.filter(
                     (definition) => definition.libraryGroup === group,
                   );
                   if (definitions.length === 0) {
@@ -1629,7 +1631,7 @@ function SlotEditorPanel({
               </div>
             </section>
 
-            {supportsTaskCategory ? (
+            {supportsCategoryFilter ? (
               <label className="block text-sm font-semibold text-[#2c2925]">
                 Category filter
                 <select
@@ -1783,24 +1785,28 @@ function WidgetLibraryCard({
   );
 }
 
-function EmptySlot({ onOpenQuickAdd }: { onOpenQuickAdd: () => void }) {
+function EmptySlot({
+  onConfigure,
+}: {
+  onConfigure: () => void;
+}) {
   return (
-    <button
-      className="sheet-add-slot group"
-      onClick={onOpenQuickAdd}
-      title="Open Quick Add"
-      type="button"
-    >
-      <span className="flex flex-col items-center gap-2">
+    <div className="sheet-add-slot group">
+      <button
+        className="flex flex-col items-center gap-2"
+        onClick={onConfigure}
+        title="Configure widget"
+        type="button"
+      >
         <span className="sheet-add-icon flex size-9 items-center justify-center rounded-full border border-current text-xl leading-none transition group-hover:scale-105">
           +
         </span>
-        <span className="text-sm font-semibold">Add something</span>
+        <span className="text-sm font-semibold">Add widget</span>
         <span className="text-xs font-medium text-[#766f66]">
-          Opens Quick Add
+          Opens slot editor
         </span>
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -1837,14 +1843,27 @@ function emptyDraftSlots(): DraftSlot[] {
 }
 
 function normalizedSlotConfig(slot: DraftSlot) {
-  if (slot.widget_key !== "daily-tasks" && slot.widget_key !== "weekly-tasks") {
+  if (
+    slot.widget_key !== "daily-tasks" &&
+    slot.widget_key !== "weekly-tasks" &&
+    slot.widget_key !== "recent-notes" &&
+    slot.widget_key !== "upcoming-events"
+  ) {
     return {};
   }
 
-  return {
+  const categoryConfig = {
     category_id: slot.config_json.category_id ?? null,
-    title_override: slot.config_json.title_override ?? "",
   };
+
+  if (slot.widget_key === "daily-tasks" || slot.widget_key === "weekly-tasks") {
+    return {
+      ...categoryConfig,
+      title_override: slot.config_json.title_override ?? "",
+    };
+  }
+
+  return categoryConfig;
 }
 
 function normalizedDraftSlotForCompare(slot: DraftSlot) {

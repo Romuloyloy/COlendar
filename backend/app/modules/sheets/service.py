@@ -17,6 +17,7 @@ GRID_COLUMNS = 4
 GRID_ROWS = 2
 ALLOWED_SPANS = {(1, 1), (2, 1), (1, 2), (2, 2)}
 VALID_SLOT_INDEXES = set(range(GRID_SLOT_COUNT))
+VALID_SHEET_WIDGET_KEYS = VALID_DASHBOARD_WIDGET_KEYS - {"planning-summary"}
 
 
 def list_sheets(db: Session) -> list[Sheet]:
@@ -128,7 +129,7 @@ def _create_default_sheets(db: Session) -> list[Sheet]:
                 "recent-notes",
                 "tracker-summary",
                 "quick-actions",
-                "planning-summary",
+                None,
             ],
         ),
         _configured_sheet(
@@ -139,9 +140,9 @@ def _create_default_sheets(db: Session) -> list[Sheet]:
                 "daily-tasks",
                 "weekly-tasks",
                 "upcoming-events",
-                "planning-summary",
                 "recent-notes",
                 "quick-actions",
+                None,
                 None,
             ],
         ),
@@ -256,6 +257,12 @@ def _ensure_sheet_slots(db: Session, sheet: Sheet) -> None:
             if slot.row_span is None:
                 slot.row_span = 1
                 did_change = True
+            if slot.widget_key is not None and slot.widget_key not in VALID_SHEET_WIDGET_KEYS:
+                slot.widget_key = None
+                slot.config_json = {}
+                slot.col_span = 1
+                slot.row_span = 1
+                did_change = True
 
     if did_change:
         db.commit()
@@ -269,7 +276,7 @@ def _serialize_sheet_detail(sheet: Sheet) -> SheetDetailRead:
         slot
         for slot in sheet.slots
         if slot.slot_index in VALID_SLOT_INDEXES
-        and (slot.widget_key is None or slot.widget_key in VALID_DASHBOARD_WIDGET_KEYS)
+        and (slot.widget_key is None or slot.widget_key in VALID_SHEET_WIDGET_KEYS)
     ]
     known_slots.sort(key=lambda slot: slot.slot_index)
     return SheetDetailRead.model_validate(
@@ -289,13 +296,18 @@ def _validate_slots(db: Session, slots) -> None:
 
     for slot in slots:
         widget_key = slot.widget_key
-        if widget_key is not None and widget_key not in VALID_DASHBOARD_WIDGET_KEYS:
+        if widget_key is not None and widget_key not in VALID_SHEET_WIDGET_KEYS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unknown dashboard widget key: {widget_key}",
             )
-        if widget_key in {"daily-tasks", "weekly-tasks"}:
-            _validate_task_widget_config(db, slot.config_json)
+        if widget_key in {
+            "daily-tasks",
+            "weekly-tasks",
+            "recent-notes",
+            "upcoming-events",
+        }:
+            _validate_category_widget_config(db, slot.config_json)
         if widget_key is not None:
             _validate_slot_span(slot, occupied_cells)
 
@@ -331,7 +343,7 @@ def _validate_slot_span(slot, occupied_cells: dict[int, int]) -> None:
             occupied_cells[occupied_index] = slot.slot_index
 
 
-def _validate_task_widget_config(db: Session, config_json: dict) -> None:
+def _validate_category_widget_config(db: Session, config_json: dict) -> None:
     if "category_id" not in config_json or config_json["category_id"] is None:
         return
 
@@ -339,7 +351,7 @@ def _validate_task_widget_config(db: Session, config_json: dict) -> None:
     if not isinstance(category_id, int):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task widget category_id must be an integer",
+            detail="Sheet widget category_id must be an integer",
         )
 
     category_exists = db.scalar(
@@ -348,7 +360,7 @@ def _validate_task_widget_config(db: Session, config_json: dict) -> None:
     if category_exists is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task widget category_id does not exist",
+            detail="Sheet widget category_id does not exist",
         )
 
 

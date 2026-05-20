@@ -44,7 +44,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - The workspace dropdown should feel like a lightweight floating control surface, with app navigation, sheet controls, and dangerous actions visually grouped.
 - Compact widget rows should prioritize fast scanning: clear titles, muted metadata, soft row hover states, and calm empty states.
 - Sheet motion should stay subtle and functional: hover, opacity, and small position changes only.
-- Empty sheet slots should feel gently actionable in normal viewing mode and open Quick Add, while slot/widget assignment remains in the Customize slots flow.
+- Empty sheet slots should feel gently actionable in normal viewing mode: primary click opens slot editing for that slot, without a nested Quick Add shortcut.
 - Widget focus mode should feel temporary and calm: centered overlay, subdued sheet background, clear close affordance, and Escape-to-close behavior when available.
 
 ## Engineering UX Rules

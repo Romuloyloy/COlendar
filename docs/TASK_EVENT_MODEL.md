@@ -5,7 +5,7 @@ This document defines the current product language around tasks, recurring tasks
 ## Current Model
 
 - Tasks are things to complete.
-- Events are things that happen at a time.
+- Events are things that happen at a time and can optionally repeat.
 - Planning is a combined overview of tasks and events.
 - Calendar is the date/time visual view.
 
@@ -23,6 +23,7 @@ This document defines the current product language around tasks, recurring tasks
 ## Events, Planning, And Calendar
 
 - Calendar Events are scheduled happenings, appointments, or blocks.
+- Recurring Calendar Events are event templates projected into dated occurrences.
 - Planning composes One-time Tasks, Weekly Tasks, and Calendar Events.
 - Calendar is the visual date/time view and may display task occurrences next to events.
 - Showing tasks on Calendar does not merge task and event ownership or data models.

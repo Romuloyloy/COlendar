@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events and task occurrences, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, shared categories for tasks/notes/events, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events, recurring events, and task occurrences, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -362,7 +362,7 @@ Slot editing behavior:
 - occupied slots can use controlled size presets: `1x1`, `2x1`, `1x2`, or `2x2`
 - unavailable size presets are disabled when they would cross the 4x2 grid edge or overlap another widget
 - covered cells visually merge into the anchor widget area and are freed when the anchor widget is cleared
-- empty slots in the editor are labeled as Add widget/configuration targets, while empty slots in normal sheet mode still open Quick Add
+- empty slots in the editor are labeled as Add widget/configuration targets, and empty slots in normal sheet mode use primary click for slot editing
 - the widget library groups existing registry widgets by Overview / Utility, Tasks, Notes, Calendar, Tracker, and Planning
 - widget library cards show display name, short preview text, group/type, and whether extra configuration is supported
 - Clear slot empties the active slot
@@ -395,7 +395,7 @@ Examples:
 - another One-time Tasks widget can show only `Gym`
 - Recurring Tasks widgets can do the same for categories such as `Health` or `Work`
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, tracking totals, and planning links. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
 
 Workspace Focus Mode v1 adds a temporary frontend-only Focus action to occupied sheet widgets. Focus mode opens the selected widget in a centered, enlarged overlay while the sheet remains preserved underneath. It uses the richer normal widget rendering for more breathing room, can be closed with the Close button or `Escape`, and is not persisted across refresh.
 
@@ -407,15 +407,18 @@ Sheets Visual Refinement v1 keeps that behavior intact and focuses on polish:
 - Compact widgets use a calmer shared card treatment, softer list rows, clearer metadata, consistent empty states, and less default admin-table styling.
 - Motion is intentionally light: hover transitions and dropdown appearance only. There are no dramatic animations or new product behaviors.
 
-Palette + Empty Slot Quick Add v1 adds two small frontend-only refinements:
+Palette + Empty Slot Quick Add v1 added two small frontend-only refinements:
 
 - The default/current palette is named `Robot Vanilla`.
 - Users can switch the accent palette to `DuckBerry` or `BozzyWheat` from the app shell palette selector.
 - Palette choice is stored in browser `localStorage`, not the backend.
 - Palette changes affect the global accent layer plus a subtle surface tint: primary buttons, focus rings, active/hover nav states, eyebrows, pills, sheet add affordances, selected sheet/widget accents, cards, panels, inputs, and other soft white surfaces.
-- Empty sheet slots now show a soft plus/Add something affordance.
-- Clicking an empty slot in normal `/sheets` viewing mode opens the existing global Quick Add modal.
+- Empty sheet slots show a soft plus/Add widget affordance.
+- Clicking the main empty slot affordance in normal `/sheets` viewing mode opens the slot editor for that slot.
+- Empty sheet slots do not include a Quick Add button.
 - Slot assignment still happens through the existing Customize slots flow and slot editor; no sheet slot storage model changed.
+- The Planning summary widget is not available in sheet slots; use the Planning page or app navigation instead.
+- Recent Notes and Upcoming Events sheet widgets can be filtered by shared category, like task widgets.
 
 Widget Library + Slot Editor UX v2 keeps widget definitions frontend/code-defined and uses the existing dashboard widget registry as the source of truth. Widget Spanning v1 adds controlled slot spans without adding drag-and-drop, freeform resizing, arbitrary `x/y/w/h` placement, backend widget APIs, or a plugin system. Workspace Focus Mode v1 adds only temporary enlarged viewing, not permanent resizing or floating windows. Duplicate widget instances remain supported because each sheet slot still stores its own `widget_key`, `config_json`, and span preset.
 
@@ -523,8 +526,8 @@ Quick Add can create:
 
 - One-time task: title, optional description, planned date, optional planned time, optional due date, optional due time, optional category
 - Recurring task: title, optional description, weekly/bi-weekly/monthly recurrence fields, optional end date, optional category
-- Note: title and content, saved without a folder
-- Calendar event: scheduled appointment/block/event with title, date, optional start time, optional end time, optional location, optional description
+- Note: title, content, and optional shared category, saved without a folder
+- Calendar event: scheduled appointment/block/event with title, date, optional start time, optional end time, optional location, optional description, optional shared category, and optional weekly/bi-weekly/monthly-by-day recurrence
 - Water entry: date, amount in ml, optional note
 - Activity entry: date, activity type, optional duration, optional quantity, optional note
 - Calorie entry: date, amount in kcal, optional label, optional note
@@ -541,7 +544,7 @@ POST /api/tracker/activity
 POST /api/tracker/calories
 ```
 
-One-time Task uses the existing `/api/tasks/daily` endpoint, whose `daily` name is legacy/internal. Recurring Task uses the existing `/api/tasks/weekly` endpoint, whose `weekly` name is legacy/internal. Quick Add supports weekly, bi-weekly, and monthly-by-day recurring tasks without adding command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
+One-time Task uses the existing `/api/tasks/daily` endpoint, whose `daily` name is legacy/internal. Recurring Task uses the existing `/api/tasks/weekly` endpoint, whose `weekly` name is legacy/internal. Quick Add supports weekly, bi-weekly, and monthly-by-day recurring tasks and calendar events without adding command-palette infrastructure, AI, reminders, or integrations. After a successful create, the current page listens for the Quick Add event and refreshes its existing data.
 
 ## Global Search
 
@@ -590,7 +593,7 @@ Each result includes an `id`, `type`, `title`, optional `subtitle`, optional `pr
 
 ## Calendar Module
 
-The calendar module is a simple internal event system and visual planning surface. It is not external calendar sync, not a shared calendar, and not a recurrence engine.
+The calendar module is a simple internal event system and visual planning surface. It is not external calendar sync, not a shared calendar, and not a full recurrence engine.
 
 Calendar events support:
 
@@ -600,6 +603,9 @@ Calendar events support:
 - Optional start time
 - Optional end time
 - Optional location
+- Optional shared category
+- Optional recurrence: weekly, bi-weekly, or monthly-by-day
+- Optional recurrence end date
 - Soft archive/delete through `is_archived`
 - Created and updated timestamps
 
@@ -616,13 +622,15 @@ The browser UI at `http://localhost:3000/calendar` currently provides:
 - An upcoming events list
 - Event creation
 - Event editing
+- Event category assignment
+- Event recurrence controls for weekly, bi-weekly, and monthly-by-day events
 - Event archive/delete
 - One-time task complete/incomplete from the selected-day panel
 - Recurring task occurrence complete/incomplete from the selected-day panel
 - Links from the selected-day task sections back to Tasks
 - Loading, empty, success, and error states
 
-Calendar Tasks View v1 keeps the product model separated: Calendar Events are scheduled happenings, One-time Tasks are dated completable tasks, and Recurring Tasks are task templates with occurrences. The Calendar page displays these items together for planning, but tasks and events are not merged in the backend data model. Event create/edit/archive behavior still uses the Calendar event API, while task completion still uses the Tasks API.
+Calendar Tasks View v1 keeps the product model separated: Calendar Events are scheduled happenings, One-time Tasks are dated completable tasks, and Recurring Tasks are task templates with occurrences. The Calendar page displays these items together for planning, but tasks and events are not merged in the backend data model. Event create/edit/archive behavior still uses the Calendar event API, while task completion still uses the Tasks API. Recurring calendar events are event templates projected into dated occurrences; they do not create task completions.
 
 Month navigation fetches a read-only composed calendar overview for the visible grid range. Day cells show grouped counts rather than full task/event lists to avoid overcrowding. Selecting a day updates the selected-day panel and creates new events for that date by default.
 
@@ -651,20 +659,19 @@ PATCH  /api/calendar/events/{event_id}
 DELETE /api/calendar/events/{event_id}
 ```
 
-Deletes are soft archives in this phase. Normal list and detail endpoints only return active, non-archived events.
+Deletes are soft archives in this phase. Normal list and detail endpoints only return active, non-archived events. Date, range, and upcoming event queries project recurring event occurrences alongside one-time events.
 
 The calendar overview endpoint is read-only and composes data owned by Calendar and Tasks. Its response contains one entry per date with separate `calendar_events`, `daily_tasks`, and `recurring_tasks` arrays.
 
 Current calendar limitations:
 
-- No recurring calendar events
 - No reminders or notifications
 - No external calendar sync
 - No drag-and-drop event moving
 - No advanced week/day calendar views
 - No task/event unification
 - No calendar-side task create/edit forms beyond completion toggles
-- No task category filtering on Calendar yet
+- No recurrence exceptions or skipped-occurrence editing yet
 
 ## Planning Module
 
@@ -875,7 +882,7 @@ Deletes are soft archives in this phase.
 
 The tasks module supports simple MVP planning without a complex recurrence engine.
 
-Task categories are a lightweight grouping layer for one-time and recurring tasks. They are not tags, projects, or a tracker category system.
+Categories are a lightweight shared grouping layer for one-time tasks, recurring tasks, notes, and calendar events. They are not tags, projects, or a tracker category system.
 
 Categories:
 
@@ -883,8 +890,8 @@ Categories:
 - must have a non-empty name
 - are unique among active categories by application validation
 - can be archived
-- remain referenced by existing tasks after archive for historical safety
-- cannot be assigned to new or updated tasks after archive
+- remain referenced by existing tasks, notes, and events after archive for historical safety
+- cannot be assigned to new or updated tasks, notes, or events after archive
 
 One-time tasks:
 
@@ -997,7 +1004,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table. The eleventh migration adds recurrence fields to `weekly_tasks` while keeping the existing table and API names. The twelfth migration adds `col_span` and `row_span` to sheet widget slots for controlled widget spanning.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table. The eleventh migration adds recurrence fields to `weekly_tasks` while keeping the existing table and API names. The twelfth migration adds `col_span` and `row_span` to sheet widget slots for controlled widget spanning. The thirteenth migration extends shared category references to notes and calendar events and adds calendar event recurrence fields.
 
 ## Create A New Migration
 
@@ -1027,7 +1034,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, recurring task weekly/bi-weekly/monthly validation, recurring task editing/filtering/category assignment/category filtering, recurring occurrence completion idempotency, invalid occurrence dates, recurring task archive, task category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from task categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, controlled widget spans, span edge/overlap rejection, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive/shared category assignment, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, recurring task weekly/bi-weekly/monthly validation, recurring task editing/filtering/category assignment/category filtering, recurring occurrence completion idempotency, invalid occurrence dates, recurring task archive, shared category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists/shared category assignment/recurrence projection, dashboard and planning summaries with recurring event occurrences, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from shared categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, controlled widget spans, span edge/overlap rejection, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 
@@ -1101,7 +1108,7 @@ This phase does not include:
 - Drag-and-drop, freeform resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
 - Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet-scoped widget settings
 - A formal command palette engine
-- External calendar sync, recurring calendar events, invitations, attendees, reminders, or notifications
+- External calendar sync, invitations, attendees, reminders, or notifications
 - Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder
 - Editable planning engine, time blocking, planning tables, or planning-specific reminders
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes

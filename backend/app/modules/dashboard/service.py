@@ -18,7 +18,7 @@ from app.modules.dashboard.widget_catalog import (
     DEFAULT_DASHBOARD_WIDGET_KEYS,
     VALID_DASHBOARD_WIDGET_KEYS,
 )
-from app.modules.calendar.service import upcoming_events_query
+from app.modules.calendar.service import list_upcoming_calendar_event_occurrences
 from app.modules.notes.models import Note
 from app.modules.tasks.models import DailyTask, WeeklyTaskCompletion
 from app.modules.tasks.schemas import weekdays_from_storage
@@ -94,8 +94,10 @@ def get_dashboard_summary(
             .limit(recent_notes_limit)
         )
     )
-    upcoming_events = list(
-        db.scalars(upcoming_events_query(selected_date).limit(upcoming_events_limit))
+    upcoming_events = list_upcoming_calendar_event_occurrences(
+        db,
+        selected_date,
+        limit=upcoming_events_limit,
     )
     tracker_summary = get_tracker_summary(db, selected_date)
 

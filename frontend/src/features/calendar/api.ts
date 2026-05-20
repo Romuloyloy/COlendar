@@ -44,6 +44,12 @@ export function createCalendarEvent(input: {
   start_time: string | null;
   end_time: string | null;
   location: string;
+  category_id?: number | null;
+  recurrence_type?: CalendarEvent["recurrence_type"];
+  weekdays?: number[];
+  anchor_date?: string | null;
+  day_of_month?: number | null;
+  recurrence_end_date?: string | null;
 }): Promise<CalendarEvent> {
   return apiRequest<CalendarEvent>("/api/calendar/events", {
     method: "POST",
@@ -56,7 +62,18 @@ export function updateCalendarEvent(
   input: Partial<
     Pick<
       CalendarEvent,
-      "title" | "description" | "event_date" | "start_time" | "end_time" | "location"
+      | "title"
+      | "description"
+      | "event_date"
+      | "start_time"
+      | "end_time"
+      | "location"
+      | "category_id"
+      | "recurrence_type"
+      | "weekdays"
+      | "anchor_date"
+      | "day_of_month"
+      | "recurrence_end_date"
     >
   >,
 ): Promise<CalendarEvent> {

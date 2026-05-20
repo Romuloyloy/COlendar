@@ -13,6 +13,8 @@ import {
   updateNote,
 } from "./api";
 import type { Folder, Note } from "./types";
+import { getTaskCategories } from "@/features/tasks/api";
+import type { TaskCategory } from "@/features/tasks/types";
 
 type FolderTreeItem = Folder & { depth: number; label: string };
 
@@ -70,10 +72,23 @@ function noteFolderLabel(note: Note, folders: Folder[]): string {
   return folder ? folderLabel(folder, folders) : "Missing folder";
 }
 
+function noteCategoryLabel(note: Note, categories: TaskCategory[]): string {
+  if (note.category_id === null) {
+    return "No category";
+  }
+
+  return (
+    categories.find((category) => category.id === note.category_id)?.name ??
+    "Missing category"
+  );
+}
+
 export function NotesPage() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [folderName, setFolderName] = useState("");
   const [folderParentId, setFolderParentId] = useState("");
@@ -82,6 +97,7 @@ export function NotesPage() {
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [noteFolderId, setNoteFolderId] = useState("");
+  const [noteCategoryId, setNoteCategoryId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,12 +119,24 @@ export function NotesPage() {
         : notes.filter((note) => note.folder_id === selectedFolderId),
     [notes, selectedFolderId],
   );
+  const categoryFilteredNotes = useMemo(
+    () =>
+      selectedCategoryId === null
+        ? visibleNotes
+        : visibleNotes.filter((note) => note.category_id === selectedCategoryId),
+    [selectedCategoryId, visibleNotes],
+  );
 
   async function loadData() {
     setError(null);
-    const [folderData, noteData] = await Promise.all([getFolders(), getNotes()]);
+    const [folderData, noteData, categoryData] = await Promise.all([
+      getFolders(),
+      getNotes(),
+      getTaskCategories(),
+    ]);
     setFolders(folderData);
     setNotes(noteData);
+    setCategories(categoryData);
 
     if (
       selectedFolderId !== null &&
@@ -121,6 +149,12 @@ export function NotesPage() {
       !noteData.some((note) => note.id === selectedNoteId)
     ) {
       setSelectedNoteId(null);
+    }
+    if (
+      selectedCategoryId !== null &&
+      !categoryData.some((category) => category.id === selectedCategoryId)
+    ) {
+      setSelectedCategoryId(null);
     }
   }
 
@@ -155,6 +189,7 @@ export function NotesPage() {
       setNoteTitle(selectedNote.title);
       setNoteContent(selectedNote.content);
       setNoteFolderId(selectedNote.folder_id?.toString() ?? "");
+      setNoteCategoryId(selectedNote.category_id?.toString() ?? "");
     }
   }, [selectedNote]);
 
@@ -163,6 +198,7 @@ export function NotesPage() {
     setNoteTitle("");
     setNoteContent("");
     setNoteFolderId(folderId?.toString() ?? "");
+    setNoteCategoryId("");
   }
 
   async function runAction(action: () => Promise<void>) {
@@ -231,6 +267,7 @@ export function NotesPage() {
         title: noteTitle,
         content: noteContent,
         folder_id: noteFolderId ? Number(noteFolderId) : null,
+        category_id: noteCategoryId ? Number(noteCategoryId) : null,
       });
       setSelectedNoteId(note.id);
       setNotice("Note created.");
@@ -249,6 +286,7 @@ export function NotesPage() {
         title: noteTitle,
         content: noteContent,
         folder_id: noteFolderId ? Number(noteFolderId) : null,
+        category_id: noteCategoryId ? Number(noteCategoryId) : null,
       });
       setNotice("Note updated.");
       await loadData();
@@ -371,6 +409,37 @@ export function NotesPage() {
             </div>
           </section>
 
+          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold">Categories</h2>
+            <div className="mt-4 space-y-2">
+              <button
+                className={`w-full rounded border px-3 py-2 text-left text-sm ${
+                  selectedCategoryId === null
+                    ? "border-teal-700 bg-teal-50"
+                    : "border-neutral-200 hover:border-neutral-400"
+                }`}
+                onClick={() => setSelectedCategoryId(null)}
+                type="button"
+              >
+                All categories
+              </button>
+              {categories.map((category) => (
+                <button
+                  className={`w-full rounded border px-3 py-2 text-left text-sm ${
+                    selectedCategoryId === category.id
+                      ? "border-teal-700 bg-teal-50"
+                      : "border-neutral-200 hover:border-neutral-400"
+                  }`}
+                  key={category.id}
+                  onClick={() => setSelectedCategoryId(category.id)}
+                  type="button"
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {selectedFolder ? (
             <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
               <h2 className="text-lg font-semibold">Edit Folder</h2>
@@ -441,10 +510,10 @@ export function NotesPage() {
             <div className="mt-4 space-y-2">
               {isLoading ? (
                 <p className="text-sm text-neutral-600">Loading notes...</p>
-              ) : visibleNotes.length === 0 ? (
+              ) : categoryFilteredNotes.length === 0 ? (
                 <p className="text-sm text-neutral-600">No notes here yet.</p>
               ) : (
-                visibleNotes.map((note) => (
+                categoryFilteredNotes.map((note) => (
                   <button
                     className={`w-full rounded border px-3 py-2 text-left text-sm ${
                       selectedNoteId === note.id
@@ -458,6 +527,9 @@ export function NotesPage() {
                     <span className="block font-medium">{note.title}</span>
                     <span className="mt-1 block text-xs text-neutral-600">
                       {noteFolderLabel(note, folders)}
+                    </span>
+                    <span className="mt-1 block text-xs text-neutral-600">
+                      {noteCategoryLabel(note, categories)}
                     </span>
                   </button>
                 ))
@@ -494,6 +566,21 @@ export function NotesPage() {
                   {folderItems.map((folder) => (
                     <option key={folder.id} value={folder.id}>
                       {folder.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm font-medium">
+                Category
+                <select
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                  onChange={(event) => setNoteCategoryId(event.target.value)}
+                  value={noteCategoryId}
+                >
+                  <option value="">No category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
                     </option>
                   ))}
                 </select>

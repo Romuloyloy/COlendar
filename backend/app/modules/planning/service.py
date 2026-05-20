@@ -4,6 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.calendar.models import CalendarEvent
+from app.modules.calendar.recurrence import (
+    is_event_scheduled_on_date,
+    serialize_calendar_event_occurrence,
+)
 from app.modules.planning.schemas import (
     DailyPlan,
     PlanningWeeklyTaskOccurrence,
@@ -39,13 +43,13 @@ def list_daily_tasks_for_date(db: Session, selected_date: date) -> list[DailyTas
 def list_calendar_events_for_date(
     db: Session,
     selected_date: date,
-) -> list[CalendarEvent]:
-    return list(
+) -> list:
+    events = list(
         db.scalars(
             select(CalendarEvent)
             .where(
-                CalendarEvent.event_date == selected_date,
                 CalendarEvent.is_archived.is_(False),
+                CalendarEvent.event_date <= selected_date,
             )
             .order_by(
                 CalendarEvent.start_time.asc().nulls_last(),
@@ -53,6 +57,11 @@ def list_calendar_events_for_date(
             )
         )
     )
+    return [
+        serialize_calendar_event_occurrence(event, selected_date)
+        for event in events
+        if is_event_scheduled_on_date(event, selected_date)
+    ]
 
 
 def list_weekly_task_occurrences_for_date(

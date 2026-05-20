@@ -87,6 +87,27 @@ def test_daily_planning_includes_calendar_events(client: TestClient) -> None:
     ]
 
 
+def test_daily_planning_includes_recurring_calendar_event_occurrences(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Weekly appointment",
+            "event_date": "2026-05-04",
+            "recurrence_type": "weekly",
+            "weekdays": [0],
+        },
+    )
+
+    response = client.get("/api/planning/daily?date=2026-05-11")
+
+    assert response.status_code == 200
+    events = response.json()["calendar_events"]
+    assert [event["title"] for event in events] == ["Weekly appointment"]
+    assert events[0]["event_date"] == "2026-05-11"
+
+
 def test_weekly_planning_endpoint_returns_seven_days(client: TestClient) -> None:
     response = client.get("/api/planning/weekly?date=2026-05-07")
 

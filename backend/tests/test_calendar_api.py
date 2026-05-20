@@ -21,7 +21,59 @@ def test_create_calendar_event(client: TestClient) -> None:
     assert data["start_time"] == "09:30:00"
     assert data["end_time"] == "10:00:00"
     assert data["location"] == "Clinic"
+    assert data["category_id"] is None
+    assert data["recurrence_type"] == "none"
+    assert data["weekdays"] == []
     assert data["is_archived"] is False
+
+
+def test_create_calendar_event_with_shared_category(client: TestClient) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "School", "color": "#14b8a6"},
+    ).json()
+
+    response = client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Seminar",
+            "event_date": "2026-05-07",
+            "category_id": category["id"],
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["category_id"] == category["id"]
+
+
+def test_reject_invalid_or_archived_calendar_event_category(
+    client: TestClient,
+) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Archived", "color": "#999999"},
+    ).json()
+    event = client.post(
+        "/api/calendar/events",
+        json={"title": "Event", "event_date": "2026-05-07"},
+    ).json()
+    client.delete(f"/api/tasks/categories/{category['id']}")
+
+    create_response = client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Bad category",
+            "event_date": "2026-05-07",
+            "category_id": 9999,
+        },
+    )
+    update_response = client.patch(
+        f"/api/calendar/events/{event['id']}",
+        json={"category_id": category["id"]},
+    )
+
+    assert create_response.status_code == 400
+    assert update_response.status_code == 400
 
 
 def test_reject_blank_calendar_event_title(client: TestClient) -> None:
@@ -228,6 +280,125 @@ def test_calendar_overview_respects_recurring_rules(client: TestClient) -> None:
     ]
 
 
+def test_calendar_overview_includes_recurring_event_occurrences(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Weekly standup",
+            "event_date": "2026-05-04",
+            "recurrence_type": "weekly",
+            "weekdays": [0],
+        },
+    )
+    client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Bi-weekly sync",
+            "event_date": "2026-05-04",
+            "recurrence_type": "biweekly",
+            "weekdays": [0],
+            "anchor_date": "2026-05-04",
+        },
+    )
+    client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Monthly review",
+            "event_date": "2026-05-01",
+            "recurrence_type": "monthly_day",
+            "day_of_month": 31,
+        },
+    )
+
+    response = client.get(
+        "/api/calendar/overview?from_date=2026-05-11&to_date=2026-05-31"
+    )
+
+    assert response.status_code == 200
+    by_date = {day["date"]: day for day in response.json()["days"]}
+    assert [event["title"] for event in by_date["2026-05-11"]["calendar_events"]] == [
+        "Weekly standup"
+    ]
+    assert [event["title"] for event in by_date["2026-05-18"]["calendar_events"]] == [
+        "Weekly standup",
+        "Bi-weekly sync",
+    ]
+    assert [event["title"] for event in by_date["2026-05-31"]["calendar_events"]] == [
+        "Monthly review"
+    ]
+
+
+def test_recurring_calendar_event_end_date_and_archive_are_respected(
+    client: TestClient,
+) -> None:
+    archived = client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Archived weekly",
+            "event_date": "2026-05-04",
+            "recurrence_type": "weekly",
+            "weekdays": [0],
+        },
+    ).json()
+    client.delete(f"/api/calendar/events/{archived['id']}")
+    client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Short weekly",
+            "event_date": "2026-05-04",
+            "recurrence_type": "weekly",
+            "weekdays": [0],
+            "recurrence_end_date": "2026-05-11",
+        },
+    )
+
+    response = client.get(
+        "/api/calendar/overview?from_date=2026-05-11&to_date=2026-05-18"
+    )
+
+    assert response.status_code == 200
+    by_date = {day["date"]: day for day in response.json()["days"]}
+    assert [event["title"] for event in by_date["2026-05-11"]["calendar_events"]] == [
+        "Short weekly"
+    ]
+    assert by_date["2026-05-18"]["calendar_events"] == []
+
+
+def test_reject_invalid_recurring_calendar_event(client: TestClient) -> None:
+    missing_weekday = client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Weekly",
+            "event_date": "2026-05-04",
+            "recurrence_type": "weekly",
+            "weekdays": [],
+        },
+    )
+    missing_anchor = client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Bi-weekly",
+            "event_date": "2026-05-04",
+            "recurrence_type": "biweekly",
+            "weekdays": [0],
+        },
+    )
+    invalid_monthly = client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Monthly",
+            "event_date": "2026-05-04",
+            "recurrence_type": "monthly_day",
+        },
+    )
+
+    assert missing_weekday.status_code == 422
+    assert missing_anchor.status_code == 422
+    assert invalid_monthly.status_code == 422
+
+
 def test_reject_invalid_calendar_event_date_query(client: TestClient) -> None:
     response = client.get(
         "/api/calendar/events?from_date=2026-05-08&to_date=2026-05-07"
@@ -316,3 +487,24 @@ def test_dashboard_summary_includes_upcoming_events(client: TestClient) -> None:
     data = response.json()
     assert [event["title"] for event in data["upcoming_events"]] == ["Next", "Later"]
     assert data["counts"]["upcoming_event_count"] == 2
+
+
+def test_dashboard_summary_includes_recurring_event_occurrences(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/calendar/events",
+        json={
+            "title": "Weekly event",
+            "event_date": "2026-05-04",
+            "recurrence_type": "weekly",
+            "weekdays": [0],
+        },
+    )
+
+    response = client.get("/api/dashboard/summary?date=2026-05-11")
+
+    assert response.status_code == 200
+    events = response.json()["upcoming_events"]
+    assert events[0]["title"] == "Weekly event"
+    assert events[0]["event_date"] == "2026-05-11"

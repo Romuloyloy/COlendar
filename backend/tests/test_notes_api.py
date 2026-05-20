@@ -88,6 +88,54 @@ def test_create_note_inside_folder(client: TestClient) -> None:
     assert response.json()["folder_id"] == folder["id"]
 
 
+def test_create_and_update_note_with_shared_category(client: TestClient) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Work", "color": "#14b8a6"},
+    ).json()
+    second_category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Ideas", "color": "#8b5cf6"},
+    ).json()
+
+    note = client.post(
+        "/api/notes",
+        json={"title": "Categorized", "category_id": category["id"]},
+    )
+
+    assert note.status_code == 201
+    assert note.json()["category_id"] == category["id"]
+
+    response = client.patch(
+        f"/api/notes/{note.json()['id']}",
+        json={"category_id": second_category["id"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["category_id"] == second_category["id"]
+
+
+def test_reject_invalid_or_archived_note_category(client: TestClient) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Archive", "color": "#999999"},
+    ).json()
+    note = client.post("/api/notes", json={"title": "Loose"}).json()
+    client.delete(f"/api/tasks/categories/{category['id']}")
+
+    create_response = client.post(
+        "/api/notes",
+        json={"title": "Bad", "category_id": 9999},
+    )
+    update_response = client.patch(
+        f"/api/notes/{note['id']}",
+        json={"category_id": category["id"]},
+    )
+
+    assert create_response.status_code == 400
+    assert update_response.status_code == 400
+
+
 def test_reject_missing_folder_when_creating_or_moving_note(client: TestClient) -> None:
     note = client.post("/api/notes", json={"title": "Loose"}).json()
 

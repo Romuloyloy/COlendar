@@ -478,21 +478,28 @@ export function WeeklyTasksWidget({
 export function RecentNotesWidget({
   onPreviewNote,
   summary,
+  widgetConfig,
   renderMode = "normal",
 }: DashboardWidgetProps) {
+  const categoryId = configuredCategoryId(widgetConfig);
+  const notes =
+    categoryId === null
+      ? summary.recent_notes
+      : summary.recent_notes.filter((note) => note.category_id === categoryId);
+
   if (renderMode === "compact") {
     return (
       <CompactWidgetCard
         actionHref="/notes"
         actionLabel="Open notes"
         title="Recent Notes"
-        meta={`${summary.recent_notes.length} recent`}
+        meta={`${notes.length} recent`}
       >
         <div className="space-y-2">
-          {summary.recent_notes.length === 0 ? (
+          {notes.length === 0 ? (
             <CompactEmpty message="No recent notes." />
           ) : (
-            summary.recent_notes.slice(0, 5).map((note) => (
+            notes.slice(0, 5).map((note) => (
               <button
                 className="sheet-compact-list-item block w-full min-w-0 text-left"
                 key={note.id}
@@ -508,9 +515,9 @@ export function RecentNotesWidget({
               </button>
             ))
           )}
-          {summary.recent_notes.length > 5 ? (
+          {notes.length > 5 ? (
             <p className="px-2 text-xs font-medium text-[#766f66]">
-              +{summary.recent_notes.length - 5} more
+              +{notes.length - 5} more
             </p>
           ) : null}
         </div>
@@ -521,10 +528,10 @@ export function RecentNotesWidget({
   return (
     <SectionCard action={<ManageLink href="/notes" />} eyebrow="Notes" title="Recent Notes">
       <div className="mt-4 space-y-2">
-        {summary.recent_notes.length === 0 ? (
+        {notes.length === 0 ? (
           <EmptyState message="No recent notes yet." />
         ) : (
-          summary.recent_notes.map((note) => (
+          notes.map((note) => (
             <div className="rounded-md border border-neutral-200 px-3 py-2" key={note.id}>
               <p className="text-sm font-medium text-neutral-950">{note.title}</p>
               <p className="mt-1 text-xs leading-5 text-neutral-600">
@@ -540,21 +547,28 @@ export function RecentNotesWidget({
 
 export function UpcomingEventsWidget({
   summary,
+  widgetConfig,
   renderMode = "normal",
 }: DashboardWidgetProps) {
+  const categoryId = configuredCategoryId(widgetConfig);
+  const events =
+    categoryId === null
+      ? summary.upcoming_events
+      : summary.upcoming_events.filter((event) => event.category_id === categoryId);
+
   if (renderMode === "compact") {
     return (
       <CompactWidgetCard
         actionHref="/calendar"
         actionLabel="Open calendar"
         title="Upcoming Events"
-        meta={`${summary.upcoming_events.length} upcoming`}
+        meta={`${events.length} upcoming`}
       >
         <div className="space-y-2">
-          {summary.upcoming_events.length === 0 ? (
+          {events.length === 0 ? (
             <CompactEmpty message="No upcoming events." />
           ) : (
-            summary.upcoming_events.slice(0, 4).map((event) => (
+            events.slice(0, 4).map((event) => (
               <div className="sheet-compact-list-item min-w-0" key={event.id}>
                 <p className="truncate text-sm font-medium text-[#3b3732]">
                   {event.title}
@@ -565,9 +579,9 @@ export function UpcomingEventsWidget({
               </div>
             ))
           )}
-          {summary.upcoming_events.length > 4 ? (
+          {events.length > 4 ? (
             <p className="px-2 text-xs font-medium text-[#766f66]">
-              +{summary.upcoming_events.length - 4} more
+              +{events.length - 4} more
             </p>
           ) : null}
         </div>
@@ -578,10 +592,10 @@ export function UpcomingEventsWidget({
   return (
     <SectionCard action={<ManageLink href="/calendar" />} eyebrow="Calendar" title="Upcoming Events">
       <div className="mt-4 space-y-2">
-        {summary.upcoming_events.length === 0 ? (
+        {events.length === 0 ? (
           <EmptyState message="No upcoming events yet." />
         ) : (
-          summary.upcoming_events.map((event) => (
+          events.map((event) => (
             <div className="rounded-md border border-neutral-200 px-3 py-2" key={event.id}>
               <p className="text-sm font-medium text-neutral-950">{event.title}</p>
               <p className="mt-1 text-xs text-neutral-600">

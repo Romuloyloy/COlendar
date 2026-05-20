@@ -1,13 +1,16 @@
-Hi! This pass implements Workspace Focus Mode v1 for `/sheets`.
+Hi! This pass implements QoL Utility Update v2.
 
 What changed:
-- Occupied sheet widgets now show a lightweight Focus action in the tile header.
-- Focus opens the selected widget in a centered, enlarged overlay while preserving the sheet layout underneath.
-- Focus mode reuses existing frontend data and widget rendering; there are no backend changes or migrations.
-- Focus can be closed with the Close button or the Escape key.
-- The background sheet is subdued while focus mode is open, and normal background interaction is blocked by the overlay.
-- Widget spanning, duplicate widget instances, task category filters, title overrides, palette selection, and Quick Add behavior remain intact.
-- No permanent resizing, drag-and-drop, floating windows, persisted focus state, arbitrary `x/y/w/h` layout, or unrelated features were added.
+- Categories are now shared across one-time tasks, recurring tasks, notes, and calendar events.
+- Notes can be created, edited, filtered, and viewed with an optional shared category.
+- Calendar events can be created, edited, and displayed with an optional shared category.
+- Calendar events now support weekly, bi-weekly, and monthly-by-day recurrence with an optional recurrence end date.
+- Calendar, dashboard, and planning date views project recurring calendar event occurrences.
+- Quick Add can assign note/event categories and create recurring calendar events.
+- Empty sheet slots now use primary click for slot/widget editing and no longer show a Quick Add button.
+- The Planning summary widget is removed from sheet defaults, sheet slot validation, and the sheet widget library.
+- Recent Notes and Upcoming Events sheet widgets can be filtered by shared category.
+- Tracker entries remain outside shared categories.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
@@ -15,21 +18,23 @@ How to inspect/test it:
 3. `docker compose exec backend alembic current`
 4. `docker compose exec backend pytest`
 5. `docker compose exec frontend npm run build`
-6. Open `/sheets`.
-7. Use Focus on Notes, Calendar, Tasks, or Tracker widgets.
-8. Confirm the widget opens in a larger centered overlay.
-9. Close with the Close button and with Escape.
-10. Confirm the underlying sheet layout and widget spans are unchanged.
+6. Open `/notes` and confirm category assignment/filtering.
+7. Open `/calendar` and confirm category assignment plus recurring weekly, bi-weekly, and monthly events.
+8. Open `/sheets` and confirm an empty slot opens the slot editor and has no Quick Add button.
+9. Confirm the sheet widget library has no Planning summary widget.
+10. Add Recent Notes and Upcoming Events widgets and confirm their category filters work.
 
 What success looks like:
-- Compact widgets still work in the grid.
-- Focus mode gives cramped widgets more readable space without feeling like a separate app window.
-- The sheet remains calm and visually consistent.
-- Existing `/sheets` controls and persistence continue to work.
+- Shared categories feel consistent across tasks, notes, and calendar events.
+- Recurring calendar events appear on the right dates in Calendar, Dashboard, and Planning.
+- Empty sheet slots no longer expose Quick Add.
+- Notes and calendar sheet widgets can be scoped to a selected shared category.
+- Existing task recurrence, widget spanning, focus mode, palette selection, and tracker behavior continue to work.
 
-Intentionally postponed:
-- No permanent resizing.
+Intentionally not included:
 - No drag-and-drop.
-- No floating windows.
-- No backend focus persistence.
-- No new layout model.
+- No freeform resizing.
+- No arbitrary `x/y/w/h` layout.
+- No tracker categories.
+- No recurrence exceptions.
+- No external calendar sync, reminders, invitations, or notifications.

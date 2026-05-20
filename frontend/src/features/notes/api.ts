@@ -39,6 +39,7 @@ export function createNote(input: {
   title: string;
   content: string;
   folder_id: number | null;
+  category_id?: number | null;
 }): Promise<Note> {
   return apiRequest<Note>("/api/notes", {
     method: "POST",
@@ -48,7 +49,7 @@ export function createNote(input: {
 
 export function updateNote(
   noteId: number,
-  input: Partial<Pick<Note, "title" | "content" | "folder_id">>,
+  input: Partial<Pick<Note, "title" | "content" | "folder_id" | "category_id">>,
 ): Promise<Note> {
   return apiRequest<Note>(`/api/notes/${noteId}`, {
     method: "PATCH",

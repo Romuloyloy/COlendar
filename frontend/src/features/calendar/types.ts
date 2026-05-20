@@ -8,6 +8,13 @@ export type CalendarEvent = {
   start_time: string | null;
   end_time: string | null;
   location: string;
+  category_id: number | null;
+  recurrence_type: "none" | "weekly" | "biweekly" | "monthly_day";
+  weekdays: number[];
+  interval_weeks: number;
+  anchor_date: string | null;
+  day_of_month: number | null;
+  recurrence_end_date: string | null;
   is_archived: boolean;
   created_at: string;
   updated_at: string;

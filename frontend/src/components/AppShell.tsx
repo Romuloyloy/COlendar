@@ -79,6 +79,7 @@ type QuickAddForm = {
   note: string;
   weekdays: number[];
   recurrenceType: "weekly" | "biweekly" | "monthly_day";
+  eventRecurrenceType: "none" | "weekly" | "biweekly" | "monthly_day";
   anchorDate: string;
   dayOfMonth: string;
   endDate: string;
@@ -116,6 +117,7 @@ function emptyForm(date = todayIsoDate()): QuickAddForm {
     note: "",
     weekdays: [],
     recurrenceType: "weekly",
+    eventRecurrenceType: "none",
     anchorDate: date,
     dayOfMonth: `${new Date(`${date}T00:00:00`).getDate()}`,
     endDate: "",
@@ -351,8 +353,16 @@ function QuickAddModal({
           title: form.title,
           content: form.content,
           folder_id: null,
+          category_id: form.categoryId ? Number(form.categoryId) : null,
         });
       } else if (type === "calendar-event") {
+        if (
+          form.eventRecurrenceType !== "none" &&
+          form.eventRecurrenceType !== "monthly_day" &&
+          form.weekdays.length === 0
+        ) {
+          throw new Error("Choose at least one weekday.");
+        }
         await createCalendarEvent({
           title: form.title,
           description: form.description,
@@ -360,6 +370,23 @@ function QuickAddModal({
           start_time: emptyToNull(form.startTime),
           end_time: emptyToNull(form.endTime),
           location: form.location,
+          category_id: form.categoryId ? Number(form.categoryId) : null,
+          recurrence_type: form.eventRecurrenceType,
+          weekdays:
+            form.eventRecurrenceType === "weekly" ||
+            form.eventRecurrenceType === "biweekly"
+              ? form.weekdays
+              : [],
+          anchor_date:
+            form.eventRecurrenceType === "biweekly"
+              ? emptyToNull(form.anchorDate)
+              : null,
+          day_of_month:
+            form.eventRecurrenceType === "monthly_day"
+              ? Number(form.dayOfMonth)
+              : null,
+          recurrence_end_date:
+            form.eventRecurrenceType === "none" ? null : emptyToNull(form.endDate),
         });
       } else if (type === "water-entry") {
         await createWaterEntry({
@@ -458,9 +485,16 @@ function QuickAddModal({
               update={update}
             />
           ) : null}
-          {type === "note" ? <NoteFields form={form} update={update} /> : null}
+          {type === "note" ? (
+            <NoteFields categories={categories} form={form} update={update} />
+          ) : null}
           {type === "calendar-event" ? (
-            <CalendarEventFields form={form} update={update} />
+            <CalendarEventFields
+              categories={categories}
+              form={form}
+              toggleWeekday={toggleWeekday}
+              update={update}
+            />
           ) : null}
           {type === "water-entry" ? (
             <WaterEntryFields form={form} update={update} />
@@ -687,7 +721,11 @@ function WeeklyTaskFields({
   );
 }
 
-function NoteFields({ form, update }: FieldProps) {
+function NoteFields({
+  categories,
+  form,
+  update,
+}: FieldProps & { categories: TaskCategory[] }) {
   return (
     <>
       <Field label="Title">
@@ -706,11 +744,33 @@ function NoteFields({ form, update }: FieldProps) {
           value={form.content}
         />
       </Field>
+      <Field label="Category">
+        <select
+          className={inputClass}
+          onChange={(event) => update("categoryId", event.target.value)}
+          value={form.categoryId}
+        >
+          <option value="">None</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </Field>
     </>
   );
 }
 
-function CalendarEventFields({ form, update }: FieldProps) {
+function CalendarEventFields({
+  categories,
+  form,
+  toggleWeekday,
+  update,
+}: FieldProps & {
+  categories: TaskCategory[];
+  toggleWeekday: (weekday: number) => void;
+}) {
   return (
     <>
       <Field label="Title">
@@ -748,6 +808,99 @@ function CalendarEventFields({ form, update }: FieldProps) {
           value={form.location}
         />
       </Field>
+      <Field label="Category">
+        <select
+          className={inputClass}
+          onChange={(event) => update("categoryId", event.target.value)}
+          value={form.categoryId}
+        >
+          <option value="">None</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Recurrence">
+        <select
+          className={inputClass}
+          onChange={(event) =>
+            update(
+              "eventRecurrenceType",
+              event.target.value as QuickAddForm["eventRecurrenceType"],
+            )
+          }
+          value={form.eventRecurrenceType}
+        >
+          <option value="none">None</option>
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly_day">Monthly by day</option>
+        </select>
+      </Field>
+      {form.eventRecurrenceType === "weekly" ||
+      form.eventRecurrenceType === "biweekly" ? (
+        <fieldset>
+          <legend className="text-sm font-medium text-neutral-800">Weekdays</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {WEEKDAYS.map((weekday) => (
+              <label
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  form.weekdays.includes(weekday.value)
+                    ? "border-teal-700 bg-teal-50 text-teal-900"
+                    : "border-neutral-300 text-neutral-800"
+                }`}
+                key={weekday.value}
+              >
+                <input
+                  checked={form.weekdays.includes(weekday.value)}
+                  className="mr-2"
+                  onChange={() => toggleWeekday(weekday.value)}
+                  type="checkbox"
+                />
+                {weekday.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {form.eventRecurrenceType === "biweekly" ? (
+          <Field label="Anchor date">
+            <input
+              className={inputClass}
+              onChange={(event) => update("anchorDate", event.target.value)}
+              required
+              type="date"
+              value={form.anchorDate}
+            />
+          </Field>
+        ) : null}
+        {form.eventRecurrenceType === "monthly_day" ? (
+          <Field label="Day of month">
+            <input
+              className={inputClass}
+              max="31"
+              min="1"
+              onChange={(event) => update("dayOfMonth", event.target.value)}
+              required
+              type="number"
+              value={form.dayOfMonth}
+            />
+          </Field>
+        ) : null}
+        {form.eventRecurrenceType !== "none" ? (
+          <Field label="End date">
+            <input
+              className={inputClass}
+              onChange={(event) => update("endDate", event.target.value)}
+              type="date"
+              value={form.endDate}
+            />
+          </Field>
+        ) : null}
+      </div>
       <Field label="Description">
         <textarea
           className={`${inputClass} min-h-24`}

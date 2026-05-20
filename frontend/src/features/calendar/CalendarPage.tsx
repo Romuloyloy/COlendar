@@ -19,10 +19,11 @@ import { ErrorState, NoticeState } from "@/components/ui";
 import {
   completeDailyTask,
   completeWeeklyTask,
+  getTaskCategories,
   incompleteDailyTask,
   incompleteWeeklyTask,
 } from "@/features/tasks/api";
-import type { DailyTask } from "@/features/tasks/types";
+import type { DailyTask, TaskCategory } from "@/features/tasks/types";
 import {
   addDaysToIsoDate,
   formatDisplayDate,
@@ -125,15 +126,39 @@ function recurringTaskMeta(task: CalendarRecurringTaskOccurrence) {
   return "Weekly";
 }
 
+function eventRecurrenceMeta(event: CalendarEvent) {
+  if (event.recurrence_type === "monthly_day") {
+    return `Monthly on day ${event.day_of_month}`;
+  }
+  if (event.recurrence_type === "biweekly") {
+    return "Bi-weekly event";
+  }
+  if (event.recurrence_type === "weekly") {
+    return "Weekly event";
+  }
+  return "One-time event";
+}
+
+function eventCategoryLabel(event: CalendarEvent, categories: TaskCategory[]) {
+  if (event.category_id === null) {
+    return null;
+  }
+
+  return categories.find((category) => category.id === event.category_id)?.name ?? null;
+}
+
 function EventCard({
   event,
+  categories,
   isSelected,
   onSelect,
 }: {
   event: CalendarEvent;
+  categories: TaskCategory[];
   isSelected: boolean;
   onSelect: (event: CalendarEvent) => void;
 }) {
+  const categoryLabel = eventCategoryLabel(event, categories);
   return (
     <button
       className={`w-full rounded border px-3 py-2 text-left ${
@@ -149,6 +174,10 @@ function EventCard({
       </span>
       <span className="mt-1 block text-xs text-neutral-600">
         {formatDisplayDate(event.event_date)} - {formatEventTime(event)}
+      </span>
+      <span className="mt-1 block text-xs text-neutral-600">
+        {eventRecurrenceMeta(event)}
+        {categoryLabel ? ` / ${categoryLabel}` : ""}
       </span>
       {event.location ? (
         <span className="mt-1 block text-xs text-neutral-600">
@@ -289,6 +318,7 @@ export function CalendarPage() {
   const [visibleMonth, setVisibleMonth] = useState(monthStartIso(today));
   const [overviewDays, setOverviewDays] = useState<CalendarOverviewDay[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+  const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [showEvents, setShowEvents] = useState(true);
   const [showOneTimeTasks, setShowOneTimeTasks] = useState(true);
   const [showRecurringTasks, setShowRecurringTasks] = useState(true);
@@ -299,6 +329,13 @@ export function CalendarPage() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [recurrenceType, setRecurrenceType] =
+    useState<CalendarEvent["recurrence_type"]>("none");
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [anchorDate, setAnchorDate] = useState(selectedDate);
+  const [dayOfMonth, setDayOfMonth] = useState(`${dayNumber(selectedDate)}`);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -334,12 +371,14 @@ export function CalendarPage() {
 
   async function loadData() {
     setError(null);
-    const [overview, upcomingData] = await Promise.all([
+    const [overview, upcomingData, categoryData] = await Promise.all([
       getCalendarOverview(monthRangeStart, monthRangeEnd),
       getUpcomingCalendarEvents(selectedDate),
+      getTaskCategories(),
     ]);
     setOverviewDays(overview.days);
     setUpcomingEvents(upcomingData);
+    setCategories(categoryData);
 
     if (
       selectedEventId !== null &&
@@ -376,6 +415,12 @@ export function CalendarPage() {
       setStartTime(timeInputValue(selectedEvent.start_time));
       setEndTime(timeInputValue(selectedEvent.end_time));
       setLocation(selectedEvent.location);
+      setCategoryId(selectedEvent.category_id?.toString() ?? "");
+      setRecurrenceType(selectedEvent.recurrence_type);
+      setWeekdays(selectedEvent.weekdays);
+      setAnchorDate(selectedEvent.anchor_date ?? selectedEvent.event_date);
+      setDayOfMonth(`${selectedEvent.day_of_month ?? dayNumber(selectedEvent.event_date)}`);
+      setRecurrenceEndDate(selectedEvent.recurrence_end_date ?? "");
     }
   }, [selectedEvent]);
 
@@ -387,6 +432,38 @@ export function CalendarPage() {
     setStartTime("");
     setEndTime("");
     setLocation("");
+    setCategoryId("");
+    setRecurrenceType("none");
+    setWeekdays([]);
+    setAnchorDate(date);
+    setDayOfMonth(`${dayNumber(date)}`);
+    setRecurrenceEndDate("");
+  }
+
+  function toggleEventWeekday(weekday: number) {
+    setWeekdays((current) =>
+      current.includes(weekday)
+        ? current.filter((item) => item !== weekday)
+        : [...current, weekday].sort(),
+    );
+  }
+
+  function calendarEventPayload() {
+    return {
+      title,
+      description,
+      event_date: eventDate,
+      start_time: emptyToNull(startTime),
+      end_time: emptyToNull(endTime),
+      location,
+      category_id: categoryId ? Number(categoryId) : null,
+      recurrence_type: recurrenceType,
+      weekdays: recurrenceType === "weekly" || recurrenceType === "biweekly" ? weekdays : [],
+      anchor_date: recurrenceType === "biweekly" ? emptyToNull(anchorDate) : null,
+      day_of_month: recurrenceType === "monthly_day" ? Number(dayOfMonth) : null,
+      recurrence_end_date:
+        recurrenceType === "none" ? null : emptyToNull(recurrenceEndDate),
+    };
   }
 
   function selectDate(date: string) {
@@ -429,12 +506,7 @@ export function CalendarPage() {
     event.preventDefault();
     await runAction(async () => {
       const created = await createCalendarEvent({
-        title,
-        description,
-        event_date: eventDate,
-        start_time: emptyToNull(startTime),
-        end_time: emptyToNull(endTime),
-        location,
+        ...calendarEventPayload(),
       });
       setSelectedEventId(created.id);
       setSelectedDate(created.event_date);
@@ -452,12 +524,7 @@ export function CalendarPage() {
 
     await runAction(async () => {
       const updated = await updateCalendarEvent(selectedEvent.id, {
-        title,
-        description,
-        event_date: eventDate,
-        start_time: emptyToNull(startTime),
-        end_time: emptyToNull(endTime),
-        location,
+        ...calendarEventPayload(),
       });
       setSelectedEventId(updated.id);
       setSelectedDate(updated.event_date);
@@ -694,6 +761,7 @@ export function CalendarPage() {
                       ) : (
                         selectedDateEvents.map((event) => (
                           <EventCard
+                            categories={categories}
                             event={event}
                             isSelected={selectedEventId === event.id}
                             key={event.id}
@@ -829,6 +897,108 @@ export function CalendarPage() {
                   />
                 </label>
                 <label className="block text-sm font-medium">
+                  Category
+                  <select
+                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                    onChange={(event) => setCategoryId(event.target.value)}
+                    value={categoryId}
+                  >
+                    <option value="">No category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <section className="rounded border border-neutral-200 bg-neutral-50 p-3">
+                  <label className="block text-sm font-medium">
+                    Recurrence
+                    <select
+                      className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                      onChange={(event) =>
+                        setRecurrenceType(
+                          event.target.value as CalendarEvent["recurrence_type"],
+                        )
+                      }
+                      value={recurrenceType}
+                    >
+                      <option value="none">None</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Bi-weekly</option>
+                      <option value="monthly_day">Monthly by day</option>
+                    </select>
+                  </label>
+                  {recurrenceType === "weekly" || recurrenceType === "biweekly" ? (
+                    <fieldset className="mt-3">
+                      <legend className="text-sm font-medium text-neutral-800">
+                        Weekdays
+                      </legend>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {WEEKDAY_LABELS.map((label, index) => (
+                          <label
+                            className={`rounded-md border px-3 py-2 text-sm ${
+                              weekdays.includes(index)
+                                ? "border-teal-700 bg-teal-50 text-teal-900"
+                                : "border-neutral-300 text-neutral-800"
+                            }`}
+                            key={label}
+                          >
+                            <input
+                              checked={weekdays.includes(index)}
+                              className="mr-2"
+                              onChange={() => toggleEventWeekday(index)}
+                              type="checkbox"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ) : null}
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {recurrenceType === "biweekly" ? (
+                      <label className="block text-sm font-medium">
+                        Anchor date
+                        <input
+                          className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                          onChange={(event) => setAnchorDate(event.target.value)}
+                          required
+                          type="date"
+                          value={anchorDate}
+                        />
+                      </label>
+                    ) : null}
+                    {recurrenceType === "monthly_day" ? (
+                      <label className="block text-sm font-medium">
+                        Day of month
+                        <input
+                          className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                          max="31"
+                          min="1"
+                          onChange={(event) => setDayOfMonth(event.target.value)}
+                          required
+                          type="number"
+                          value={dayOfMonth}
+                        />
+                      </label>
+                    ) : null}
+                    {recurrenceType !== "none" ? (
+                      <label className="block text-sm font-medium">
+                        End date
+                        <input
+                          className="mt-1 w-full rounded border border-neutral-300 px-3 py-2"
+                          onChange={(event) =>
+                            setRecurrenceEndDate(event.target.value)
+                          }
+                          type="date"
+                          value={recurrenceEndDate}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                </section>
+                <label className="block text-sm font-medium">
                   Description
                   <textarea
                     className="mt-1 min-h-28 w-full rounded border border-neutral-300 px-3 py-2"
@@ -870,6 +1040,7 @@ export function CalendarPage() {
             ) : (
               upcomingEvents.map((event) => (
                 <EventCard
+                  categories={categories}
                   event={event}
                   isSelected={selectedEventId === event.id}
                   key={event.id}

@@ -8,7 +8,7 @@ TODAY_WIDGET_KEYS = [
     "recent-notes",
     "tracker-summary",
     "quick-actions",
-    "planning-summary",
+    None,
 ]
 
 
@@ -246,6 +246,18 @@ def test_reject_unknown_widget_key(client: TestClient) -> None:
     assert response.json()["detail"] == "Unknown dashboard widget key: mystery-widget"
 
 
+def test_reject_planning_widget_on_sheets(client: TestClient) -> None:
+    sheet_id = client.get("/api/sheets").json()[0]["id"]
+
+    response = client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={"slots": [{"slot_index": 0, "widget_key": "planning-summary"}]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown dashboard widget key: planning-summary"
+
+
 def test_allow_duplicate_widgets_on_one_sheet_with_different_config(
     client: TestClient,
 ) -> None:
@@ -300,7 +312,40 @@ def test_reject_invalid_task_widget_category_config(client: TestClient) -> None:
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Task widget category_id does not exist"
+    assert response.json()["detail"] == "Sheet widget category_id does not exist"
+
+
+def test_sheet_note_and_event_widgets_accept_category_config(
+    client: TestClient,
+) -> None:
+    sheet_id = client.get("/api/sheets").json()[0]["id"]
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Work", "color": "#0f766e"},
+    ).json()
+
+    response = client.put(
+        f"/api/sheets/{sheet_id}/slots",
+        json={
+            "slots": [
+                {
+                    "slot_index": 0,
+                    "widget_key": "recent-notes",
+                    "config_json": {"category_id": category["id"]},
+                },
+                {
+                    "slot_index": 1,
+                    "widget_key": "upcoming-events",
+                    "config_json": {"category_id": category["id"]},
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    slots = response.json()["slots"]
+    assert slots[0]["config_json"] == {"category_id": category["id"]}
+    assert slots[1]["config_json"] == {"category_id": category["id"]}
 
 
 def test_sheet_slot_config_persists_after_update(client: TestClient) -> None:

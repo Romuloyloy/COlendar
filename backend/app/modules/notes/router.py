@@ -13,6 +13,7 @@ from app.modules.notes.schemas import (
     NoteUpdate,
 )
 from app.modules.notes.service import get_active_folder_or_404, validate_parent_folder
+from app.modules.tasks.service import validate_optional_category
 
 router = APIRouter(prefix="/api", tags=["notes"])
 
@@ -98,11 +99,13 @@ def list_notes(db: Session = Depends(get_db)) -> list[Note]:
 def create_note(payload: NoteCreate, db: Session = Depends(get_db)) -> Note:
     if payload.folder_id is not None:
         get_active_folder_or_404(db, payload.folder_id)
+    validate_optional_category(db, payload.category_id)
 
     note = Note(
         title=payload.title.strip(),
         content=payload.content,
         folder_id=payload.folder_id,
+        category_id=payload.category_id,
     )
     db.add(note)
     db.commit()
@@ -137,6 +140,9 @@ def update_note(
         if payload.folder_id is not None:
             get_active_folder_or_404(db, payload.folder_id)
         note.folder_id = payload.folder_id
+    if "category_id" in payload.model_fields_set:
+        validate_optional_category(db, payload.category_id)
+        note.category_id = payload.category_id
 
     db.commit()
     db.refresh(note)

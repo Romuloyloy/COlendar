@@ -42,6 +42,11 @@ class Note(TimestampMixin, Base):
         ForeignKey("folders.id", ondelete="SET NULL"),
         nullable=True,
     )
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("task_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_archived: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
