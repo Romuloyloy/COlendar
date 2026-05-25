@@ -340,7 +340,7 @@ export function NotesPage() {
 
   return (
     <main className="app-page">
-      <section className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(240px,1fr)_minmax(240px,1fr)_minmax(0,2fr)]">
+      <section className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
         <aside className="space-y-6">
           <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
             <h1 className="text-2xl font-semibold">Notes</h1>
@@ -397,7 +397,7 @@ export function NotesPage() {
             </form>
           </section>
 
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
+        <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold">Folders</h2>
             <div className="mt-4 space-y-2">
               <button
@@ -439,9 +439,9 @@ export function NotesPage() {
                 ))
               )}
             </div>
-          </section>
+        </section>
 
-          <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
+        <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold">Categories</h2>
             <div className="mt-4 space-y-2">
               <button
@@ -470,7 +470,7 @@ export function NotesPage() {
                 </button>
               ))}
             </div>
-          </section>
+        </section>
 
           {selectedFolder ? (
             <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
