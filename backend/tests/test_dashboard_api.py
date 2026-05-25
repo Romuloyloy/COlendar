@@ -8,7 +8,6 @@ DEFAULT_WIDGET_KEYS = [
     "recent-notes",
     "upcoming-events",
     "tracker-summary",
-    "planning-summary",
 ]
 
 

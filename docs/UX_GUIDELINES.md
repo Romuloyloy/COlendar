@@ -11,6 +11,9 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Calm pastel surfaces with warm off-white backgrounds.
 - Cozy and readable without becoming decorative or low contrast.
 - Navigation should stay understandable.
+- Sheets are the primary workspace surface; Home and Planning are retired from primary navigation.
+- Category views should feel like read-focused workspaces, not project-management dashboards.
+- Review Center should feel like a calm read-focused synthesis, not analytics software.
 - Quick Add should remain fast and simple.
 - Global Search should remain keyword-based unless AI or semantic search is explicitly requested.
 
@@ -24,6 +27,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Keep typography calm: clear page titles, concise subtitles, readable section titles, and muted metadata.
 - Avoid neon colors, heavy gradients, dense admin-table styling, and overanimated UI.
 - Palette options should change the accent layer and softly tint white surfaces. Robot Vanilla is the default; DuckBerry and BozzyWheat should stay calm, readable, and local-only unless a later spec asks for backend preferences.
+- Sheets-only Stark Mode may darken the sheet workspace for each palette, but it is not full app-wide dark mode.
 
 ## UI Behavior
 
@@ -46,6 +50,8 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Sheet motion should stay subtle and functional: hover, opacity, and small position changes only.
 - Empty sheet slots should feel gently actionable in normal viewing mode: primary click opens slot editing for that slot, without a nested Quick Add shortcut.
 - Widget focus mode should feel temporary and calm: centered overlay, subdued sheet background, clear close affordance, and Escape-to-close behavior when available.
+- Sheet widget item clicks should feel useful without becoming editing workflows: use lightweight previews and clear links to the owning full page.
+- Sheet context should be visible near sheet identity, and category-aware widgets should clearly distinguish no filter, sheet-context inheritance, and a specific category.
 
 ## Engineering UX Rules
 

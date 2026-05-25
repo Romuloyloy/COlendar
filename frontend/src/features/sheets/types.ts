@@ -2,15 +2,19 @@ export type Sheet = {
   id: number;
   name: string;
   sort_order: number;
+  context_category_id: number | null;
   created_at: string;
   updated_at: string;
 };
+
+export type SheetWidgetCategoryMode = "none" | "sheet_context" | "specific";
 
 export type SheetWidgetSlot = {
   id: number;
   sheet_id: number;
   widget_key: string | null;
   config_json: {
+    category_mode?: SheetWidgetCategoryMode;
     category_id?: number | null;
     title_override?: string;
   };
@@ -30,6 +34,7 @@ export type SheetSlotsUpdate = {
     slot_index: number;
     widget_key: string | null;
     config_json?: {
+      category_mode?: SheetWidgetCategoryMode;
       category_id?: number | null;
       title_override?: string;
     };

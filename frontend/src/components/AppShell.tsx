@@ -27,13 +27,13 @@ import {
 import { todayIsoDate } from "@/lib/date";
 
 const navItems = [
-  ["Home", "/"],
-  ["Search", "/search"],
   ["Sheets", "/sheets"],
+  ["Search", "/search"],
+  ["Review", "/review"],
+  ["Categories", "/categories"],
   ["Notes", "/notes"],
   ["Tasks", "/tasks"],
   ["Calendar", "/calendar"],
-  ["Planning", "/planning"],
   ["Tracker", "/tracker"],
 ];
 
@@ -192,7 +192,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <header className="app-shell-header">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link className="text-lg font-semibold text-[#2c2925]" href="/">
+          <Link className="text-lg font-semibold text-[#2c2925]" href="/sheets">
             COlendar
           </Link>
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium">

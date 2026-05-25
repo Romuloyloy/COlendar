@@ -6,7 +6,13 @@ DEFAULT_DASHBOARD_WIDGET_KEYS = [
     "recent-notes",
     "upcoming-events",
     "tracker-summary",
-    "planning-summary",
 ]
 
-VALID_DASHBOARD_WIDGET_KEYS = set(DEFAULT_DASHBOARD_WIDGET_KEYS)
+OPTIONAL_DASHBOARD_WIDGET_KEYS = [
+    "category-overview",
+    "review-summary",
+]
+
+VALID_DASHBOARD_WIDGET_KEYS = set(DEFAULT_DASHBOARD_WIDGET_KEYS) | set(
+    OPTIONAL_DASHBOARD_WIDGET_KEYS
+)

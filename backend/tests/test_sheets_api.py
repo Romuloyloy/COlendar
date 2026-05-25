@@ -19,6 +19,7 @@ def test_sheets_returns_default_sheet(client: TestClient) -> None:
     sheets = response.json()
     assert [sheet["name"] for sheet in sheets] == ["Today", "Planning", "Health"]
     assert [sheet["sort_order"] for sheet in sheets] == [0, 1, 2]
+    assert [sheet["context_category_id"] for sheet in sheets] == [None, None, None]
 
 
 def test_sheet_detail_returns_slots_in_predictable_order(client: TestClient) -> None:
@@ -43,6 +44,7 @@ def test_create_sheet(client: TestClient) -> None:
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Health"
+    assert data["context_category_id"] is None
     assert data["sort_order"] == 3
     assert len(data["slots"]) == 8
     assert all(slot["widget_key"] is None for slot in data["slots"])
@@ -55,6 +57,80 @@ def test_rename_sheet(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["name"] == "School"
+
+
+def test_create_and_update_sheet_context_category(client: TestClient) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Work", "color": "#0f766e"},
+    ).json()
+    second_category = client.post(
+        "/api/tasks/categories",
+        json={"name": "School", "color": "#6366f1"},
+    ).json()
+
+    response = client.post(
+        "/api/sheets",
+        json={"name": "Work", "context_category_id": category["id"]},
+    )
+
+    assert response.status_code == 201
+    sheet = response.json()
+    assert sheet["context_category_id"] == category["id"]
+
+    update_response = client.patch(
+        f"/api/sheets/{sheet['id']}",
+        json={"context_category_id": second_category["id"]},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "Work"
+    assert update_response.json()["context_category_id"] == second_category["id"]
+
+
+def test_clear_sheet_context_category(client: TestClient) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Work", "color": "#0f766e"},
+    ).json()
+    sheet = client.post(
+        "/api/sheets",
+        json={"name": "Work", "context_category_id": category["id"]},
+    ).json()
+
+    response = client.patch(
+        f"/api/sheets/{sheet['id']}",
+        json={"context_category_id": None},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["context_category_id"] is None
+
+
+def test_reject_invalid_sheet_context_category(client: TestClient) -> None:
+    response = client.post(
+        "/api/sheets",
+        json={"name": "Bad", "context_category_id": 999},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Task category not found"
+
+
+def test_reject_archived_sheet_context_category(client: TestClient) -> None:
+    category = client.post(
+        "/api/tasks/categories",
+        json={"name": "Archived", "color": "#94a3b8"},
+    ).json()
+    client.delete(f"/api/tasks/categories/{category['id']}")
+
+    response = client.post(
+        "/api/sheets",
+        json={"name": "Archived", "context_category_id": category["id"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Task category not found"
 
 
 def test_delete_sheet_when_more_than_one_exists(client: TestClient) -> None:
@@ -338,6 +414,23 @@ def test_sheet_note_and_event_widgets_accept_category_config(
                     "widget_key": "upcoming-events",
                     "config_json": {"category_id": category["id"]},
                 },
+                {
+                    "slot_index": 2,
+                    "widget_key": "category-overview",
+                    "config_json": {
+                        "category_mode": "specific",
+                        "category_id": category["id"],
+                        "title_override": "Work Context",
+                    },
+                },
+                {
+                    "slot_index": 3,
+                    "widget_key": "daily-tasks",
+                    "config_json": {
+                        "category_mode": "sheet_context",
+                        "category_id": None,
+                    },
+                },
             ]
         },
     )
@@ -346,6 +439,15 @@ def test_sheet_note_and_event_widgets_accept_category_config(
     slots = response.json()["slots"]
     assert slots[0]["config_json"] == {"category_id": category["id"]}
     assert slots[1]["config_json"] == {"category_id": category["id"]}
+    assert slots[2]["config_json"] == {
+        "category_mode": "specific",
+        "category_id": category["id"],
+        "title_override": "Work Context",
+    }
+    assert slots[3]["config_json"] == {
+        "category_mode": "sheet_context",
+        "category_id": None,
+    }
 
 
 def test_sheet_slot_config_persists_after_update(client: TestClient) -> None:
@@ -471,13 +573,16 @@ def test_health_default_uses_health_category_when_it_exists(
 
     assert response.status_code == 200
     slots = response.json()["slots"]
+    assert response.json()["context_category_id"] == category["id"]
     assert slots[1]["widget_key"] == "daily-tasks"
     assert slots[1]["config_json"] == {
-        "category_id": category["id"],
+        "category_mode": "sheet_context",
+        "category_id": None,
         "title_override": "Health Tasks",
     }
     assert slots[2]["widget_key"] == "weekly-tasks"
     assert slots[2]["config_json"] == {
-        "category_id": category["id"],
+        "category_mode": "sheet_context",
+        "category_id": None,
         "title_override": "Health Tasks",
     }

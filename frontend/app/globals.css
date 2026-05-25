@@ -239,6 +239,150 @@ body {
       linear-gradient(135deg, var(--color-app-bg-soft) 0%, var(--color-app-bg) 48%, var(--color-surface-muted) 100%);
   }
 
+  .sheet-stark {
+    --sheet-stark-text: #fffaf0;
+    --sheet-stark-muted: #d8cfbd;
+    --sheet-stark-border: #5f5748;
+    --color-app-bg: #211f1c;
+    --color-app-bg-soft: #2b2823;
+    --color-surface: #332f28;
+    --color-surface-muted: #292f2a;
+    --color-surface-lavender: #3a342f;
+    --color-primary: #e7dcc0;
+    --color-primary-strong: #fff4d6;
+    --color-primary-contrast: #211f1c;
+    --color-primary-light: #5b523e;
+    --color-primary-soft: #3d382f;
+    --color-primary-ring: #cdbf9a;
+    --color-secondary-soft: #3a342f;
+    --color-secondary-strong: #efe2c4;
+    --color-border: var(--sheet-stark-border);
+    color: var(--sheet-stark-text);
+  }
+
+  [data-palette="duckberry"] .sheet-stark {
+    --sheet-stark-text: #fff7fb;
+    --sheet-stark-muted: #d8bfdc;
+    --sheet-stark-border: #6f4b70;
+    --color-app-bg: #1d0f21;
+    --color-app-bg-soft: #28142e;
+    --color-surface: #331a39;
+    --color-surface-muted: #26122c;
+    --color-surface-lavender: #3d2444;
+    --color-primary: #d8bfdc;
+    --color-primary-strong: #f0d8f3;
+    --color-primary-contrast: #1d0f21;
+    --color-primary-light: #604063;
+    --color-primary-soft: #412047;
+    --color-primary-ring: #a981ad;
+    --color-secondary-soft: #39203f;
+    --color-secondary-strong: #f0d8f3;
+  }
+
+  [data-palette="bozzywheat"] .sheet-stark {
+    --sheet-stark-text: #fffbe8;
+    --sheet-stark-muted: #d9d3b4;
+    --sheet-stark-border: #69641b;
+    --color-app-bg: #242307;
+    --color-app-bg-soft: #302e08;
+    --color-surface: #3a3608;
+    --color-surface-muted: #2b2a0a;
+    --color-surface-lavender: #423e02;
+    --color-primary: #bab01c;
+    --color-primary-strong: #d9d3b4;
+    --color-primary-contrast: #242307;
+    --color-primary-light: #5d5711;
+    --color-primary-soft: #47420b;
+    --color-primary-ring: #bab01c;
+    --color-secondary-soft: #403d14;
+    --color-secondary-strong: #d9d3b4;
+  }
+
+  .sheet-stark.sheet-canvas {
+    background:
+      radial-gradient(circle at 18% 16%, color-mix(in srgb, var(--color-primary-soft) 74%, transparent), transparent 34%),
+      radial-gradient(circle at 84% 12%, color-mix(in srgb, var(--color-secondary-soft) 82%, transparent), transparent 32%),
+      linear-gradient(135deg, var(--color-app-bg-soft) 0%, var(--color-app-bg) 52%, var(--color-surface-muted) 100%);
+  }
+
+  .sheet-stark .sheet-surface,
+  .sheet-stark .sheet-tile,
+  .sheet-stark .sheet-floating-panel,
+  .sheet-stark .sheet-control-chip,
+  .sheet-stark .sheet-compact-card,
+  .sheet-stark .sheet-focus-panel,
+  .sheet-stark .sheet-focus-header,
+  .sheet-stark .sheet-config-summary,
+  .sheet-stark .sheet-size-option,
+  .sheet-stark .sheet-widget-library-card,
+  .sheet-stark .sheet-stark-toggle,
+  .sheet-stark .app-soft-box,
+  .sheet-stark .app-soft-row,
+  .sheet-stark .app-soft-metric,
+  .sheet-stark .sheet-compact-muted-box {
+    border-color: color-mix(in srgb, var(--sheet-stark-border) 82%, transparent) !important;
+    background-color: color-mix(in srgb, var(--color-surface) 84%, transparent) !important;
+    color: var(--sheet-stark-text);
+  }
+
+  .sheet-stark .sheet-tile:hover,
+  .sheet-stark .sheet-control-chip:hover,
+  .sheet-stark .sheet-widget-library-card:hover,
+  .sheet-stark .sheet-size-option:hover:not(:disabled),
+  .sheet-stark .app-button-secondary:hover,
+  .sheet-stark .sheet-widget-action:hover,
+  .sheet-stark .sheet-focus-button:hover {
+    background-color: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-surface)) !important;
+  }
+
+  .sheet-stark .app-button-secondary,
+  .sheet-stark .sheet-widget-action,
+  .sheet-stark .sheet-focus-button,
+  .sheet-stark .app-pill,
+  .sheet-stark .sheet-add-slot,
+  .sheet-stark .sheet-add-icon,
+  .sheet-stark .sheet-slot-header {
+    border-color: color-mix(in srgb, var(--sheet-stark-border) 82%, transparent) !important;
+    background-color: color-mix(in srgb, var(--color-surface-muted) 78%, transparent) !important;
+    color: var(--sheet-stark-text) !important;
+  }
+
+  .sheet-stark input,
+  .sheet-stark textarea,
+  .sheet-stark select {
+    border-color: color-mix(in srgb, var(--sheet-stark-border) 86%, transparent) !important;
+    background-color: color-mix(in srgb, var(--color-app-bg-soft) 92%, transparent) !important;
+    color: var(--sheet-stark-text) !important;
+  }
+
+  .sheet-stark input::placeholder,
+  .sheet-stark textarea::placeholder {
+    color: var(--sheet-stark-muted) !important;
+  }
+
+  .sheet-stark .text-\[\#2c2925\],
+  .sheet-stark .text-\[\#3b3732\],
+  .sheet-stark .text-neutral-950,
+  .sheet-stark .text-neutral-900,
+  .sheet-stark .text-neutral-800 {
+    color: var(--sheet-stark-text) !important;
+  }
+
+  .sheet-stark .app-muted,
+  .sheet-stark .text-\[\#766f66\],
+  .sheet-stark .text-\[\#625c55\],
+  .sheet-stark .text-\[\#8b8176\],
+  .sheet-stark .text-neutral-700,
+  .sheet-stark .text-neutral-600,
+  .sheet-stark .text-neutral-500 {
+    color: var(--sheet-stark-muted) !important;
+  }
+
+  .sheet-stark .bg-white,
+  .sheet-stark .bg-neutral-50 {
+    background-color: color-mix(in srgb, var(--color-surface) 86%, transparent) !important;
+  }
+
   .sheet-surface {
     @apply rounded-[28px] border border-[#ded6ca]/80 p-3 shadow-[0_18px_44px_rgb(82_70_55_/_0.07)] backdrop-blur-sm;
     background-color: color-mix(in srgb, var(--color-surface) 40%, transparent);
@@ -287,6 +431,20 @@ body {
 
   .sheet-focus-button:hover {
     background-color: var(--color-primary-soft);
+  }
+
+  .sheet-widget-action {
+    @apply rounded-full border border-[#ded6ca] px-2 py-1 text-[11px] font-semibold text-[#625c55] transition hover:border-[var(--color-primary-ring)];
+    background-color: color-mix(in srgb, var(--color-surface) 62%, transparent);
+  }
+
+  .sheet-widget-action:hover {
+    background-color: var(--color-primary-soft);
+  }
+
+  .sheet-widget-action-primary {
+    color: var(--color-primary-strong);
+    background-color: color-mix(in srgb, var(--color-primary-soft) 62%, var(--color-surface));
   }
 
   .sheet-focus-backdrop {

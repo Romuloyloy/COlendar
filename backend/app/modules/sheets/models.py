@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.modules.tasks.models import TaskCategory
 
 
 class Sheet(TimestampMixin, Base):
@@ -10,6 +17,11 @@ class Sheet(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    context_category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("task_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     slots: Mapped[list["SheetWidgetSlot"]] = relationship(
         "SheetWidgetSlot",
@@ -17,6 +29,7 @@ class Sheet(TimestampMixin, Base):
         cascade="all, delete-orphan",
         order_by="SheetWidgetSlot.slot_index",
     )
+    context_category: Mapped["TaskCategory | None"] = relationship("TaskCategory")
 
 
 class SheetWidgetSlot(TimestampMixin, Base):

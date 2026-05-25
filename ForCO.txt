@@ -1,40 +1,37 @@
-Hi! This pass implements QoL Utility Update v2.
+Hi! This pass implements MVP Stabilization / QA v1.
 
 What changed:
-- Categories are now shared across one-time tasks, recurring tasks, notes, and calendar events.
-- Notes can be created, edited, filtered, and viewed with an optional shared category.
-- Calendar events can be created, edited, and displayed with an optional shared category.
-- Calendar events now support weekly, bi-weekly, and monthly-by-day recurrence with an optional recurrence end date.
-- Calendar, dashboard, and planning date views project recurring calendar event occurrences.
-- Quick Add can assign note/event categories and create recurring calendar events.
-- Empty sheet slots now use primary click for slot/widget editing and no longer show a Quick Add button.
-- The Planning summary widget is removed from sheet defaults, sheet slot validation, and the sheet widget library.
-- Recent Notes and Upcoming Events sheet widgets can be filtered by shared category.
-- Tracker entries remain outside shared categories.
+- Made `/sheets` the primary workspace destination.
+- Redirected `/` to `/sheets`.
+- Removed Home and Planning from primary navigation.
+- Redirected `/planning` to `/review` while leaving backend planning composition intact.
+- Retired the Planning summary widget from the dashboard/widget registry defaults.
+- Updated the Sheets workspace dropdown to link to current primary app areas.
+- Parent folder selection on Notes now includes notes from descendant folders, with folder path labels still visible.
+- Updated Notes desktop layout to roughly 25% folders / 25% note list / 50% editor.
+- Calendar adjacent-month day clicks now select the date without changing the visible month.
+- Calendar month/date refreshes now use a subtle updating state instead of clearing the view harshly after initial load.
+- Added a Sheets-only Stark Mode toggle that persists in localStorage and works with Robot Vanilla, DuckBerry, and BozzyWheat.
+- Updated README and core docs for the new primary Sheets surface and stabilization behavior.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
-2. `docker compose exec backend alembic upgrade head`
-3. `docker compose exec backend alembic current`
-4. `docker compose exec backend pytest`
-5. `docker compose exec frontend npm run build`
-6. Open `/notes` and confirm category assignment/filtering.
-7. Open `/calendar` and confirm category assignment plus recurring weekly, bi-weekly, and monthly events.
-8. Open `/sheets` and confirm an empty slot opens the slot editor and has no Quick Add button.
-9. Confirm the sheet widget library has no Planning summary widget.
-10. Add Recent Notes and Upcoming Events widgets and confirm their category filters work.
+2. `docker compose exec backend alembic current`
+3. `docker compose exec backend pytest`
+4. `docker compose exec frontend npm run build`
+5. Open `/` and confirm it redirects to `/sheets`.
+6. Open `/planning` and confirm it redirects to `/review`.
+7. Confirm the primary nav does not show Home or Planning.
+8. On `/notes`, select a parent folder and confirm child-folder notes appear with folder path indicators.
+9. On `/calendar`, view a month with adjacent-month dates and click one; the selected date changes but the visible month stays put.
+10. On `/sheets`, open Workspace controls, toggle Stark Mode, switch palettes, and refresh to confirm the Sheets-only preference persists.
 
 What success looks like:
-- Shared categories feel consistent across tasks, notes, and calendar events.
-- Recurring calendar events appear on the right dates in Calendar, Dashboard, and Planning.
-- Empty sheet slots no longer expose Quick Add.
-- Notes and calendar sheet widgets can be scoped to a selected shared category.
-- Existing task recurrence, widget spanning, focus mode, palette selection, and tracker behavior continue to work.
+- Sheets feel like the main workspace without breaking reusable dashboard/widget code.
+- Planning is safely retired from the primary UI.
+- Notes, Calendar, Review, Categories, Search, Quick Add, sheet context, widget config persistence, recurring tasks/events, and palettes still work.
 
 Intentionally not included:
-- No drag-and-drop.
-- No freeform resizing.
-- No arbitrary `x/y/w/h` layout.
-- No tracker categories.
-- No recurrence exceptions.
-- No external calendar sync, reminders, invitations, or notifications.
+- No AI, auth, external integrations, notifications, or reminders.
+- No drag-and-drop, freeform resizing, arbitrary layout coordinates, or sheet templates.
+- No new recurrence features or major backend rewrites.

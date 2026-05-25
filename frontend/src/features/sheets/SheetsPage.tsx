@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   createSheet,
@@ -10,16 +10,17 @@ import {
   listSheets,
   moveSheetLeft,
   moveSheetRight,
-  renameSheet,
   resetDefaultSheets,
+  updateSheet,
   updateSheetSlots,
 } from "./api";
-import type { Sheet, SheetDetail } from "./types";
+import type { Sheet, SheetDetail, SheetWidgetCategoryMode } from "./types";
 import {
   getDashboardSummary,
   getDashboardWidgetLayout,
 } from "@/features/dashboard/api";
 import {
+  DASHBOARD_WIDGET_REGISTRY,
   DEFAULT_DASHBOARD_WIDGET_DEFINITIONS,
   getDashboardWidgetDefinition,
 } from "@/features/dashboard/dashboard-widget-registry";
@@ -28,6 +29,7 @@ import type {
   DashboardSummary,
   DashboardWeeklyTask,
 } from "@/features/dashboard/types";
+import type { CalendarEvent } from "@/features/calendar/types";
 import type {
   DashboardWidgetDefinition,
   DashboardWidgetId,
@@ -52,19 +54,21 @@ import {
   NoticeState,
   inputClassName,
 } from "@/components/ui";
-import { formatDisplayDate, todayIsoDate } from "@/lib/date";
+import { formatDisplayDate, formatTime, todayIsoDate } from "@/lib/date";
 
 const SLOT_COUNT = 8;
 const GRID_COLUMNS = 4;
 const LAST_ACTIVE_SHEET_STORAGE_KEY = "calendar:last-active-sheet-id";
+const SHEETS_STARK_MODE_STORAGE_KEY = "calendar:sheets-stark-mode";
 
 const workspaceLinks = [
-  ["Dashboard", "/"],
+  ["Sheets", "/sheets"],
+  ["Review", "/review"],
   ["Notes", "/notes"],
   ["Tasks", "/tasks"],
   ["Calendar", "/calendar"],
   ["Tracker", "/tracker"],
-  ["Planning", "/planning"],
+  ["Categories", "/categories"],
   ["Search", "/search"],
 ] as const;
 
@@ -76,8 +80,8 @@ const WIDGET_LIBRARY_GROUPS: DashboardWidgetLibraryGroup[] = [
   "Tracker",
 ];
 
-const SHEET_WIDGET_DEFINITIONS = DEFAULT_DASHBOARD_WIDGET_DEFINITIONS.filter(
-  (definition) => definition.id !== "planning-summary",
+const SHEET_WIDGET_DEFINITIONS = [...DASHBOARD_WIDGET_REGISTRY].sort(
+  (left, right) => left.defaultOrder - right.defaultOrder,
 );
 
 const SLOT_SIZE_OPTIONS = [
@@ -93,6 +97,7 @@ type DraftSlot = {
   col_span: number;
   row_span: number;
   config_json: {
+    category_mode?: SheetWidgetCategoryMode;
     category_id?: number | null;
     title_override?: string;
   };
@@ -116,8 +121,11 @@ export function SheetsPage() {
     emptyDraftSlots(),
   );
   const [newSheetName, setNewSheetName] = useState("");
+  const [newSheetContextCategoryId, setNewSheetContextCategoryId] = useState("");
   const [renameValue, setRenameValue] = useState("");
+  const [sheetContextCategoryId, setSheetContextCategoryId] = useState("");
   const [isControlOpen, setIsControlOpen] = useState(false);
+  const [isStarkMode, setIsStarkMode] = useState(false);
   const [isSlotEditorOpen, setIsSlotEditorOpen] = useState(false);
   const [focusedSlotIndex, setFocusedSlotIndex] = useState<number | null>(null);
   const [editingSlotIndex, setEditingSlotIndex] = useState(0);
@@ -128,6 +136,10 @@ export function SheetsPage() {
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation>(null);
   const [previewNote, setPreviewNote] = useState<Note | null>(null);
+  const [previewDailyTask, setPreviewDailyTask] = useState<DailyTask | null>(null);
+  const [previewWeeklyTask, setPreviewWeeklyTask] =
+    useState<DashboardWeeklyTask | null>(null);
+  const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
 
   const selectedSheetIndex = useMemo(
     () => sheets.findIndex((sheet) => sheet.id === selectedSheetId),
@@ -138,6 +150,14 @@ export function SheetsPage() {
     [selectedDate],
   );
   const currentSheetName = sheetDetail?.name ?? "Loading sheet";
+  const currentSheetContextCategoryId = sheetDetail?.context_category_id ?? null;
+  const currentSheetContextCategory = useMemo(
+    () =>
+      categories.find(
+        (category) => category.id === currentSheetContextCategoryId,
+      ) ?? null,
+    [categories, currentSheetContextCategoryId],
+  );
   const activeDraftSlot = draftSlots[editingSlotIndex] ?? draftSlots[0];
   const hasUnsavedSlotChanges = useMemo(() => {
     if (!sheetDetail) {
@@ -186,7 +206,16 @@ export function SheetsPage() {
     const detail = await getSheet(sheetId);
     setSheetDetail(detail);
     setRenameValue(detail.name);
+    setSheetContextCategoryId(detail.context_category_id?.toString() ?? "");
     setDraftSlots(createDraftSlots(detail));
+  }
+
+  function updateStarkMode(nextValue: boolean) {
+    setIsStarkMode(nextValue);
+    window.localStorage.setItem(
+      SHEETS_STARK_MODE_STORAGE_KEY,
+      nextValue ? "true" : "false",
+    );
   }
 
   async function loadSummary() {
@@ -202,6 +231,9 @@ export function SheetsPage() {
   useEffect(() => {
     setIsLoading(true);
     setError(null);
+    setIsStarkMode(
+      window.localStorage.getItem(SHEETS_STARK_MODE_STORAGE_KEY) === "true",
+    );
 
     loadSheets()
       .then((sheetId) =>
@@ -348,8 +380,12 @@ export function SheetsPage() {
   async function handleCreateSheet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await runAction(async () => {
-      const created = await createSheet(newSheetName);
+      const created = await createSheet(
+        newSheetName,
+        newSheetContextCategoryId ? Number(newSheetContextCategoryId) : null,
+      );
       setNewSheetName("");
+      setNewSheetContextCategoryId("");
       await loadSheets(created.id);
       await loadSheetDetail(created.id);
       setIsControlOpen(false);
@@ -364,7 +400,12 @@ export function SheetsPage() {
     }
 
     await runAction(async () => {
-      const renamed = await renameSheet(sheetDetail.id, renameValue);
+      const renamed = await updateSheet(sheetDetail.id, {
+        name: renameValue,
+        context_category_id: sheetContextCategoryId
+          ? Number(sheetContextCategoryId)
+          : null,
+      });
       setSheetDetail(renamed);
       await loadSheets(renamed.id);
       setNotice("Sheet renamed.");
@@ -624,7 +665,7 @@ export function SheetsPage() {
 
   function updateDraftSlotConfig(
     slotIndex: number,
-    key: "category_id" | "title_override",
+    key: "category_id" | "category_mode" | "title_override",
     value: string,
   ) {
     setNotice(null);
@@ -643,6 +684,8 @@ export function SheetsPage() {
                 ? value
                   ? Number(value)
                   : null
+                : key === "category_mode"
+                  ? (value as SheetWidgetCategoryMode)
                 : value,
           },
         };
@@ -655,20 +698,32 @@ export function SheetsPage() {
       ? ({
           isSaving,
           onDateChange: setSelectedDate,
+          onPreviewDailyTask: setPreviewDailyTask,
+          onPreviewEvent: setPreviewEvent,
           onToggleDailyTask: toggleDailyTask,
           onToggleWeeklyTask: toggleWeeklyTask,
+          onPreviewWeeklyTask: setPreviewWeeklyTask,
           selectedDate,
+          sheetContextCategoryId: currentSheetContextCategoryId,
           summary,
         } satisfies DashboardWidgetProps)
       : null;
 
   return (
-    <main className="sheet-canvas relative h-[calc(100vh-73px)] min-h-[680px] overflow-hidden text-[#2c2925]">
+    <main
+      className={`sheet-canvas relative h-[calc(100vh-73px)] min-h-[680px] overflow-hidden text-[#2c2925] ${
+        isStarkMode ? "sheet-stark" : ""
+      }`}
+    >
       <TopCenterControls
         currentSheetName={currentSheetName}
+        currentSheetContextCategory={currentSheetContextCategory}
         isControlOpen={isControlOpen}
         isSaving={isSaving}
+        isStarkMode={isStarkMode}
+        categories={categories}
         newSheetName={newSheetName}
+        newSheetContextCategoryId={newSheetContextCategoryId}
         onCreateSheet={handleCreateSheet}
         onMoveSheetLeft={handleMoveSheetLeft}
         onMoveSheetRight={handleMoveSheetRight}
@@ -682,12 +737,16 @@ export function SheetsPage() {
         onResetSheets={requestResetSheets}
         onSelectedSheetChange={selectSheet}
         onSetControlOpen={setIsControlOpen}
+        onSetStarkMode={updateStarkMode}
         renameValue={renameValue}
+        sheetContextCategoryId={sheetContextCategoryId}
         selectedDate={selectedDate}
         selectedDateLabel={selectedDateLabel}
         selectedSheetId={selectedSheetId}
         selectedSheetIndex={selectedSheetIndex}
+        setNewSheetContextCategoryId={setNewSheetContextCategoryId}
         setNewSheetName={setNewSheetName}
+        setSheetContextCategoryId={setSheetContextCategoryId}
         setRenameValue={setRenameValue}
         setSelectedDate={setSelectedDate}
         sheets={sheets}
@@ -714,6 +773,9 @@ export function SheetsPage() {
               {selectedSheetIndex >= 0
                 ? `${selectedSheetIndex + 1} of ${sheets.length} sheets`
                 : "Preparing workspace"}
+              {currentSheetContextCategory
+                ? ` / Sheet context: ${currentSheetContextCategory.name}`
+                : " / No sheet context"}
             </p>
           </div>
           <AppButton
@@ -760,6 +822,7 @@ export function SheetsPage() {
           categories={categories}
           draftSlots={draftSlots}
           isSaving={isSaving}
+          sheetContextCategory={currentSheetContextCategory}
           onClearSlot={clearDraftSlot}
           onClose={() => setIsSlotEditorOpen(false)}
           onSaveSlots={handleSaveSlots}
@@ -787,6 +850,25 @@ export function SheetsPage() {
           onClose={() => setPreviewNote(null)}
         />
       ) : null}
+      {previewDailyTask ? (
+        <DailyTaskPreviewModal
+          task={previewDailyTask}
+          onClose={() => setPreviewDailyTask(null)}
+        />
+      ) : null}
+      {previewWeeklyTask ? (
+        <WeeklyTaskPreviewModal
+          selectedDate={selectedDate}
+          task={previewWeeklyTask}
+          onClose={() => setPreviewWeeklyTask(null)}
+        />
+      ) : null}
+      {previewEvent ? (
+        <EventPreviewModal
+          event={previewEvent}
+          onClose={() => setPreviewEvent(null)}
+        />
+      ) : null}
       {pendingConfirmation ? (
         <ConfirmModal
           confirmLabel={pendingConfirmation.confirmLabel}
@@ -801,10 +883,14 @@ export function SheetsPage() {
   );
 }
 function TopCenterControls({
+  categories,
   currentSheetName,
+  currentSheetContextCategory,
   isControlOpen,
   isSaving,
+  isStarkMode,
   newSheetName,
+  newSheetContextCategoryId,
   onCreateSheet,
   onMoveSheetLeft,
   onMoveSheetRight,
@@ -818,20 +904,28 @@ function TopCenterControls({
   onResetSheets,
   onSelectedSheetChange,
   onSetControlOpen,
+  onSetStarkMode,
   renameValue,
   selectedDate,
   selectedDateLabel,
   selectedSheetId,
   selectedSheetIndex,
+  setNewSheetContextCategoryId,
   setNewSheetName,
   setRenameValue,
+  setSheetContextCategoryId,
   setSelectedDate,
+  sheetContextCategoryId,
   sheets,
 }: {
+  categories: TaskCategory[];
   currentSheetName: string;
+  currentSheetContextCategory: TaskCategory | null;
   isControlOpen: boolean;
   isSaving: boolean;
+  isStarkMode: boolean;
   newSheetName: string;
+  newSheetContextCategoryId: string;
   onCreateSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onMoveSheetLeft: () => Promise<void>;
   onMoveSheetRight: () => Promise<void>;
@@ -845,14 +939,18 @@ function TopCenterControls({
   onResetSheets: () => void;
   onSelectedSheetChange: (sheetId: number) => void;
   onSetControlOpen: (isOpen: boolean) => void;
+  onSetStarkMode: (isStarkMode: boolean) => void;
   renameValue: string;
   selectedDate: string;
   selectedDateLabel: string;
   selectedSheetId: number | null;
   selectedSheetIndex: number;
+  setNewSheetContextCategoryId: (value: string) => void;
   setNewSheetName: (value: string) => void;
   setRenameValue: (value: string) => void;
+  setSheetContextCategoryId: (value: string) => void;
   setSelectedDate: (value: string) => void;
+  sheetContextCategoryId: string;
   sheets: Sheet[];
 }) {
   return (
@@ -867,6 +965,11 @@ function TopCenterControls({
           <span className="text-[var(--color-primary)]">Workspace</span>
           <span className="mx-2 text-[#cbbfb0]">/</span>
           {currentSheetName}
+          {currentSheetContextCategory ? (
+            <span className="ml-2 text-xs text-[#766f66]">
+              {currentSheetContextCategory.name}
+            </span>
+          ) : null}
         </button>
       </div>
 
@@ -905,6 +1008,20 @@ function TopCenterControls({
                 onChange={setSelectedDate}
                 value={selectedDate}
               />
+              <label className="sheet-stark-toggle mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#ded6ca] px-3 py-2 text-sm font-semibold text-[#3b3732]">
+                <span>
+                  Stark Mode
+                  <span className="app-muted mt-0.5 block text-xs font-medium">
+                    Sheets only
+                  </span>
+                </span>
+                <input
+                  checked={isStarkMode}
+                  className="h-4 w-4 accent-[var(--color-primary)]"
+                  onChange={(event) => onSetStarkMode(event.target.checked)}
+                  type="checkbox"
+                />
+              </label>
             </section>
 
             <section className="border-t border-[#ded6ca] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
@@ -946,7 +1063,7 @@ function TopCenterControls({
                 </button>
               </div>
 
-              <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={onCreateSheet}>
+              <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={onCreateSheet}>
                 <input
                   className={inputClassName}
                   onChange={(event) => setNewSheetName(event.target.value)}
@@ -955,6 +1072,19 @@ function TopCenterControls({
                   type="text"
                   value={newSheetName}
                 />
+                <select
+                  className={inputClassName}
+                  disabled={isSaving}
+                  onChange={(event) => setNewSheetContextCategoryId(event.target.value)}
+                  value={newSheetContextCategoryId}
+                >
+                  <option value="">No sheet context</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
                 <button
                   className="app-button-primary"
                   disabled={isSaving}
@@ -964,7 +1094,7 @@ function TopCenterControls({
                 </button>
               </form>
 
-              <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]" onSubmit={onRenameSheet}>
+              <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={onRenameSheet}>
                 <input
                   className={inputClassName}
                   disabled={isSaving || selectedSheetId === null}
@@ -973,14 +1103,30 @@ function TopCenterControls({
                   type="text"
                   value={renameValue}
                 />
+                <select
+                  className={inputClassName}
+                  disabled={isSaving || selectedSheetId === null}
+                  onChange={(event) => setSheetContextCategoryId(event.target.value)}
+                  value={sheetContextCategoryId}
+                >
+                  <option value="">No sheet context</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
                 <button
                   className="app-button-secondary"
                   disabled={isSaving || selectedSheetId === null}
                   type="submit"
                 >
-                  Rename
+                  Save sheet
                 </button>
               </form>
+              <p className="app-muted mt-2 text-xs">
+                Sheet context lets category-aware widgets inherit a category.
+              </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
@@ -1103,13 +1249,22 @@ function SheetGrid({
           >
             <div className="flex h-full min-h-0 flex-col">
               <div className="sheet-slot-header">
-                <p className="text-[11px] font-semibold uppercase tracking-normal text-[#8b8176]">
-                  Slot {slot.slot_index + 1} / {slot.col_span}x{slot.row_span}
+                <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-normal text-[#8b8176]">
+                  Slot {slot.slot_index + 1} / {definition?.displayName ?? "Empty"} / {slot.col_span}x{slot.row_span}
                 </p>
                 <div className="flex min-w-0 items-center gap-1.5">
+                  {definition ? (
+                    <Link
+                      className="sheet-widget-action"
+                      href={widgetOpenHref(definition.id)}
+                      title={`Open ${definition.displayName} page`}
+                    >
+                      Open
+                    </Link>
+                  ) : null}
                   {definition && widgetProps ? (
                     <button
-                      className="sheet-focus-button"
+                      className="sheet-widget-action sheet-widget-action-primary"
                       onClick={() => onFocusSlot(slot.slot_index)}
                       title={`Focus ${definition.displayName}`}
                       type="button"
@@ -1118,12 +1273,12 @@ function SheetGrid({
                     </button>
                   ) : null}
                   <button
-                    className="sheet-slot-label"
+                    className="sheet-widget-action"
                     onClick={() => onEditSlot(slot.slot_index)}
-                    title="Edit slot"
+                    title="Configure slot"
                     type="button"
                   >
-                    {definition?.displayName ?? "Empty"}
+                    Configure
                   </button>
                 </div>
               </div>
@@ -1323,12 +1478,171 @@ function NotePreviewModal({
   );
 }
 
+function DailyTaskPreviewModal({
+  task,
+  onClose,
+}: {
+  task: DailyTask;
+  onClose: () => void;
+}) {
+  const metadata = dailyTaskPreviewMetadata(task);
+  return (
+    <PreviewModalShell
+      eyebrow="Task Preview"
+      title={task.title}
+      onClose={onClose}
+      actionHref="/tasks"
+      actionLabel="Open in Tasks"
+    >
+      {metadata.length > 0 ? (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {metadata.map((item) => (
+            <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs" key={item}>
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <p className="whitespace-pre-wrap text-sm leading-6 text-[#3b3732]">
+        {task.description.trim() || "No task notes yet."}
+      </p>
+    </PreviewModalShell>
+  );
+}
+
+function WeeklyTaskPreviewModal({
+  selectedDate,
+  task,
+  onClose,
+}: {
+  selectedDate: string;
+  task: DashboardWeeklyTask;
+  onClose: () => void;
+}) {
+  return (
+    <PreviewModalShell
+      eyebrow="Recurring Task Preview"
+      title={task.title}
+      onClose={onClose}
+      actionHref="/tasks"
+      actionLabel="Open in Tasks"
+    >
+      <div className="mb-4 flex flex-wrap gap-2">
+        <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+          {task.is_completed ? "Completed occurrence" : "Open occurrence"}
+        </span>
+        <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+          {formatDisplayDate(selectedDate)}
+        </span>
+        <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+          {recurringTaskPreviewMetadata(task)}
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap text-sm leading-6 text-[#3b3732]">
+        {task.description.trim() || "No recurring task notes yet."}
+      </p>
+    </PreviewModalShell>
+  );
+}
+
+function EventPreviewModal({
+  event,
+  onClose,
+}: {
+  event: CalendarEvent;
+  onClose: () => void;
+}) {
+  return (
+    <PreviewModalShell
+      eyebrow="Event Preview"
+      title={event.title}
+      onClose={onClose}
+      actionHref="/calendar"
+      actionLabel="Open in Calendar"
+    >
+      <div className="mb-4 flex flex-wrap gap-2">
+        <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+          {formatDisplayDate(event.event_date)}
+        </span>
+        <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+          {eventTimePreview(event)}
+        </span>
+        <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+          {eventRecurrencePreview(event)}
+        </span>
+        {event.location ? (
+          <span className="app-pill border-[#ded6ca] px-2 py-1 text-xs">
+            {event.location}
+          </span>
+        ) : null}
+      </div>
+      <p className="whitespace-pre-wrap text-sm leading-6 text-[#3b3732]">
+        {event.description.trim() || "No event description yet."}
+      </p>
+    </PreviewModalShell>
+  );
+}
+
+function PreviewModalShell({
+  actionHref,
+  actionLabel,
+  children,
+  eyebrow,
+  onClose,
+  title,
+}: {
+  actionHref: string;
+  actionLabel: string;
+  children: ReactNode;
+  eyebrow: string;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#2c2925]/40 px-6 backdrop-blur-sm">
+      <section className="sheet-floating-panel flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-[#ded6ca] px-5 py-4">
+          <div className="min-w-0">
+            <p className="app-eyebrow">{eyebrow}</p>
+            <h2 className="mt-1 truncate text-xl font-semibold text-[#2c2925]">
+              {title}
+            </h2>
+          </div>
+          <button
+            className="app-button-secondary min-h-8 px-3 py-1.5 text-xs"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+          {children}
+        </div>
+        <div className="flex justify-end gap-3 border-t border-[#ded6ca] px-5 py-4">
+          <button
+            className="app-button-secondary"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+          <Link className="app-button-primary" href={actionHref}>
+            {actionLabel}
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function SlotEditorPanel({
   activeSlot,
   categories,
   draftSlots,
   hasUnsavedChanges,
   isSaving,
+  sheetContextCategory,
   onClearSlot,
   onClose,
   onSaveSlots,
@@ -1343,6 +1657,7 @@ function SlotEditorPanel({
   draftSlots: DraftSlot[];
   hasUnsavedChanges: boolean;
   isSaving: boolean;
+  sheetContextCategory: TaskCategory | null;
   onClearSlot: (slotIndex: number) => void;
   onClose: () => void;
   onSaveSlots: () => Promise<void>;
@@ -1350,7 +1665,7 @@ function SlotEditorPanel({
   onUpdateSlot: (slotIndex: number, widgetKey: string) => void;
   onUpdateSlotConfig: (
     slotIndex: number,
-    key: "category_id" | "title_override",
+    key: "category_id" | "category_mode" | "title_override",
     value: string,
   ) => void;
   onUpdateSlotSize: (
@@ -1366,11 +1681,11 @@ function SlotEditorPanel({
   const supportsCategoryFilter = Boolean(activeDefinition?.supportsCategoryFilter);
   const supportsTitleOverride = Boolean(activeDefinition?.supportsTitleOverride);
   const selectedSlotLocation = sheetSlotLocation(activeSlot.slot_index);
-  const selectedCategoryName = activeSlot.config_json.category_id
-    ? categories.find(
-        (category) => category.id === activeSlot.config_json.category_id,
-      )?.name ?? "Unknown"
-    : "All";
+  const selectedCategoryName = selectedCategoryLabel(
+    activeSlot.config_json,
+    categories,
+    sheetContextCategory,
+  );
   const coveredSlots = coveredSlotAnchors(draftSlots);
   const activeCoveredBy = coveredSlots.get(activeSlot.slot_index);
 
@@ -1632,28 +1947,59 @@ function SlotEditorPanel({
             </section>
 
             {supportsCategoryFilter ? (
-              <label className="block text-sm font-semibold text-[#2c2925]">
-                Category filter
-                <select
-                  className={inputClassName}
-                  disabled={isSaving}
-                  onChange={(event) =>
-                    onUpdateSlotConfig(
-                      activeSlot.slot_index,
-                      "category_id",
-                      event.target.value,
-                    )
-                  }
-                  value={activeSlot.config_json.category_id ?? ""}
-                >
-                  <option value="">All categories</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-[#2c2925]">
+                  Widget filter
+                  <select
+                    className={inputClassName}
+                    disabled={isSaving}
+                    onChange={(event) =>
+                      onUpdateSlotConfig(
+                        activeSlot.slot_index,
+                        "category_mode",
+                        event.target.value,
+                      )
+                    }
+                    value={categoryModeForConfig(activeSlot.config_json)}
+                  >
+                    <option value="none">No filter</option>
+                    {sheetContextCategory ? (
+                      <option value="sheet_context">
+                        Use sheet context ({sheetContextCategory.name})
+                      </option>
+                    ) : null}
+                    <option value="specific">Specific category</option>
+                  </select>
+                </label>
+                {categoryModeForConfig(activeSlot.config_json) === "specific" ? (
+                  <label className="block text-sm font-semibold text-[#2c2925]">
+                    Specific category
+                    <select
+                      className={inputClassName}
+                      disabled={isSaving}
+                      onChange={(event) =>
+                        onUpdateSlotConfig(
+                          activeSlot.slot_index,
+                          "category_id",
+                          event.target.value,
+                        )
+                      }
+                      value={activeSlot.config_json.category_id ?? ""}
+                    >
+                      <option value="">Choose category</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <p className="app-muted text-xs leading-5">
+                  Use sheet context inherits the current sheet category. Specific
+                  category keeps this widget independent.
+                </p>
+              </div>
             ) : null}
 
             {supportsTitleOverride ? (
@@ -1818,6 +2164,84 @@ function widgetLibraryInitial(definition: DashboardWidgetDefinition) {
     .slice(0, 2);
 }
 
+function widgetOpenHref(widgetKey: DashboardWidgetId) {
+  if (widgetKey === "daily-tasks" || widgetKey === "weekly-tasks") {
+    return "/tasks";
+  }
+  if (widgetKey === "recent-notes") {
+    return "/notes";
+  }
+  if (widgetKey === "upcoming-events") {
+    return "/calendar";
+  }
+  if (widgetKey === "tracker-summary") {
+    return "/tracker";
+  }
+  if (widgetKey === "category-overview") {
+    return "/categories";
+  }
+  if (widgetKey === "review-summary") {
+    return "/review";
+  }
+  return "/";
+}
+
+function dailyTaskPreviewMetadata(task: DailyTask) {
+  const metadata = [task.is_completed ? "Completed" : "Open"];
+  const plannedTime = formatTime(task.planned_time);
+  const dueTime = formatTime(task.due_time);
+  if (task.task_date) {
+    metadata.push(`Planned for ${formatDisplayDate(task.task_date)}`);
+  }
+  if (plannedTime) {
+    metadata.push(`At ${plannedTime}`);
+  }
+  if (task.due_date) {
+    metadata.push(
+      dueTime
+        ? `Due ${formatDisplayDate(task.due_date)} ${dueTime}`
+        : `Due ${formatDisplayDate(task.due_date)}`,
+    );
+  }
+  return metadata;
+}
+
+function recurringTaskPreviewMetadata(task: DashboardWeeklyTask) {
+  if (task.recurrence_type === "monthly_day") {
+    return `Monthly on day ${task.day_of_month}`;
+  }
+  if (task.recurrence_type === "biweekly") {
+    return "Every 2 weeks";
+  }
+  return "Weekly";
+}
+
+function eventTimePreview(event: CalendarEvent) {
+  if (!event.start_time && !event.end_time) {
+    return "All day";
+  }
+  if (event.start_time && event.end_time) {
+    return `${event.start_time.slice(0, 5)}-${event.end_time.slice(0, 5)}`;
+  }
+  if (event.start_time) {
+    return event.start_time.slice(0, 5);
+  }
+  return `Until ${event.end_time?.slice(0, 5)}`;
+}
+
+function eventRecurrencePreview(event: CalendarEvent) {
+  if (event.recurrence_type === "monthly_day") {
+    return `Monthly on day ${event.day_of_month}`;
+  }
+  if (event.recurrence_type === "biweekly") {
+    return "Bi-weekly";
+  }
+  if (event.recurrence_type === "weekly") {
+    return "Weekly";
+  }
+  return "One-time";
+}
+
 function sheetSlotLocation(slotIndex: number) {
   const row = slotIndex < 4 ? "Top row" : "Bottom row";
   const column = (slotIndex % 4) + 1;
@@ -1847,16 +2271,25 @@ function normalizedSlotConfig(slot: DraftSlot) {
     slot.widget_key !== "daily-tasks" &&
     slot.widget_key !== "weekly-tasks" &&
     slot.widget_key !== "recent-notes" &&
-    slot.widget_key !== "upcoming-events"
+    slot.widget_key !== "upcoming-events" &&
+    slot.widget_key !== "category-overview"
   ) {
     return {};
   }
 
   const categoryConfig = {
-    category_id: slot.config_json.category_id ?? null,
+    category_mode: categoryModeForConfig(slot.config_json),
+    category_id:
+      categoryModeForConfig(slot.config_json) === "specific"
+        ? slot.config_json.category_id ?? null
+        : null,
   };
 
-  if (slot.widget_key === "daily-tasks" || slot.widget_key === "weekly-tasks") {
+  if (
+    slot.widget_key === "daily-tasks" ||
+    slot.widget_key === "weekly-tasks" ||
+    slot.widget_key === "category-overview"
+  ) {
     return {
       ...categoryConfig,
       title_override: slot.config_json.title_override ?? "",
@@ -1864,6 +2297,52 @@ function normalizedSlotConfig(slot: DraftSlot) {
   }
 
   return categoryConfig;
+}
+
+function categoryModeForConfig(config: DraftSlot["config_json"]): SheetWidgetCategoryMode {
+  if (
+    config.category_mode === "sheet_context" ||
+    config.category_mode === "specific" ||
+    config.category_mode === "none"
+  ) {
+    return config.category_mode;
+  }
+  return typeof config.category_id === "number" ? "specific" : "none";
+}
+
+function normalizeDraftSlotConfig(
+  widgetKey: DashboardWidgetId | null,
+  config: DraftSlot["config_json"],
+): DraftSlot["config_json"] {
+  if (!widgetKey) {
+    return {};
+  }
+  const mode = categoryModeForConfig(config);
+  return {
+    ...config,
+    category_mode: mode,
+    category_id: mode === "specific" ? config.category_id ?? null : null,
+  };
+}
+
+function selectedCategoryLabel(
+  config: DraftSlot["config_json"],
+  categories: TaskCategory[],
+  sheetContextCategory: TaskCategory | null,
+) {
+  const mode = categoryModeForConfig(config);
+  if (mode === "sheet_context") {
+    return sheetContextCategory
+      ? `Sheet context: ${sheetContextCategory.name}`
+      : "Sheet context not set";
+  }
+  if (mode === "specific") {
+    return config.category_id
+      ? categories.find((category) => category.id === config.category_id)?.name ??
+          "Unknown"
+      : "Specific category not set";
+  }
+  return "No filter";
 }
 
 function normalizedDraftSlotForCompare(slot: DraftSlot) {
@@ -1985,7 +2464,10 @@ function createDraftSlots(sheet: SheetDetail): DraftSlot[] {
       widget_key: definition ? definition.id : null,
       col_span: definition ? slot?.col_span ?? 1 : 1,
       row_span: definition ? slot?.row_span ?? 1 : 1,
-      config_json: definition ? slot?.config_json ?? {} : {},
+      config_json: normalizeDraftSlotConfig(
+        definition ? definition.id : null,
+        definition ? slot?.config_json ?? {} : {},
+      ),
     };
   });
 }

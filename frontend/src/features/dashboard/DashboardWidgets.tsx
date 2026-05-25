@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { getCategoryOverview } from "@/features/categories/api";
+import type { CategoryOverview } from "@/features/categories/types";
 import type { DashboardSummary, DashboardWeeklyTask } from "./types";
 import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types";
+import { calendarEventOccurrenceKey } from "@/features/calendar/event-identity";
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
 import { AppButton, DateNavigator, EmptyState, SectionCard } from "@/components/ui";
@@ -40,7 +43,16 @@ function configuredTitle(
   return widgetConfig?.title_override?.trim() || defaultTitle;
 }
 
-function configuredCategoryId(widgetConfig?: DashboardWidgetConfig) {
+function configuredCategoryId(
+  widgetConfig?: DashboardWidgetConfig,
+  sheetContextCategoryId?: number | null,
+) {
+  if (widgetConfig?.category_mode === "sheet_context") {
+    return typeof sheetContextCategoryId === "number" ? sheetContextCategoryId : null;
+  }
+  if (widgetConfig?.category_mode === "none") {
+    return null;
+  }
   return typeof widgetConfig?.category_id === "number"
     ? widgetConfig.category_id
     : null;
@@ -228,11 +240,12 @@ export function QuickActionsWidget({
           Quick Add
         </AppButton>
         {[
+          ["Open Sheets", "/sheets"],
           ["Search", "/search"],
+          ["Open Review", "/review"],
           ["Open Tasks", "/tasks"],
           ["Open Notes", "/notes"],
           ["Open Calendar", "/calendar"],
-          ["Open Planning", "/planning"],
           ["Open Tracker", "/tracker"],
         ].map(([label, href]) => (
           <Link
@@ -252,10 +265,12 @@ export function DailyTasksWidget({
   summary,
   isSaving,
   onToggleDailyTask,
+  onPreviewDailyTask,
   widgetConfig,
+  sheetContextCategoryId,
   renderMode = "normal",
 }: DashboardWidgetProps) {
-  const categoryId = configuredCategoryId(widgetConfig);
+  const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
   const tasks =
     categoryId === null
       ? summary.daily_tasks
@@ -274,10 +289,10 @@ export function DailyTasksWidget({
       >
         <div className="space-y-2">
           {tasks.length === 0 ? (
-            <CompactEmpty message="No one-time tasks." />
+            <CompactEmpty message="No one-time tasks. Open Tasks to plan one." />
           ) : (
             tasks.slice(0, 5).map((task) => (
-              <label className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
+              <div className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
                 <input
                   checked={task.is_completed}
                   className="mt-1"
@@ -285,10 +300,12 @@ export function DailyTasksWidget({
                   onChange={() => onToggleDailyTask(task)}
                   type="checkbox"
                 />
-                <span
-                  className={`min-w-0 flex-1 truncate ${
+                <button
+                  className={`min-w-0 flex-1 truncate text-left ${
                     task.is_completed ? "text-[#8b8176] line-through" : "text-[#3b3732]"
                   }`}
+                  onClick={() => onPreviewDailyTask?.(task)}
+                  type="button"
                 >
                   {task.title}
                   {taskMetadata(task) ? (
@@ -296,8 +313,8 @@ export function DailyTasksWidget({
                       {taskMetadata(task)}
                     </span>
                   ) : null}
-                </span>
-              </label>
+                </button>
+              </div>
             ))
           )}
           {hiddenTaskCount > 0 ? (
@@ -315,6 +332,7 @@ export function DailyTasksWidget({
       <DashboardTaskList
         isSaving={isSaving}
         onToggle={onToggleDailyTask}
+        onPreview={onPreviewDailyTask}
         tasks={tasks}
       />
     </SectionCard>
@@ -325,10 +343,12 @@ function DashboardTaskList({
   tasks,
   isSaving,
   onToggle,
+  onPreview,
 }: {
   tasks: DailyTask[];
   isSaving: boolean;
   onToggle: (task: DailyTask) => void;
+  onPreview?: (task: DailyTask) => void;
 }) {
   return (
     <div className="mt-4 space-y-2">
@@ -336,7 +356,7 @@ function DashboardTaskList({
         <EmptyState message="No one-time tasks for this date." />
       ) : (
         tasks.map((task) => (
-          <label
+          <div
             className="app-soft-row flex items-start gap-3 rounded-xl border border-[#ded6ca] px-3 py-2 hover:border-[#cbbfb0]"
             key={task.id}
           >
@@ -347,7 +367,11 @@ function DashboardTaskList({
               onChange={() => onToggle(task)}
               type="checkbox"
             />
-            <span className="min-w-0">
+            <button
+              className="min-w-0 text-left"
+              onClick={() => onPreview?.(task)}
+              type="button"
+            >
               <span
                 className={`block text-sm font-medium ${
                   task.is_completed ? "text-neutral-500 line-through" : ""
@@ -365,8 +389,8 @@ function DashboardTaskList({
                   {taskMetadata(task)}
                 </span>
               ) : null}
-            </span>
-          </label>
+            </button>
+          </div>
         ))
       )}
     </div>
@@ -378,11 +402,13 @@ export function WeeklyTasksWidget({
   summary,
   isSaving,
   onToggleWeeklyTask,
+  onPreviewWeeklyTask,
   widgetConfig,
+  sheetContextCategoryId,
   renderMode = "normal",
 }: DashboardWidgetProps) {
   const weekday = WEEKDAYS[weekdayFromIsoDate(selectedDate)];
-  const categoryId = configuredCategoryId(widgetConfig);
+  const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
   const tasks =
     categoryId === null
       ? summary.weekly_tasks
@@ -401,10 +427,10 @@ export function WeeklyTasksWidget({
       >
         <div className="space-y-2">
           {tasks.length === 0 ? (
-            <CompactEmpty message="No recurring tasks." />
+            <CompactEmpty message="No recurring tasks for this date." />
           ) : (
             tasks.slice(0, 5).map((task) => (
-              <label className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
+              <div className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
                 <input
                   checked={task.is_completed}
                   className="mt-1"
@@ -412,14 +438,19 @@ export function WeeklyTasksWidget({
                   onChange={() => onToggleWeeklyTask(task)}
                   type="checkbox"
                 />
-                <span
-                  className={`min-w-0 flex-1 truncate ${
+                <button
+                  className={`min-w-0 flex-1 truncate text-left ${
                     task.is_completed ? "text-[#8b8176] line-through" : "text-[#3b3732]"
                   }`}
+                  onClick={() => onPreviewWeeklyTask?.(task)}
+                  type="button"
                 >
                   {task.title}
-                </span>
-              </label>
+                  <span className="block truncate text-xs font-normal text-[#766f66]">
+                    {recurringTaskMetadata(task)}
+                  </span>
+                </button>
+              </div>
             ))
           )}
           {hiddenTaskCount > 0 ? (
@@ -439,7 +470,7 @@ export function WeeklyTasksWidget({
           <EmptyState message="No recurring tasks are scheduled for this date." />
         ) : (
           tasks.map((task) => (
-            <label
+            <div
             className="app-soft-row flex items-start gap-3 rounded-xl border border-[#ded6ca] px-3 py-2 hover:border-[#cbbfb0]"
               key={task.id}
             >
@@ -450,7 +481,11 @@ export function WeeklyTasksWidget({
                 onChange={() => onToggleWeeklyTask(task)}
                 type="checkbox"
               />
-              <span className="min-w-0">
+              <button
+                className="min-w-0 text-left"
+                onClick={() => onPreviewWeeklyTask?.(task)}
+                type="button"
+              >
                 <span
                   className={`block text-sm font-medium ${
                     task.is_completed ? "text-neutral-500 line-through" : ""
@@ -466,8 +501,8 @@ export function WeeklyTasksWidget({
                     {task.description}
                   </span>
                 ) : null}
-              </span>
-            </label>
+              </button>
+            </div>
           ))
         )}
       </div>
@@ -479,9 +514,10 @@ export function RecentNotesWidget({
   onPreviewNote,
   summary,
   widgetConfig,
+  sheetContextCategoryId,
   renderMode = "normal",
 }: DashboardWidgetProps) {
-  const categoryId = configuredCategoryId(widgetConfig);
+  const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
   const notes =
     categoryId === null
       ? summary.recent_notes
@@ -547,10 +583,12 @@ export function RecentNotesWidget({
 
 export function UpcomingEventsWidget({
   summary,
+  onPreviewEvent,
   widgetConfig,
+  sheetContextCategoryId,
   renderMode = "normal",
 }: DashboardWidgetProps) {
-  const categoryId = configuredCategoryId(widgetConfig);
+  const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
   const events =
     categoryId === null
       ? summary.upcoming_events
@@ -566,17 +604,22 @@ export function UpcomingEventsWidget({
       >
         <div className="space-y-2">
           {events.length === 0 ? (
-            <CompactEmpty message="No upcoming events." />
+            <CompactEmpty message="No upcoming events. Open Calendar to add one." />
           ) : (
             events.slice(0, 4).map((event) => (
-              <div className="sheet-compact-list-item min-w-0" key={event.id}>
+              <button
+                className="sheet-compact-list-item block w-full min-w-0 text-left"
+                key={calendarEventOccurrenceKey(event)}
+                onClick={() => onPreviewEvent?.(event)}
+                type="button"
+              >
                 <p className="truncate text-sm font-medium text-[#3b3732]">
                   {event.title}
                 </p>
                 <p className="truncate text-xs font-medium text-[#766f66]">
                   {formatDisplayDate(event.event_date)} - {formatEventTime(event)}
                 </p>
-              </div>
+              </button>
             ))
           )}
           {events.length > 4 ? (
@@ -596,7 +639,12 @@ export function UpcomingEventsWidget({
           <EmptyState message="No upcoming events yet." />
         ) : (
           events.map((event) => (
-            <div className="rounded-md border border-neutral-200 px-3 py-2" key={event.id}>
+            <button
+              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-left hover:border-neutral-300"
+              key={calendarEventOccurrenceKey(event)}
+              onClick={() => onPreviewEvent?.(event)}
+              type="button"
+            >
               <p className="text-sm font-medium text-neutral-950">{event.title}</p>
               <p className="mt-1 text-xs text-neutral-600">
                 {formatDisplayDate(event.event_date)} - {formatEventTime(event)}
@@ -604,7 +652,7 @@ export function UpcomingEventsWidget({
               {event.location ? (
                 <p className="mt-1 text-xs text-neutral-600">{event.location}</p>
               ) : null}
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -659,27 +707,226 @@ export function TrackerSummaryWidget({
   );
 }
 
-export function PlanningSummaryWidget({
+export function CategoryOverviewWidget({
   selectedDate,
+  taskCategories = [],
+  onPreviewDailyTask,
+  onPreviewEvent,
+  widgetConfig,
+  sheetContextCategoryId,
   renderMode = "normal",
 }: DashboardWidgetProps) {
+  const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
+  const configuredCategory = taskCategories.find(
+    (category) => category.id === categoryId,
+  );
+  const title = configuredTitle(
+    configuredCategory ? `${configuredCategory.name} Overview` : "Category Overview",
+    widgetConfig,
+  );
+  const [overview, setOverview] = useState<CategoryOverview | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (categoryId === null) {
+      setOverview(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoading(true);
+    setError(null);
+
+    getCategoryOverview(categoryId, selectedDate)
+      .then((data) => {
+        if (isMounted) {
+          setOverview(data);
+        }
+      })
+      .catch((caught) => {
+        if (isMounted) {
+          setOverview(null);
+          setError(caught instanceof Error ? caught.message : "Could not load category.");
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [categoryId, selectedDate]);
+
+  if (categoryId === null) {
+    return (
+      <CompactWidgetCard
+        actionHref="/categories"
+        actionLabel="Open categories"
+        title={title}
+      >
+        <CompactEmpty message="Choose a category in slot settings." />
+      </CompactWidgetCard>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <CompactWidgetCard title={title}>
+        <CompactEmpty message="Loading category..." />
+      </CompactWidgetCard>
+    );
+  }
+
+  if (error || overview === null) {
+    return (
+      <CompactWidgetCard title={title}>
+        <CompactEmpty message={error ?? "Category unavailable."} />
+      </CompactWidgetCard>
+    );
+  }
+
+  const openDailyTasks = overview.daily_tasks.length;
+  const openRecurringTasks = overview.recurring_tasks.filter(
+    (task) => !task.is_completed,
+  ).length;
+
   if (renderMode === "compact") {
     return (
-      <CompactWidgetCard title="Plan Review">
-        <p className="sheet-compact-muted-box leading-6">
-          Plan for {formatDisplayDate(selectedDate)}.
-        </p>
-        <ManageLink href="/planning" />
+      <CompactWidgetCard
+        actionHref="/categories"
+        actionLabel="Open categories"
+        title={title}
+        meta={formatDisplayDate(selectedDate)}
+      >
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <CompactMetric label="One-time" value={openDailyTasks} />
+          <CompactMetric label="Recurring" value={openRecurringTasks} />
+          <CompactMetric label="Events" value={overview.upcoming_events.length} />
+          <CompactMetric label="Notes" value={overview.recent_notes.length} />
+        </div>
+        <div className="mt-3 space-y-2">
+          {overview.daily_tasks.slice(0, 2).map((task) => (
+            <button
+              className="sheet-compact-list-item block w-full truncate text-left text-sm"
+              key={`daily-${task.id}`}
+              onClick={() => onPreviewDailyTask?.(task)}
+              type="button"
+            >
+              {task.title}
+            </button>
+          ))}
+          {overview.upcoming_events.slice(0, 2).map((event) => (
+            <button
+              className="sheet-compact-list-item block w-full truncate text-left text-sm"
+              key={`event-${calendarEventOccurrenceKey(event)}`}
+              onClick={() => onPreviewEvent?.(event)}
+              type="button"
+            >
+              {event.title}
+            </button>
+          ))}
+          {overview.daily_tasks.length === 0 &&
+          overview.upcoming_events.length === 0 &&
+          overview.recent_notes.length === 0 &&
+          overview.recurring_tasks.length === 0 ? (
+            <CompactEmpty message="Nothing active in this category." />
+          ) : null}
+        </div>
       </CompactWidgetCard>
     );
   }
 
   return (
-    <SectionCard action={<ManageLink href="/planning" />} eyebrow="Planning" title="Plan Review">
-      <p className="mt-4 text-sm leading-6 text-neutral-700">
-        Review the daily and weekly plan composed from tasks and calendar events for{" "}
-        {formatDisplayDate(selectedDate)}.
-      </p>
+    <SectionCard
+      action={<ManageLink href="/categories" />}
+      eyebrow={overview.category.name}
+      title={title}
+    >
+      <div className="app-stat-grid mt-4 grid rounded-2xl border-y border-[#ded6ca] sm:grid-cols-4 sm:divide-x sm:divide-[#ded6ca]">
+        <StatCell label="One-time" value={openDailyTasks} />
+        <StatCell label="Recurring" value={openRecurringTasks} />
+        <StatCell label="Events" value={overview.upcoming_events.length} />
+        <StatCell label="Notes" value={overview.recent_notes.length} />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {overview.daily_tasks.slice(0, 3).map((task) => (
+          <p className="app-soft-row rounded-xl border border-[#ded6ca] px-3 py-2 text-sm" key={`daily-${task.id}`}>
+            {task.title}
+          </p>
+        ))}
+        {overview.upcoming_events.slice(0, 3).map((event) => (
+          <p className="app-soft-row rounded-xl border border-[#ded6ca] px-3 py-2 text-sm" key={`event-${calendarEventOccurrenceKey(event)}`}>
+            {event.title}
+          </p>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+export function ReviewSummaryWidget({
+  selectedDate,
+  summary,
+  renderMode = "normal",
+}: DashboardWidgetProps) {
+  const completedDailyTasks =
+    summary.counts.daily_task_count - summary.counts.incomplete_daily_task_count;
+  const completedRecurringTasks =
+    summary.counts.weekly_task_count - summary.counts.incomplete_weekly_task_count;
+
+  if (renderMode === "compact") {
+    return (
+      <CompactWidgetCard
+        actionHref="/review"
+        actionLabel="Open review"
+        title="Review Summary"
+        meta={formatDisplayDate(selectedDate)}
+      >
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <CompactMetric
+            label="One-time"
+            value={`${completedDailyTasks}/${summary.counts.daily_task_count}`}
+          />
+          <CompactMetric
+            label="Recurring"
+            value={`${completedRecurringTasks}/${summary.counts.weekly_task_count}`}
+          />
+          <CompactMetric label="Events" value={summary.counts.upcoming_event_count} />
+          <CompactMetric
+            label="Water"
+            value={`${summary.tracker_summary.total_water_ml} ml`}
+          />
+        </div>
+      </CompactWidgetCard>
+    );
+  }
+
+  return (
+    <SectionCard
+      action={<ManageLink href="/review" />}
+      eyebrow="Review"
+      title="Review Summary"
+    >
+      <div className="app-stat-grid mt-4 grid rounded-2xl border-y border-[#ded6ca] sm:grid-cols-4 sm:divide-x sm:divide-[#ded6ca]">
+        <StatCell label="Date" value={formatDisplayDate(selectedDate, { month: "short", day: "numeric" })} />
+        <StatCell
+          label="One-time"
+          value={`${completedDailyTasks}/${summary.counts.daily_task_count}`}
+          detail="completed"
+        />
+        <StatCell
+          label="Recurring"
+          value={`${completedRecurringTasks}/${summary.counts.weekly_task_count}`}
+          detail="completed"
+        />
+        <StatCell label="Events" value={summary.counts.upcoming_event_count} />
+      </div>
     </SectionCard>
   );
 }

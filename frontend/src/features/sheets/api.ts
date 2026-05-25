@@ -9,16 +9,25 @@ export function getSheet(sheetId: number): Promise<SheetDetail> {
   return apiRequest<SheetDetail>(`/api/sheets/${sheetId}`);
 }
 
-export function createSheet(name: string): Promise<SheetDetail> {
+export function createSheet(
+  name: string,
+  contextCategoryId?: number | null,
+): Promise<SheetDetail> {
   return apiRequest<SheetDetail>("/api/sheets", {
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, context_category_id: contextCategoryId ?? null }),
     method: "POST",
   });
 }
 
-export function renameSheet(sheetId: number, name: string): Promise<SheetDetail> {
+export function updateSheet(
+  sheetId: number,
+  input: {
+    name?: string;
+    context_category_id?: number | null;
+  },
+): Promise<SheetDetail> {
   return apiRequest<SheetDetail>(`/api/sheets/${sheetId}`, {
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(input),
     method: "PATCH",
   });
 }

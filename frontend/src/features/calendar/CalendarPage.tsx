@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   archiveCalendarEvent,
@@ -15,6 +15,7 @@ import type {
   CalendarOverviewDay,
   CalendarRecurringTaskOccurrence,
 } from "./types";
+import { calendarEventOccurrenceKey } from "./event-identity";
 import { ErrorState, NoticeState } from "@/components/ui";
 import {
   completeDailyTask,
@@ -337,9 +338,11 @@ export function CalendarPage() {
   const [dayOfMonth, setDayOfMonth] = useState(`${dayNumber(selectedDate)}`);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const calendarRequestId = useRef(0);
 
   const monthDays = useMemo(() => buildMonthDays(visibleMonth), [visibleMonth]);
   const monthRangeStart = monthDays[0];
@@ -369,32 +372,51 @@ export function CalendarPage() {
     [monthEvents, selectedEventId, upcomingEvents],
   );
 
-  async function loadData() {
+  async function loadData({ showInitialLoading = false } = {}) {
+    const requestId = calendarRequestId.current + 1;
+    calendarRequestId.current = requestId;
     setError(null);
-    const [overview, upcomingData, categoryData] = await Promise.all([
-      getCalendarOverview(monthRangeStart, monthRangeEnd),
-      getUpcomingCalendarEvents(selectedDate),
-      getTaskCategories(),
-    ]);
-    setOverviewDays(overview.days);
-    setUpcomingEvents(upcomingData);
-    setCategories(categoryData);
+    if (showInitialLoading && overviewDays.length === 0) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
 
-    if (
-      selectedEventId !== null &&
-      ![...overview.days.flatMap((day) => day.calendar_events), ...upcomingData].some(
-        (event) => event.id === selectedEventId,
-      )
-    ) {
-      resetForm();
+    try {
+      const [overview, upcomingData, categoryData] = await Promise.all([
+        getCalendarOverview(monthRangeStart, monthRangeEnd),
+        getUpcomingCalendarEvents(selectedDate),
+        getTaskCategories(),
+      ]);
+
+      if (calendarRequestId.current !== requestId) {
+        return;
+      }
+
+      setOverviewDays(overview.days);
+      setUpcomingEvents(upcomingData);
+      setCategories(categoryData);
+
+      if (
+        selectedEventId !== null &&
+        ![...overview.days.flatMap((day) => day.calendar_events), ...upcomingData].some(
+          (event) => event.id === selectedEventId,
+        )
+      ) {
+        resetForm();
+      }
+    } finally {
+      if (calendarRequestId.current === requestId) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }
 
   useEffect(() => {
-    setIsLoading(true);
-    loadData()
-      .catch((caught: Error) => setError(caught.message))
-      .finally(() => setIsLoading(false));
+    loadData({ showInitialLoading: true }).catch((caught: Error) =>
+      setError(caught.message),
+    );
   }, [monthRangeStart, monthRangeEnd, selectedDate]);
 
   useEffect(() => {
@@ -468,9 +490,6 @@ export function CalendarPage() {
 
   function selectDate(date: string) {
     setSelectedDate(date);
-    if (!sameMonth(date, visibleMonth)) {
-      setVisibleMonth(monthStartIso(date));
-    }
     resetForm(date);
   }
 
@@ -599,6 +618,11 @@ export function CalendarPage() {
                   View events, one-time tasks, and recurring task occurrences
                   together without merging how they are managed.
                 </p>
+                {isRefreshing && !isLoading ? (
+                  <p className="mt-1 text-xs font-semibold text-teal-700">
+                    Updating calendar...
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -764,7 +788,7 @@ export function CalendarPage() {
                             categories={categories}
                             event={event}
                             isSelected={selectedEventId === event.id}
-                            key={event.id}
+                            key={calendarEventOccurrenceKey(event)}
                             onSelect={(selected) => setSelectedEventId(selected.id)}
                           />
                         ))
@@ -1043,7 +1067,7 @@ export function CalendarPage() {
                   categories={categories}
                   event={event}
                   isSelected={selectedEventId === event.id}
-                  key={event.id}
+                  key={calendarEventOccurrenceKey(event)}
                   onSelect={(selected) => {
                     setSelectedEventId(selected.id);
                     setSelectedDate(selected.event_date);

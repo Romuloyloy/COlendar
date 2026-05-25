@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class SheetCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+    context_category_id: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -16,6 +17,7 @@ class SheetCreate(BaseModel):
 
 class SheetUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    context_category_id: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -58,6 +60,7 @@ class SheetRead(BaseModel):
     id: int
     name: str
     sort_order: int
+    context_category_id: int | None
     created_at: datetime
     updated_at: datetime
 

@@ -8,6 +8,7 @@ This document defines the current product language around tasks, recurring tasks
 - Events are things that happen at a time and can optionally repeat.
 - Planning is a combined overview of tasks and events.
 - Calendar is the date/time visual view.
+- Categories are context filters across tasks, notes, and calendar events; tracker entries stay outside this model.
 
 ## Tasks
 

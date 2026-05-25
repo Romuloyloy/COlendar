@@ -72,6 +72,27 @@ function noteFolderLabel(note: Note, folders: Folder[]): string {
   return folder ? folderLabel(folder, folders) : "Missing folder";
 }
 
+function descendantFolderIds(folderId: number, folders: Folder[]): Set<number> {
+  const ids = new Set<number>([folderId]);
+  let didAdd = true;
+
+  while (didAdd) {
+    didAdd = false;
+    for (const folder of folders) {
+      if (
+        folder.parent_folder_id !== null &&
+        ids.has(folder.parent_folder_id) &&
+        !ids.has(folder.id)
+      ) {
+        ids.add(folder.id);
+        didAdd = true;
+      }
+    }
+  }
+
+  return ids;
+}
+
 function noteCategoryLabel(note: Note, categories: TaskCategory[]): string {
   if (note.category_id === null) {
     return "No category";
@@ -112,12 +133,23 @@ export function NotesPage() {
     () => notes.find((note) => note.id === selectedNoteId) ?? null,
     [notes, selectedNoteId],
   );
-  const visibleNotes = useMemo(
+  const selectedFolderAndDescendantIds = useMemo(
     () =>
       selectedFolderId === null
+        ? null
+        : descendantFolderIds(selectedFolderId, folders),
+    [folders, selectedFolderId],
+  );
+  const visibleNotes = useMemo(
+    () =>
+      selectedFolderAndDescendantIds === null
         ? notes
-        : notes.filter((note) => note.folder_id === selectedFolderId),
-    [notes, selectedFolderId],
+        : notes.filter(
+            (note) =>
+              note.folder_id !== null &&
+              selectedFolderAndDescendantIds.has(note.folder_id),
+          ),
+    [notes, selectedFolderAndDescendantIds],
   );
   const categoryFilteredNotes = useMemo(
     () =>
@@ -308,7 +340,7 @@ export function NotesPage() {
 
   return (
     <main className="app-page">
-      <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[340px_1fr]">
+      <section className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(240px,1fr)_minmax(240px,1fr)_minmax(0,2fr)]">
         <aside className="space-y-6">
           <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
             <h1 className="text-2xl font-semibold">Notes</h1>
@@ -493,12 +525,18 @@ export function NotesPage() {
           ) : null}
         </aside>
 
-        <section className="grid gap-6 xl:grid-cols-[300px_1fr]">
           <section className="rounded border border-neutral-300 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">
-                {selectedFolder ? selectedFolder.name : "All Notes"}
-              </h2>
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold">
+                  {selectedFolder ? selectedFolder.name : "All Notes"}
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-neutral-600">
+                  {selectedFolder
+                    ? "Showing this folder and its child folders."
+                    : "Showing every active note."}
+                </p>
+              </div>
               <button
                 className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
                 onClick={() => resetNoteForm()}
@@ -614,7 +652,6 @@ export function NotesPage() {
               </div>
             </form>
           </section>
-        </section>
       </section>
     </main>
   );

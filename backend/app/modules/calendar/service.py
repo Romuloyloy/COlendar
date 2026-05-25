@@ -162,14 +162,18 @@ def apply_calendar_event_payload(
 def list_calendar_events_for_date(
     db: Session,
     selected_date: date,
+    category_id: int | None = None,
 ):
+    validate_optional_category(db, category_id)
+    query = select(CalendarEvent).where(
+        CalendarEvent.is_archived.is_(False),
+        CalendarEvent.event_date <= selected_date,
+    )
+    if category_id is not None:
+        query = query.where(CalendarEvent.category_id == category_id)
     events = list(
         db.scalars(
-            select(CalendarEvent)
-            .where(
-                CalendarEvent.is_archived.is_(False),
-                CalendarEvent.event_date <= selected_date,
-            )
+            query
             .order_by(
                 CalendarEvent.start_time.asc().nulls_last(),
                 CalendarEvent.id.asc(),
@@ -187,12 +191,17 @@ def list_calendar_event_occurrences_between(
     db: Session,
     from_date: date,
     to_date: date,
+    category_id: int | None = None,
 ):
     day_count = (to_date - from_date).days + 1
     occurrences = []
     for offset in range(day_count):
         occurrences.extend(
-            list_calendar_events_for_date(db, from_date + timedelta(days=offset))
+            list_calendar_events_for_date(
+                db,
+                from_date + timedelta(days=offset),
+                category_id,
+            )
         )
     return sorted(
         occurrences,
@@ -209,9 +218,15 @@ def list_upcoming_calendar_event_occurrences(
     db: Session,
     from_date: date,
     limit: int = 10,
+    category_id: int | None = None,
 ):
     to_date = from_date + timedelta(days=365)
-    return list_calendar_event_occurrences_between(db, from_date, to_date)[:limit]
+    return list_calendar_event_occurrences_between(
+        db,
+        from_date,
+        to_date,
+        category_id,
+    )[:limit]
 
 
 def get_calendar_overview(

@@ -1,8 +1,9 @@
 import {
+  CategoryOverviewWidget,
   DailyTasksWidget,
-  PlanningSummaryWidget,
   QuickActionsWidget,
   RecentNotesWidget,
+  ReviewSummaryWidget,
   TodayOverviewWidget,
   TrackerSummaryWidget,
   UpcomingEventsWidget,
@@ -25,7 +26,7 @@ export const DASHBOARD_WIDGET_REGISTRY: DashboardWidgetDefinition[] = [
   {
     id: "quick-actions",
     displayName: "Quick Actions",
-    description: "Shortcuts into create, search, planning, and core modules.",
+    description: "Shortcuts into create, search, sheets, review, and core modules.",
     category: "navigation",
     libraryGroup: "Overview / Utility",
     compactPreviewLabel: "Quick Add and Search shortcuts.",
@@ -95,21 +96,35 @@ export const DASHBOARD_WIDGET_REGISTRY: DashboardWidgetDefinition[] = [
     component: TrackerSummaryWidget,
   },
   {
-    id: "planning-summary",
-    displayName: "Plan Review",
-    description: "Navigation into planning views composed from tasks and calendar.",
-    category: "navigation",
-    libraryGroup: "Planning",
-    compactPreviewLabel: "Link into the daily planning view.",
+    id: "category-overview",
+    displayName: "Category Overview",
+    description: "Focused tasks, notes, and events for one shared category.",
+    category: "overview",
+    libraryGroup: "Overview / Utility",
+    compactPreviewLabel: "Category tasks, events, and notes.",
+    supportsCategoryFilter: true,
+    supportsTitleOverride: true,
     defaultOrder: 7,
-    defaultSize: "standard",
-    component: PlanningSummaryWidget,
+    defaultSize: "wide",
+    component: CategoryOverviewWidget,
+  },
+  {
+    id: "review-summary",
+    displayName: "Review Summary",
+    description: "Compact day review counts with a link into Review Center.",
+    category: "overview",
+    libraryGroup: "Overview / Utility",
+    compactPreviewLabel: "Task completion, events, and tracker totals.",
+    defaultOrder: 8,
+    defaultSize: "wide",
+    component: ReviewSummaryWidget,
   },
 ];
 
-export const DEFAULT_DASHBOARD_WIDGET_DEFINITIONS = [...DASHBOARD_WIDGET_REGISTRY].sort(
-  (left, right) => left.defaultOrder - right.defaultOrder,
-);
+export const DEFAULT_DASHBOARD_WIDGET_DEFINITIONS = DASHBOARD_WIDGET_REGISTRY.filter(
+  (definition) =>
+    definition.id !== "category-overview" && definition.id !== "review-summary",
+).sort((left, right) => left.defaultOrder - right.defaultOrder);
 
 export function getDashboardWidgetDefinition(widgetKey: string) {
   return DASHBOARD_WIDGET_REGISTRY.find((definition) => definition.id === widgetKey);

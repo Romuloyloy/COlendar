@@ -27,6 +27,14 @@ Palette + Empty Slot Quick Add v1 names the default palette `Robot Vanilla` and 
 
 Palette selection is stored in browser `localStorage` and applied through CSS variables. It should affect the accent layer and a subtle surface tint: primary buttons, focus rings, active/hover nav states, eyebrows, pills, sheet add affordances, selected slot accents, cards, panels, inputs, and related workspace highlights. Do not turn every surface into a strong palette color.
 
+Sheets-only Stark Mode is a local `/sheets` workspace toggle saved in browser `localStorage`. It is not app-wide dark mode. Each palette has a darker Stark variant:
+
+- `Robot Vanilla Stark`: dark warm-neutral sheet canvas with soft vanilla accents.
+- `DuckBerry Stark`: deep berry sheet canvas with muted lavender/berry accents.
+- `BozzyWheat Stark`: dark olive/wheat sheet canvas using #423e02-inspired depth, #bab01c accent, and #d9d3b4 softer wheat text/accent.
+
+Stark Mode should keep widgets readable and should not introduce neon, high-saturation styling, or a full app-wide theme switch.
+
 ## Component Philosophy
 
 Keep the shared component set small and practical. Use shared primitives when they make pages more consistent:
@@ -64,6 +72,7 @@ Dashboard widgets and sheet widgets should feel related, while sheet widgets may
 - compact readable widgets
 - controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans that visually merge covered cells
 - temporary widget focus overlays for deeper reading without changing the saved grid
+- a Sheets-only Stark Mode toggle in the workspace controls
 - clear dangerous-action separation
 - no drag-and-drop, resizing, or coordinate layout until a future spec asks for it
 

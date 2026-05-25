@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity dashboard in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, shared categories for tasks/notes/events, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events, recurring events, and task occurrences, basic water/activity/calorie tracking, a simple planning page, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity workspace in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, Sheets-only Stark Mode, shared category workspaces for tasks/notes/events, a read-focused Review Center, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events, recurring events, and task occurrences, basic water/activity/calorie tracking, retired planning views redirected into Review, shared frontend UI patterns, global Quick Add, and Global Search.
 
 ## Project Structure
 
@@ -88,13 +88,15 @@ The first build can take a few minutes while Docker downloads images and install
 
 Open these in your browser:
 
-- Dashboard home: `http://localhost:3000`
-- Sheets prototype: `http://localhost:3000/sheets`
+- Primary Sheets workspace: `http://localhost:3000/sheets`
+- Root route: `http://localhost:3000` redirects to `/sheets`
 - Notes page: `http://localhost:3000/notes`
 - Tasks page: `http://localhost:3000/tasks`
 - Calendar page: `http://localhost:3000/calendar`
+- Categories page: `http://localhost:3000/categories`
+- Review Center: `http://localhost:3000/review`
 - Search page: `http://localhost:3000/search`
-- Planning page: `http://localhost:3000/planning`
+- Retired Planning route: `http://localhost:3000/planning` redirects to `/review`
 - Tracker page: `http://localhost:3000/tracker`
 - Backend health: `http://localhost:8000/health`
 - Backend database health: `http://localhost:8000/health/db`
@@ -107,6 +109,8 @@ Or check them from PowerShell:
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/notes).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tasks).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/calendar).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/categories).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/review).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/search).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/planning).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tracker).StatusCode
@@ -114,14 +118,17 @@ Invoke-RestMethod http://localhost:8000/health
 Invoke-RestMethod http://localhost:8000/health/db
 ```
 
-- The dashboard shows today's overview, quick actions, one-time tasks, recurring tasks scheduled for the selected date, upcoming calendar events, tracker summary including calories, and recent notes.
-- The Sheets page is an experimental 4x2 workspace prototype that renders code-defined dashboard widgets in persisted sheet slots, with controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans.
+- `/sheets` is the primary workspace destination and renders the persisted 4x2 sheet workspace.
+- The dashboard code still exists as a reusable widget foundation, but it is no longer the root/home surface.
+- The Sheets page renders code-defined dashboard widgets in persisted sheet slots, with controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans, optional sheet category context for category-aware widgets, and a Sheets-only Stark Mode toggle that persists in `localStorage`.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
-- The Notes page lets you create folders and notes.
+- The Notes page uses a desktop 25% / 25% / 50% folder/list/editor layout and selecting a parent folder shows notes from descendant folders with folder path indicators.
 - The Tasks page lets you create one-time tasks and recurring tasks.
 - The Calendar page shows events, one-time tasks, and recurring task occurrences in the month grid while keeping event editing in the Calendar module and task editing in the Tasks module.
-- The Planning page shows a read-only day plan and weekly plan from Tasks and Calendar.
+- The Categories page provides read-focused workspace views for active shared categories across tasks, notes, and calendar events.
+- The Review Center shows a read-focused daily review, weekly review, category summary, and tracker summary composed from existing modules.
+- Planning has been retired from primary navigation; `/planning` redirects to Review while backend planning composition remains available for compatibility.
 - The Tracker page lets you log water, lightweight activity, and calories for a selected date.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
@@ -141,12 +148,12 @@ Future modules should define their own SQLAlchemy models inside their module fol
 
 ## Dashboard
 
-The dashboard is now the default home screen at `http://localhost:3000`.
+The dashboard is no longer the default home screen. The root route redirects to `/sheets`, and the dashboard code remains as the shared widget foundation used by the sheet workspace.
 
 It is intentionally simple and practical in this phase. It currently shows:
 
 - Today/date overview using the browser's local date on first load
-- Quick actions for Quick Add, Search, Planning, and core modules
+- Quick actions for Quick Add, Sheets, Search, Review, and core modules
 - Incomplete one-time task count for the selected date
 - Incomplete recurring task count for the selected date
 - One-time tasks for the selected date, with complete/incomplete checkboxes
@@ -185,7 +192,7 @@ The dashboard widget registry is code-only. Each widget definition has an id, di
 - `RecentNotesWidget`
 - `UpcomingEventsWidget`
 - `TrackerSummaryWidget`
-- `PlanningSummaryWidget`
+- `ReviewSummaryWidget`
 
 The backend stores layout preferences in `dashboard_widget_preferences`:
 
@@ -283,12 +290,12 @@ Due dates are allowed before, on, or after the planned date for now. The app tre
 
 ## Sheet Workspace Shell v1
 
-The Sheets workspace lives at `http://localhost:3000/sheets`. Sheet Workspace Shell v1 plus the current hardening pass make `/sheets` feel closer to the long-term sheet-based GUI idea, but it does not replace the normal dashboard at `http://localhost:3000`.
+The Sheets workspace lives at `http://localhost:3000/sheets`. The current stabilization pass makes `/sheets` the primary workspace destination; `/` redirects there.
 
 The dashboard and sheets are different:
 
-- Dashboard is the stable home route with saved show/hide and ordering preferences.
-- Sheets is an experimental workspace route with one visible named sheet and fixed 4 columns x 2 rows slots.
+- Dashboard is retained as a reusable widget foundation with saved show/hide and ordering preferences.
+- Sheets is the primary workspace route with one visible named sheet and fixed 4 columns x 2 rows slots.
 - Both use the same code-defined dashboard widget registry and `WidgetRenderer` where possible.
 - Dashboard preferences do not control sheet slots, and sheet slots do not control the dashboard.
 
@@ -314,9 +321,10 @@ Top-center dropdown behavior:
 
 - a small top-center Workspace trigger is always clickable on `/sheets`
 - clicking it opens a simple dropdown/control panel
-- the dropdown links to Dashboard, Notes, Tasks, Calendar, Tracker, Planning, and Search
+- the dropdown links to Sheets, Review, Notes, Tasks, Calendar, Tracker, Categories, and Search
 - the dropdown includes a Quick Add button wired to the existing global Quick Add modal
 - the dropdown includes the shared day DateNavigator for the sheet widgets
+- the dropdown includes a Sheets-only Stark Mode toggle saved in browser `localStorage`
 - the dropdown includes current sheet controls, not a full command palette
 - the dropdown documents the sheet keyboard shortcuts
 - dangerous actions live under `Advanced`
@@ -337,6 +345,8 @@ Sheet navigation behavior:
 - the current sheet name is shown in the workspace header and dropdown trigger
 - the dropdown includes a sheet selector for jumping between sheets
 - sheets can be created and renamed
+- sheets can optionally store one shared category as their sheet context
+- sheet context can be selected, changed, or cleared from the workspace dropdown
 - Move left and Move right reorder the current sheet without drag-and-drop
 - reorder controls are disabled at the first or last sheet
 - previous/next navigation follows the saved sheet order
@@ -348,10 +358,10 @@ Sheet navigation behavior:
 
 Default sheets:
 
-- `Today`: overview, one-time tasks, recurring tasks, upcoming events, recent notes, tracker summary, quick actions, and planning
-- `Planning`: overview, one-time tasks, recurring tasks, upcoming events, planning, recent notes, and quick actions
+- `Today`: overview, one-time tasks, recurring tasks, upcoming events, recent notes, tracker summary, and quick actions
+- `Planning`: overview, one-time tasks, recurring tasks, upcoming events, recent notes, and quick actions
 - `Health`: tracker summary, one-time tasks, recurring tasks, overview, and quick actions
-- if an active task category named `Health` exists when defaults are generated, the Health sheet task widgets use that category and a Health title override
+- if an active task category named `Health` exists when defaults are generated, the Health sheet uses it as sheet context and its task widgets inherit that context with a Health title override
 - if no Health category exists, Health sheet task widgets stay generic
 
 Slot editing behavior:
@@ -363,10 +373,11 @@ Slot editing behavior:
 - unavailable size presets are disabled when they would cross the 4x2 grid edge or overlap another widget
 - covered cells visually merge into the anchor widget area and are freed when the anchor widget is cleared
 - empty slots in the editor are labeled as Add widget/configuration targets, and empty slots in normal sheet mode use primary click for slot editing
-- the widget library groups existing registry widgets by Overview / Utility, Tasks, Notes, Calendar, Tracker, and Planning
+- the widget library groups existing registry widgets by Overview / Utility, Tasks, Notes, Calendar, and Tracker
 - widget library cards show display name, short preview text, group/type, and whether extra configuration is supported
 - Clear slot empties the active slot
-- One-time Tasks and Recurring Tasks expose category filter controls
+- One-time Tasks, Recurring Tasks, Recent Notes, Upcoming Events, and Category Overview expose category filter controls where relevant
+- category-aware widgets can use no filter, a specific category, or the current sheet context
 - One-time Tasks and Recurring Tasks expose `title_override`
 - the editor shows the current widget, category, and title config for the selected slot
 - the editor shows whether there are unsaved slot changes
@@ -378,6 +389,7 @@ Current persisted sheet behavior:
 - sheets can be created and renamed
 - sheets can be deleted, except the last remaining sheet is protected
 - sheets can be moved left/right in order
+- each sheet can store nullable `context_category_id`
 - sheet order is saved in `sort_order` and normalized after destructive changes
 - each sheet has exactly 8 slot positions, indexed 0 through 7
 - each slot can hold one known `widget_key` or be empty
@@ -385,7 +397,8 @@ Current persisted sheet behavior:
 - `col_span` and `row_span` are constrained to the supported presets and must fit inside the fixed 4x2 grid
 - overlapping spans are rejected by the backend
 - duplicate widgets on the same sheet are allowed
-- task widget instances can store `category_id` and `title_override` in `config_json`
+- category-aware widget instances can store `category_mode`, `category_id`, and optional `title_override` in `config_json`
+- `category_mode` may be `none`, `sheet_context`, or `specific`; `sheet_context` resolves through the current sheet context at render time
 - slot layout persists after refresh
 
 Examples:
@@ -394,10 +407,15 @@ Examples:
 - another One-time Tasks widget can show only `School`
 - another One-time Tasks widget can show only `Gym`
 - Recurring Tasks widgets can do the same for categories such as `Health` or `Work`
+- task, note, event, and category overview widgets can inherit the current sheet context instead of each storing their own category
+- Recent Notes and Upcoming Events widgets can filter to one shared category
+- Category Overview widgets can summarize one category across tasks, notes, and events
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, and Tracker compact widgets link to their full module pages. Clicking a note in the compact Recent Notes widget opens a simple preview modal inside `/sheets`; the modal shows the note title, content, folder id when present, a Close button, and an Open in Notes link. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, category overview, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, Category Overview, and Tracker compact widgets link to their full module pages. Occupied sheet tiles now expose subtle Open, Focus, and Configure actions in the tile header. Clicking a note opens a note preview modal with an Open in Notes link; clicking task or event text opens a lightweight preview with metadata and a link to Tasks or Calendar. Checkboxes still toggle task completion directly. Cells still allow internal scrolling when content is too long.
 
 Workspace Focus Mode v1 adds a temporary frontend-only Focus action to occupied sheet widgets. Focus mode opens the selected widget in a centered, enlarged overlay while the sheet remains preserved underneath. It uses the richer normal widget rendering for more breathing room, can be closed with the Close button or `Escape`, and is not persisted across refresh.
+
+Sheet Widget Interaction Polish v1 keeps that frontend-only model and makes sheet widgets feel more actionable without adding data models. Task, note, event, and category overview widget items now offer lightweight preview behavior where practical, widget header actions are consistent, and compact empty states point the user toward the relevant full page.
 
 Sheets Visual Refinement v1 keeps that behavior intact and focuses on polish:
 
@@ -417,8 +435,9 @@ Palette + Empty Slot Quick Add v1 added two small frontend-only refinements:
 - Clicking the main empty slot affordance in normal `/sheets` viewing mode opens the slot editor for that slot.
 - Empty sheet slots do not include a Quick Add button.
 - Slot assignment still happens through the existing Customize slots flow and slot editor; no sheet slot storage model changed.
-- The Planning summary widget is not available in sheet slots; use the Planning page or app navigation instead.
+- The Planning summary widget is retired from the widget registry; use Review, Calendar, Tasks, and Sheets for current planning context.
 - Recent Notes and Upcoming Events sheet widgets can be filtered by shared category, like task widgets.
+- Category Overview sheet widgets require a selected shared category and can use an optional title override.
 
 Widget Library + Slot Editor UX v2 keeps widget definitions frontend/code-defined and uses the existing dashboard widget registry as the source of truth. Widget Spanning v1 adds controlled slot spans without adding drag-and-drop, freeform resizing, arbitrary `x/y/w/h` placement, backend widget APIs, or a plugin system. Workspace Focus Mode v1 adds only temporary enlarged viewing, not permanent resizing or floating windows. Duplicate widget instances remain supported because each sheet slot still stores its own `widget_key`, `config_json`, and span preset.
 
@@ -428,6 +447,7 @@ Interaction philosophy for sheets:
 - preserve keyboard usability and visible focus states
 - keep destructive sheet actions behind confirmation
 - keep focus mode temporary and easy to exit
+- keep widget item previews lightweight and route users to the full module for editing
 - prefer contained internal scrolling inside slots over broken grid layout
 - keep the fixed 4x2 grid and current widget model until a future feature spec changes it
 
@@ -440,7 +460,7 @@ Current sheet limitations:
 - no advanced animation system
 - no full command palette
 - no final no-scroll workspace guarantee on every viewport
-- no widget config beyond the current simple `category_id`, `title_override`, and controlled span preset
+- no widget config beyond the current simple category mode/category id, title override, and controlled span preset
 - no database-defined widgets, plugin system, auth, AI, external integrations, notifications, or reminders
 - no backend widget library API
 - no backend-stored palette preference or per-sheet palette
@@ -493,6 +513,7 @@ Slot updates use this simple shape:
       "col_span": 2,
       "row_span": 1,
       "config_json": {
+        "category_mode": "specific",
         "category_id": 1,
         "title_override": "School Tasks"
       }
@@ -506,18 +527,19 @@ Slot updates use this simple shape:
 }
 ```
 
-`slot_index` must be from 0 to 7. `widget_key` must be one of the code-defined dashboard widget keys or `null` for an empty slot. `config_json` must be an object. `col_span` and `row_span` default to `1` and may only produce the supported sizes: `1x1`, `2x1`, `1x2`, or `2x2`. Spans must fit inside the 4x2 grid and cannot overlap another occupied widget. For `daily-tasks` and `weekly-tasks`, `category_id` must reference an existing task category when provided.
+`slot_index` must be from 0 to 7. `widget_key` must be one of the code-defined dashboard widget keys or `null` for an empty slot. `config_json` must be an object. `col_span` and `row_span` default to `1` and may only produce the supported sizes: `1x1`, `2x1`, `1x2`, or `2x2`. Spans must fit inside the 4x2 grid and cannot overlap another occupied widget. Category-aware widgets support `category_mode` values of `none`, `sheet_context`, or `specific`; when using `specific`, `category_id` must reference an existing active shared category.
 
 ## Global Quick Add
 
 Quick Add is a simple app-shell create panel available from every main page:
 
-- Dashboard
 - Sheets
 - Notes
 - Tasks
 - Calendar
-- Planning
+- Review
+- Categories
+- Search
 - Tracker
 
 Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K` also opens it. The dashboard Quick Actions widget can also open the same app-shell Quick Add panel.
@@ -675,7 +697,7 @@ Current calendar limitations:
 
 ## Planning Module
 
-The planning module is a simple read-only planning view. It does not own planning tables and does not duplicate task or calendar data.
+The planning backend module is retained as a simple read-only composition service. It does not own planning tables and does not duplicate task or calendar data. The former `/planning` frontend route now redirects to `/review`.
 
 It composes:
 
@@ -683,7 +705,7 @@ It composes:
 - Recurring task occurrences scheduled for the relevant dates
 - Calendar events
 
-The browser UI at `http://localhost:3000/planning` currently provides:
+The retired browser UI previously provided:
 
 - A selected date
 - Day Plan for that date
@@ -696,7 +718,7 @@ The module lives mainly in:
 - `backend/app/modules/planning/router.py`
 - `backend/app/modules/planning/service.py`
 - `backend/app/modules/planning/schemas.py`
-- `frontend/app/planning/page.tsx`
+- `frontend/app/planning/page.tsx` redirects to Review
 - `frontend/src/features/planning/`
 
 ## Planning API Overview
@@ -707,6 +729,46 @@ GET /api/planning/weekly?date=YYYY-MM-DD
 ```
 
 The daily planning endpoint returns the selected date, one-time tasks, recurring task occurrences, and calendar events for that date. The weekly endpoint returns week start/end plus seven grouped day summaries.
+
+## Review Center
+
+The Review Center lives at `http://localhost:3000/review`. It is a read-focused workspace view that helps the user understand the selected day and the week containing that date without creating new review-owned data.
+
+It composes:
+
+- One-time tasks
+- Recurring task occurrences and completion state
+- Calendar event occurrences
+- Notes created or updated on the selected date/week
+- Tracker totals
+- Shared category counts for tasks, recurring occurrences, notes, and events
+
+The browser UI currently provides:
+
+- Date navigation with the shared DateNavigator
+- Daily Review for the selected date
+- Weekly Review with seven compact day summaries and week totals
+- Category Summary for active shared categories
+- Tracker Summary for week-level water, calories, activity count, and minutes
+- Links back to Tasks, Calendar, Notes, Tracker, and Categories for editing or deeper work
+
+Review Center v1 intentionally does not add AI summaries, natural language analysis, charts-heavy analytics, exports, notifications, reminders, or new recurrence rules. Tracker data remains category-free.
+
+The module lives mainly in:
+
+- `backend/app/modules/review/router.py`
+- `backend/app/modules/review/service.py`
+- `backend/app/modules/review/schemas.py`
+- `frontend/app/review/page.tsx`
+- `frontend/src/features/review/`
+
+## Review API Overview
+
+```text
+GET /api/review/summary?date=YYYY-MM-DD
+```
+
+The review summary endpoint returns the selected date, week start/end, daily summary, weekly summary, and category summary. It is read-only and composes existing modules; it owns no tables and requires no migration.
 
 ## Shared Frontend UI And Data Layer
 
@@ -731,16 +793,17 @@ This pass focused on consistency, preparation, and a small controlled customizat
 - UI Foundation v1 adds the first coherent visual token layer and soft pastel workspace styling.
 - Date selectors and status messages use shared UI primitives where practical.
 - `DateNavigator` provides previous day, date input, Today, and next day controls while keeping browser-local `YYYY-MM-DD` date handling.
-- `DateNavigator` is used on the dashboard date widget, Tasks, Calendar, Tracker, Planning, and the Sheets widget date control.
+- `DateNavigator` is used on the dashboard date widget, Tasks, Calendar, Tracker, Review Center, and the Sheets widget date control.
 - Frontend API error handling is centralized instead of duplicated per feature.
 - Dashboard sections now render through code-defined widget definitions and a lightweight widget renderer.
 - Widget Foundation v1 prepares the dashboard for future configurable widgets while keeping the dashboard fixed.
 - Dashboard Customization v1 persists widget visibility and order without making widgets database-defined.
 - Sheet/Grid Prototype v1 adds a separate `/sheets` route with persisted named sheets and fixed 4x2 widget slots.
 - Workspace UX Safety + Navigation Polish adds sheet action confirmations, last active sheet restore, left/right sheet reordering, sheet note preview, DateNavigator adoption, and recurring task Quick Add.
+- MVP Stabilization / QA v1 makes `/sheets` the primary workspace, retires Home and Planning from primary navigation, redirects `/planning` to Review, shows descendant notes when a parent folder is selected, changes Notes to a 25% / 25% / 50% desktop layout, keeps Calendar month view stable when adjacent-month days are selected, and adds Sheets-only Stark Mode for all palettes.
 - Backend module behavior was reviewed for archive/date/error consistency; stable APIs were left intact.
 
-The app remains a modular monolith. Dashboard and Planning compose data owned by Notes, Tasks, Calendar, and Tracker. The dashboard owns only its layout preference table, and Sheets owns only sheet/slot persistence.
+The app remains a modular monolith. Dashboard, Planning, Review Center, and Category workspaces compose data owned by Notes, Tasks, Calendar, and Tracker. Planning is retired from primary UI but retained as backend composition. The dashboard owns only its layout preference table, Review owns no tables, and Sheets owns only sheet/slot persistence.
 
 ## Tracker Module
 
@@ -882,7 +945,7 @@ Deletes are soft archives in this phase.
 
 The tasks module supports simple MVP planning without a complex recurrence engine.
 
-Categories are a lightweight shared grouping layer for one-time tasks, recurring tasks, notes, and calendar events. They are not tags, projects, or a tracker category system.
+Categories are a lightweight shared grouping layer for one-time tasks, recurring tasks, notes, and calendar events. They now also act as workspace/context filters. They are not tags, projects, or a tracker category system.
 
 Categories:
 
@@ -892,6 +955,8 @@ Categories:
 - can be archived
 - remain referenced by existing tasks, notes, and events after archive for historical safety
 - cannot be assigned to new or updated tasks, notes, or events after archive
+- can be selected on `/categories` to review related tasks, notes, and events
+- can configure sheet widgets for task lists, notes, upcoming events, and Category Overview
 
 One-time tasks:
 
@@ -984,6 +1049,14 @@ DELETE /api/tasks/categories/{category_id}
 
 Deletes are soft archives in this phase.
 
+Category workspace overview:
+
+```text
+GET /api/categories/{category_id}/overview?date=YYYY-MM-DD
+```
+
+The category overview endpoint composes existing module data and owns no tables. It returns the selected active category, incomplete one-time tasks for the date, recurring task occurrences for the date, upcoming category calendar events, and recent category notes. Tracker data intentionally remains category-free.
+
 ## Run Migrations
 
 Start the stack first:
@@ -1004,7 +1077,7 @@ Check the current migration:
 docker compose exec backend alembic current
 ```
 
-The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table. The eleventh migration adds recurrence fields to `weekly_tasks` while keeping the existing table and API names. The twelfth migration adds `col_span` and `row_span` to sheet widget slots for controlled widget spanning. The thirteenth migration extends shared category references to notes and calendar events and adds calendar event recurrence fields.
+The first migration is intentionally empty. The second migration creates the `folders` and `notes` tables. The third migration creates `daily_tasks`, `weekly_tasks`, and `weekly_task_completions`. The fourth migration creates `calendar_events`. The fifth migration creates `water_entries` and `activity_entries`. The sixth migration creates `calorie_entries`. The seventh migration creates `dashboard_widget_preferences` for Dashboard Customization v1. The eighth migration creates `sheets` and `sheet_widget_slots` for Sheet/Grid Prototype v1. The ninth migration adds `task_categories`, nullable task category references, and per-slot `config_json`. The tenth migration adds nullable `planned_time`, `due_date`, and `due_time` fields to one-time tasks while keeping the existing `daily_tasks` table. The eleventh migration adds recurrence fields to `weekly_tasks` while keeping the existing table and API names. The twelfth migration adds `col_span` and `row_span` to sheet widget slots for controlled widget spanning. The thirteenth migration extends shared category references to notes and calendar events and adds calendar event recurrence fields. The fourteenth migration adds nullable `context_category_id` to sheets for sheet context inheritance.
 
 ## Create A New Migration
 
@@ -1034,7 +1107,7 @@ With the stack built, run the backend tests from PowerShell:
 docker compose exec backend pytest
 ```
 
-The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, dashboard, dashboard layout customization, sheets, and search behavior: folder nesting, note CRUD/archive/shared category assignment, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, recurring task weekly/bi-weekly/monthly validation, recurring task editing/filtering/category assignment/category filtering, recurring occurrence completion idempotency, invalid occurrence dates, recurring task archive, shared category create/edit/archive behavior, calendar event CRUD/archive/date filtering/upcoming lists/shared category assignment/recurrence projection, dashboard and planning summaries with recurring event occurrences, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from shared categories, planning daily/weekly composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, controlled widget spans, span edge/overlap rejection, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
+The tests check the database foundation plus practical notes/folders, tasks, calendar, tracker, planning, review, dashboard, dashboard layout customization, category workspaces, sheets, and search behavior: folder nesting, note CRUD/archive/shared category assignment, one-time task CRUD/time fields/deadline fields/completion/archive/category assignment/category filtering, recurring task weekly/bi-weekly/monthly validation, recurring task editing/filtering/category assignment/category filtering, recurring occurrence completion idempotency, invalid occurrence dates, recurring task archive, shared category create/edit/archive behavior, category overview composition, calendar event CRUD/archive/date filtering/upcoming lists/shared category assignment/recurrence projection, dashboard/planning/review summaries with recurring event occurrences, tracker water/activity/calorie CRUD/archive/summary behavior, tracker independence from shared categories, planning daily/weekly composition, review daily/weekly/category/tracker composition, dashboard summaries for selected dates, dashboard widget default layout, visibility, reorder, validation, reset behavior, sheet default creation, create/rename/delete/reorder/context behavior, sheet boundary move behavior, sheet order persistence, last-sheet delete protection, duplicate sheet widget instances, per-slot config persistence, slot validation, category-aware sheet widgets, sheet-context category inheritance, controlled widget spans, span edge/overlap rejection, grouped search results, case-insensitive matching, empty-query handling, and archived-record exclusion.
 
 You can also run the frontend production build through Docker:
 
@@ -1104,6 +1177,7 @@ This phase does not include:
 
 - Authentication or users
 - AI features
+- AI-generated review summaries or natural-language review analysis
 - Redis, workers, background jobs, pgvector, or semantic search
 - Drag-and-drop, freeform resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
 - Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet-scoped widget settings
@@ -1111,6 +1185,7 @@ This phase does not include:
 - External calendar sync, invitations, attendees, reminders, or notifications
 - Advanced tracker analytics, charts, wearable integrations, macros, food database, nutrition database, meal planning, or a custom tracker builder
 - Editable planning engine, time blocking, planning tables, or planning-specific reminders
+- Heavy review analytics, habit scoring, exports, or report generation
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
 - Search deep links to module pages instead of opening specific result detail views

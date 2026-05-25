@@ -10,6 +10,7 @@ import type {
   WeeklyPlan,
   WeeklyPlanDay,
 } from "./types";
+import { calendarEventOccurrenceKey } from "@/features/calendar/event-identity";
 import type { CalendarEvent } from "@/features/calendar/types";
 import type { DailyTask } from "@/features/tasks/types";
 import {
@@ -131,7 +132,10 @@ function CalendarEventList({ events }: { events: CalendarEvent[] }) {
   return (
     <div className="space-y-2">
       {events.map((event) => (
-        <div className="rounded border border-neutral-200 px-3 py-2" key={event.id}>
+        <div
+          className="rounded border border-neutral-200 px-3 py-2"
+          key={calendarEventOccurrenceKey(event)}
+        >
           <p className="text-sm font-medium text-neutral-950">{event.title}</p>
           <p className="mt-1 text-xs text-neutral-600">{formatEventTime(event)}</p>
           {event.location ? (

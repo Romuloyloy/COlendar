@@ -11,6 +11,7 @@ from app.modules.sheets.schemas import (
     SheetUpdate,
 )
 from app.modules.tasks.models import TaskCategory
+from app.modules.tasks.service import validate_optional_category
 
 GRID_SLOT_COUNT = 8
 GRID_COLUMNS = 4
@@ -26,8 +27,13 @@ def list_sheets(db: Session) -> list[Sheet]:
 
 
 def create_sheet(db: Session, payload: SheetCreate) -> SheetDetailRead:
+    validate_optional_category(db, payload.context_category_id)
     next_sort_order = db.scalar(select(func.count(Sheet.id))) or 0
-    sheet = Sheet(name=payload.name.strip(), sort_order=next_sort_order)
+    sheet = Sheet(
+        name=payload.name.strip(),
+        sort_order=next_sort_order,
+        context_category_id=payload.context_category_id,
+    )
     sheet.slots = [_new_empty_slot(slot_index) for slot_index in range(GRID_SLOT_COUNT)]
     db.add(sheet)
     db.commit()
@@ -46,6 +52,9 @@ def update_sheet(db: Session, sheet_id: int, payload: SheetUpdate) -> SheetDetai
 
     if "name" in payload.model_fields_set and payload.name is not None:
         sheet.name = payload.name.strip()
+    if "context_category_id" in payload.model_fields_set:
+        validate_optional_category(db, payload.context_category_id)
+        sheet.context_category_id = payload.context_category_id
 
     db.commit()
     return get_sheet(db, sheet.id)
@@ -149,6 +158,7 @@ def _create_default_sheets(db: Session) -> list[Sheet]:
         _configured_sheet(
             name="Health",
             sort_order=2,
+            context_category_id=health_category_id,
             widget_keys=[
                 "tracker-summary",
                 "daily-tasks",
@@ -160,7 +170,8 @@ def _create_default_sheets(db: Session) -> list[Sheet]:
                 None,
             ],
             task_config={
-                "category_id": health_category_id,
+                "category_mode": "sheet_context" if health_category_id else "none",
+                "category_id": None,
                 "title_override": "Health Tasks" if health_category_id else "",
             },
         ),
@@ -173,8 +184,13 @@ def _configured_sheet(
     sort_order: int,
     widget_keys: list[str | None],
     task_config: dict | None = None,
+    context_category_id: int | None = None,
 ) -> Sheet:
-    sheet = Sheet(name=name, sort_order=sort_order)
+    sheet = Sheet(
+        name=name,
+        sort_order=sort_order,
+        context_category_id=context_category_id,
+    )
     sheet.slots = [
         SheetWidgetSlot(
             slot_index=slot_index,
@@ -284,6 +300,7 @@ def _serialize_sheet_detail(sheet: Sheet) -> SheetDetailRead:
             "id": sheet.id,
             "name": sheet.name,
             "sort_order": sheet.sort_order,
+            "context_category_id": sheet.context_category_id,
             "created_at": sheet.created_at,
             "updated_at": sheet.updated_at,
             "slots": known_slots,
@@ -306,6 +323,7 @@ def _validate_slots(db: Session, slots) -> None:
             "weekly-tasks",
             "recent-notes",
             "upcoming-events",
+            "category-overview",
         }:
             _validate_category_widget_config(db, slot.config_json)
         if widget_key is not None:
@@ -344,6 +362,17 @@ def _validate_slot_span(slot, occupied_cells: dict[int, int]) -> None:
 
 
 def _validate_category_widget_config(db: Session, config_json: dict) -> None:
+    category_mode = config_json.get("category_mode")
+    if category_mode is not None and category_mode not in {
+        "none",
+        "sheet_context",
+        "specific",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sheet widget category_mode is invalid",
+        )
+
     if "category_id" not in config_json or config_json["category_id"] is None:
         return
 

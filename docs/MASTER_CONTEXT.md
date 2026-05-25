@@ -2,10 +2,10 @@
 
 ## Project Identity
 
-This project is a desktop-first, local-first personal productivity dashboard web app.
+This project is a desktop-first, local-first personal productivity workspace web app.
 
 The app is:
-- productivity/dashboard first
+- productivity/sheets workspace first
 - AI second (future)
 - modular
 - extensible
@@ -75,15 +75,15 @@ The app uses a modular monolith architecture.
 
 Current major modules:
 - dashboard
+- sheets
 - notes
 - tasks
 - calendar
 - tracker
 - planning
+- review
 
 Future modules may include:
-- widgets
-- sheets
 - AI
 - auth
 
@@ -111,7 +111,10 @@ Implemented:
 - activity tracking
 - calorie tracking
 - dashboard summaries
-- planning views
+- sheet workspace as the primary UI surface
+- retired planning route redirected to Review
+- Sheets-only Stark Mode
+- read-focused review center
 - archive behavior
 - migrations
 - backend tests
@@ -121,8 +124,6 @@ Implemented:
 Not implemented:
 - auth
 - AI
-- widgets
-- sheets
 - drag-and-drop
 - notifications
 - reminders
@@ -132,13 +133,13 @@ Not implemented:
 
 ---
 
-# Dashboard Philosophy
+# Dashboard And Sheets Philosophy
 
-The current dashboard is fixed and non-customizable.
+The `/sheets` workspace is the primary UI surface. The dashboard remains as a reusable widget foundation and compatibility surface.
 
 However:
 - dashboard sections should be reusable
-- dashboard sections should evolve into widget-like components later
+- dashboard sections now feed widget-like sheet components where practical
 
 Examples:
 - DailyTasksSection
@@ -146,18 +147,7 @@ Examples:
 - UpcomingEventsSection
 - TrackerSummarySection
 
-Future direction:
-- WidgetRenderer
-- Sheet layouts
-- customizable dashboards
-
-DO NOT implement these yet unless explicitly requested.
-
----
-
-# Future Sheet System (NOT IMPLEMENTED YET)
-
-Long-term vision:
+Current sheet direction:
 - no-scroll workspace
 - sheet-based navigation
 - fixed 4x2 grid
@@ -169,7 +159,7 @@ Long-term vision:
   - school
   - etc.
 
-This is intentionally postponed until the MVP architecture is stable.
+Do not add drag-and-drop, freeform resizing, arbitrary `x/y/w/h` layout, or sheet templates unless explicitly requested.
 
 ---
 
@@ -233,9 +223,9 @@ Do not require re-explaining the entire project each time.
 # Current Development Phase
 
 Current phase:
-- MVP hardening
-- architecture cleanup
-- widget-foundation preparation
+- MVP stabilization
+- QA cleanup
+- sheet workspace hardening
 
 The project is transitioning from:
 "adding features"
@@ -261,10 +251,8 @@ Unless explicitly requested:
 - do not implement auth
 - do not implement AI
 - do not implement Redis/workers
-- do not implement formal widgets
-- do not implement sheets
 - do not implement drag-and-drop
-- do not implement the no-scroll sheet UI
+- do not implement freeform sheet resizing or arbitrary coordinate layout
 - do not implement external integrations
 - do not implement notifications/reminders
 - do not implement advanced analytics

@@ -1,5 +1,5 @@
-import { PlanningPage } from "@/features/planning/PlanningPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <PlanningPage />;
+  redirect("/review");
 }
