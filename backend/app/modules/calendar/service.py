@@ -219,8 +219,9 @@ def list_upcoming_calendar_event_occurrences(
     from_date: date,
     limit: int = 10,
     category_id: int | None = None,
+    horizon_days: int = 365,
 ):
-    to_date = from_date + timedelta(days=365)
+    to_date = from_date + timedelta(days=max(horizon_days - 1, 0))
     return list_calendar_event_occurrences_between(
         db,
         from_date,

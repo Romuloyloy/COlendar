@@ -31,8 +31,20 @@ export function archiveFolder(folderId: number): Promise<void> {
   });
 }
 
-export function getNotes(): Promise<Note[]> {
-  return apiRequest<Note[]>("/api/notes");
+export function getNotes(input?: {
+  folderId?: number | null;
+  includeDescendants?: boolean;
+}): Promise<Note[]> {
+  const params = new URLSearchParams();
+  if (typeof input?.folderId === "number") {
+    params.set("folder_id", String(input.folderId));
+    params.set(
+      "include_descendants",
+      input.includeDescendants === false ? "false" : "true",
+    );
+  }
+  const query = params.toString();
+  return apiRequest<Note[]>(`/api/notes${query ? `?${query}` : ""}`);
 }
 
 export function createNote(input: {

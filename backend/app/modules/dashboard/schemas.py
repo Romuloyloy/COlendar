@@ -30,6 +30,7 @@ class DashboardWeeklyTaskRead(BaseModel):
 class DashboardCounts(BaseModel):
     daily_task_count: int
     incomplete_daily_task_count: int
+    open_daily_task_count: int
     weekly_task_count: int
     incomplete_weekly_task_count: int
     recent_note_count: int
@@ -42,6 +43,7 @@ class DashboardCounts(BaseModel):
 class DashboardSummary(BaseModel):
     selected_date: date
     daily_tasks: list[DailyTaskRead]
+    open_daily_tasks: list[DailyTaskRead]
     weekly_tasks: list[DashboardWeeklyTaskRead]
     upcoming_events: list[CalendarEventRead]
     tracker_summary: TrackerSummary

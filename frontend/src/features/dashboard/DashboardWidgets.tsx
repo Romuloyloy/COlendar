@@ -9,9 +9,16 @@ import type { DashboardSummary, DashboardWeeklyTask } from "./types";
 import type { DashboardWidgetConfig, DashboardWidgetProps } from "./widget-types";
 import { calendarEventOccurrenceKey } from "@/features/calendar/event-identity";
 import type { CalendarEvent } from "@/features/calendar/types";
+import { getNotes } from "@/features/notes/api";
+import type { Folder, Note } from "@/features/notes/types";
 import type { DailyTask } from "@/features/tasks/types";
 import { AppButton, DateNavigator, EmptyState, SectionCard } from "@/components/ui";
-import { formatDisplayDate, formatTime, weekdayFromIsoDate } from "@/lib/date";
+import {
+  addDaysToIsoDate,
+  formatDisplayDate,
+  formatTime,
+  weekdayFromIsoDate,
+} from "@/lib/date";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -58,6 +65,39 @@ function configuredCategoryId(
     : null;
 }
 
+function configuredTaskMode(widgetConfig?: DashboardWidgetConfig) {
+  return widgetConfig?.task_mode === "open" ? "open" : "selected_date";
+}
+
+function configuredEventHorizon(widgetConfig?: DashboardWidgetConfig) {
+  return widgetConfig?.event_horizon_days === 7 ||
+    widgetConfig?.event_horizon_days === 14 ||
+    widgetConfig?.event_horizon_days === 30
+    ? widgetConfig.event_horizon_days
+    : 14;
+}
+
+function noteFolderPath(folderId: number | null, folders: Folder[] = []) {
+  if (folderId === null) {
+    return "No folder";
+  }
+  const folder = folders.find((item) => item.id === folderId);
+  if (!folder) {
+    return "Missing folder";
+  }
+  const names = [folder.name];
+  let parentId = folder.parent_folder_id;
+  while (parentId !== null) {
+    const parent = folders.find((item) => item.id === parentId);
+    if (!parent) {
+      break;
+    }
+    names.unshift(parent.name);
+    parentId = parent.parent_folder_id;
+  }
+  return names.join(" / ");
+}
+
 function taskMetadata(task: DailyTask) {
   const meta = [];
   const plannedTime = formatTime(task.planned_time);
@@ -71,6 +111,23 @@ function taskMetadata(task: DailyTask) {
         ? `Due ${formatDisplayDate(task.due_date, { month: "short", day: "numeric" })} ${dueTime}`
         : `Due ${formatDisplayDate(task.due_date, { month: "short", day: "numeric" })}`,
     );
+  }
+  return meta.join(" - ");
+}
+
+function openTaskMetadata(task: DailyTask, selectedDate: string) {
+  const meta = [
+    `Planned ${formatDisplayDate(task.task_date, {
+      month: "short",
+      day: "numeric",
+    })}`,
+  ];
+  const taskMeta = taskMetadata(task);
+  if (taskMeta) {
+    meta.push(taskMeta);
+  }
+  if (task.due_date && task.due_date < selectedDate) {
+    meta.push("Overdue");
   }
   return meta.join(" - ");
 }
@@ -271,13 +328,23 @@ export function DailyTasksWidget({
   renderMode = "normal",
 }: DashboardWidgetProps) {
   const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
+  const taskMode = configuredTaskMode(widgetConfig);
+  const sourceTasks =
+    taskMode === "open" ? summary.open_daily_tasks : summary.daily_tasks;
   const tasks =
     categoryId === null
-      ? summary.daily_tasks
-      : summary.daily_tasks.filter((task) => task.category_id === categoryId);
+      ? sourceTasks
+      : sourceTasks.filter((task) => task.category_id === categoryId);
   const openTasks = tasks.filter((task) => !task.is_completed);
-  const title = configuredTitle("One-time Tasks", widgetConfig);
+  const title = configuredTitle(
+    taskMode === "open" ? "Open Tasks" : "One-time Tasks",
+    widgetConfig,
+  );
   const hiddenTaskCount = Math.max(tasks.length - 5, 0);
+  const metadataForTask =
+    taskMode === "open"
+      ? (task: DailyTask) => openTaskMetadata(task, summary.selected_date)
+      : taskMetadata;
 
   if (renderMode === "compact") {
     return (
@@ -308,9 +375,9 @@ export function DailyTasksWidget({
                   type="button"
                 >
                   {task.title}
-                  {taskMetadata(task) ? (
+                  {metadataForTask(task) ? (
                     <span className="block truncate text-xs font-normal text-[#766f66]">
-                      {taskMetadata(task)}
+                      {metadataForTask(task)}
                     </span>
                   ) : null}
                 </button>
@@ -331,6 +398,7 @@ export function DailyTasksWidget({
     <SectionCard action={<ManageLink href="/tasks" />} eyebrow="Today" title={title}>
       <DashboardTaskList
         isSaving={isSaving}
+        metadataForTask={metadataForTask}
         onToggle={onToggleDailyTask}
         onPreview={onPreviewDailyTask}
         tasks={tasks}
@@ -342,11 +410,13 @@ export function DailyTasksWidget({
 function DashboardTaskList({
   tasks,
   isSaving,
+  metadataForTask,
   onToggle,
   onPreview,
 }: {
   tasks: DailyTask[];
   isSaving: boolean;
+  metadataForTask: (task: DailyTask) => string;
   onToggle: (task: DailyTask) => void;
   onPreview?: (task: DailyTask) => void;
 }) {
@@ -384,9 +454,9 @@ function DashboardTaskList({
                   {task.description}
                 </span>
               ) : null}
-              {taskMetadata(task) ? (
+              {metadataForTask(task) ? (
                 <span className="mt-1 block text-xs font-medium text-neutral-600">
-                  {taskMetadata(task)}
+                  {metadataForTask(task)}
                 </span>
               ) : null}
             </button>
@@ -512,27 +582,70 @@ export function WeeklyTasksWidget({
 
 export function RecentNotesWidget({
   onPreviewNote,
+  noteFolders = [],
   summary,
   widgetConfig,
   sheetContextCategoryId,
   renderMode = "normal",
 }: DashboardWidgetProps) {
   const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
+  const folderId =
+    typeof widgetConfig?.folder_id === "number" ? widgetConfig.folder_id : null;
+  const includeDescendants = widgetConfig?.include_descendants !== false;
+  const [folderNotes, setFolderNotes] = useState<Note[] | null>(null);
+  const [folderError, setFolderError] = useState<string | null>(null);
+  const sourceNotes =
+    folderId === null
+      ? summary.recent_notes
+      : folderNotes ?? [];
   const notes =
     categoryId === null
-      ? summary.recent_notes
-      : summary.recent_notes.filter((note) => note.category_id === categoryId);
+      ? sourceNotes
+      : sourceNotes.filter((note) => note.category_id === categoryId);
+  const title = configuredTitle(
+    folderId === null
+      ? "Recent Notes"
+      : noteFolderPath(folderId, noteFolders),
+    widgetConfig,
+  );
+
+  useEffect(() => {
+    if (folderId === null) {
+      setFolderNotes(null);
+      setFolderError(null);
+      return;
+    }
+    let isMounted = true;
+    getNotes({ folderId, includeDescendants })
+      .then((data) => {
+        if (isMounted) {
+          setFolderNotes(data);
+          setFolderError(null);
+        }
+      })
+      .catch((caught) => {
+        if (isMounted) {
+          setFolderNotes([]);
+          setFolderError(caught instanceof Error ? caught.message : "Could not load notes.");
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [folderId, includeDescendants]);
 
   if (renderMode === "compact") {
     return (
       <CompactWidgetCard
         actionHref="/notes"
         actionLabel="Open notes"
-        title="Recent Notes"
+        title={title}
         meta={`${notes.length} recent`}
       >
         <div className="space-y-2">
-          {notes.length === 0 ? (
+          {folderError ? (
+            <CompactEmpty message={folderError} />
+          ) : notes.length === 0 ? (
             <CompactEmpty message="No recent notes." />
           ) : (
             notes.slice(0, 5).map((note) => (
@@ -546,7 +659,9 @@ export function RecentNotesWidget({
                   {note.title}
                 </p>
                 <p className="truncate text-xs text-[#766f66]">
-                  {notePreview(note.content)}
+                  {folderId === null
+                    ? notePreview(note.content)
+                    : `${noteFolderPath(note.folder_id, noteFolders)} / ${notePreview(note.content)}`}
                 </p>
               </button>
             ))
@@ -562,9 +677,11 @@ export function RecentNotesWidget({
   }
 
   return (
-    <SectionCard action={<ManageLink href="/notes" />} eyebrow="Notes" title="Recent Notes">
+    <SectionCard action={<ManageLink href="/notes" />} eyebrow="Notes" title={title}>
       <div className="mt-4 space-y-2">
-        {notes.length === 0 ? (
+        {folderError ? (
+          <EmptyState message={folderError} />
+        ) : notes.length === 0 ? (
           <EmptyState message="No recent notes yet." />
         ) : (
           notes.map((note) => (
@@ -573,6 +690,11 @@ export function RecentNotesWidget({
               <p className="mt-1 text-xs leading-5 text-neutral-600">
                 {notePreview(note.content)}
               </p>
+              {folderId !== null ? (
+                <p className="mt-1 text-xs font-medium text-neutral-600">
+                  {noteFolderPath(note.folder_id, noteFolders)}
+                </p>
+              ) : null}
             </div>
           ))
         )}
@@ -589,10 +711,13 @@ export function UpcomingEventsWidget({
   renderMode = "normal",
 }: DashboardWidgetProps) {
   const categoryId = configuredCategoryId(widgetConfig, sheetContextCategoryId);
+  const horizonDays = configuredEventHorizon(widgetConfig);
+  const horizonEnd = addDaysToIsoDate(summary.selected_date, horizonDays - 1);
   const events =
     categoryId === null
       ? summary.upcoming_events
       : summary.upcoming_events.filter((event) => event.category_id === categoryId);
+  const horizonEvents = events.filter((event) => event.event_date <= horizonEnd);
 
   if (renderMode === "compact") {
     return (
@@ -600,13 +725,13 @@ export function UpcomingEventsWidget({
         actionHref="/calendar"
         actionLabel="Open calendar"
         title="Upcoming Events"
-        meta={`${events.length} upcoming`}
+        meta={`${horizonEvents.length} in ${horizonDays} days`}
       >
         <div className="space-y-2">
-          {events.length === 0 ? (
+          {horizonEvents.length === 0 ? (
             <CompactEmpty message="No upcoming events. Open Calendar to add one." />
           ) : (
-            events.slice(0, 4).map((event) => (
+            horizonEvents.slice(0, 4).map((event) => (
               <button
                 className="sheet-compact-list-item block w-full min-w-0 text-left"
                 key={calendarEventOccurrenceKey(event)}
@@ -622,9 +747,9 @@ export function UpcomingEventsWidget({
               </button>
             ))
           )}
-          {events.length > 4 ? (
+          {horizonEvents.length > 4 ? (
             <p className="px-2 text-xs font-medium text-[#766f66]">
-              +{events.length - 4} more
+              +{horizonEvents.length - 4} more
             </p>
           ) : null}
         </div>
@@ -635,10 +760,10 @@ export function UpcomingEventsWidget({
   return (
     <SectionCard action={<ManageLink href="/calendar" />} eyebrow="Calendar" title="Upcoming Events">
       <div className="mt-4 space-y-2">
-        {events.length === 0 ? (
+        {horizonEvents.length === 0 ? (
           <EmptyState message="No upcoming events yet." />
         ) : (
-          events.map((event) => (
+          horizonEvents.map((event) => (
             <button
               className="w-full rounded-md border border-neutral-200 px-3 py-2 text-left hover:border-neutral-300"
               key={calendarEventOccurrenceKey(event)}

@@ -121,10 +121,10 @@ Invoke-RestMethod http://localhost:8000/health/db
 - `/sheets` is the primary workspace destination and renders the persisted 4x2 sheet workspace.
 - The dashboard code still exists as a reusable widget foundation, but it is no longer the root/home surface.
 - The Sheets page renders code-defined dashboard widgets in persisted sheet slots, with controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans, optional sheet category context for category-aware widgets, and a Sheets-only Stark Mode toggle that persists in `localStorage`.
-- The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows.
+- The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows; note creation can choose an existing folder or stay folderless.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page uses a desktop 25% / 25% / 50% folder/list/editor layout and selecting a parent folder shows notes from descendant folders with folder path indicators.
-- The Tasks page lets you create one-time tasks and recurring tasks.
+- The Tasks page lets you create one-time tasks and recurring tasks, and shows older incomplete one-time tasks as open carry-forward work.
 - The Calendar page shows events, one-time tasks, and recurring task occurrences in the month grid while keeping event editing in the Calendar module and task editing in the Tasks module.
 - The Categories page provides read-focused workspace views for active shared categories across tasks, notes, and calendar events.
 - The Review Center shows a read-focused daily review, weekly review, category summary, and tracker summary composed from existing modules.
@@ -242,6 +242,7 @@ The response includes:
 
 - selected date
 - one-time tasks for that date
+- open one-time tasks planned for the selected date or earlier
 - weekly tasks scheduled for that date and their completion state
 - upcoming active calendar events from the selected date onward
 - tracker summary for that date, including calorie total
@@ -379,6 +380,9 @@ Slot editing behavior:
 - One-time Tasks, Recurring Tasks, Recent Notes, Upcoming Events, and Category Overview expose category filter controls where relevant
 - category-aware widgets can use no filter, a specific category, or the current sheet context
 - One-time Tasks and Recurring Tasks expose `title_override`
+- One-time Tasks can switch between selected-date mode and open/carry-forward mode.
+- Upcoming Events can use a 7, 14, or 30 day horizon.
+- Recent Notes can filter to a folder and optionally include descendant folders.
 - the editor shows the current widget, category, and title config for the selected slot
 - the editor shows whether there are unsaved slot changes
 - Save changes persists all 8 slot definitions
@@ -409,9 +413,11 @@ Examples:
 - Recurring Tasks widgets can do the same for categories such as `Health` or `Work`
 - task, note, event, and category overview widgets can inherit the current sheet context instead of each storing their own category
 - Recent Notes and Upcoming Events widgets can filter to one shared category
+- Recent Notes widgets can also filter by folder, including descendant folders by default
+- Upcoming Events widgets can use configurable 7, 14, or 30 day horizons
 - Category Overview widgets can summarize one category across tasks, notes, and events
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, category overview, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time tasks can show planned time and deadline metadata. Calendar, Notes, Category Overview, and Tracker compact widgets link to their full module pages. Occupied sheet tiles now expose subtle Open, Focus, and Configure actions in the tile header. Clicking a note opens a note preview modal with an Open in Notes link; clicking task or event text opens a lightweight preview with metadata and a link to Tasks or Calendar. Checkboxes still toggle task completion directly. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, category overview, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time task widgets can show either selected-date tasks or open/carry-forward tasks, with planned date and overdue metadata. Upcoming Events widgets can be configured for 7, 14, or 30 day horizons. Recent Notes widgets can filter by folder and include descendant folders. Calendar, Notes, Category Overview, and Tracker compact widgets link to their full module pages. Occupied sheet tiles now expose subtle Open, Focus, and Configure actions in the tile header. Clicking a note opens a note preview modal with an Open in Notes link; clicking task or event text opens a lightweight preview with metadata and a link to Tasks or Calendar. Checkboxes still toggle task completion directly. Cells still allow internal scrolling when content is too long.
 
 Workspace Focus Mode v1 adds a temporary frontend-only Focus action to occupied sheet widgets. Focus mode opens the selected widget in a centered, enlarged overlay while the sheet remains preserved underneath. It uses the richer normal widget rendering for more breathing room, can be closed with the Close button or `Escape`, and is not persisted across refresh.
 
@@ -933,6 +939,7 @@ Notes:
 
 ```text
 GET    /api/notes
+GET    /api/notes?folder_id=1&include_descendants=true
 POST   /api/notes
 GET    /api/notes/{note_id}
 PATCH  /api/notes/{note_id}
@@ -965,6 +972,7 @@ One-time tasks:
 - Can optionally belong to one task category.
 - Can be created, edited, completed, marked incomplete, and archived.
 - Normal lists only return active, non-archived tasks and can filter by category.
+- `mode=open` lists incomplete, active one-time tasks planned for the requested date or earlier so overdue/carry-forward work stays visible.
 - Use `DailyTask`, `daily_tasks`, and `/api/tasks/daily` internally for compatibility.
 
 Recurring tasks:
@@ -1014,6 +1022,7 @@ One-time tasks:
 ```text
 GET    /api/tasks/daily?date=YYYY-MM-DD
 GET    /api/tasks/daily?date=YYYY-MM-DD&category_id=1
+GET    /api/tasks/daily?date=YYYY-MM-DD&mode=open
 POST   /api/tasks/daily
 PATCH  /api/tasks/daily/{task_id}
 DELETE /api/tasks/daily/{task_id}
@@ -1189,7 +1198,6 @@ This phase does not include:
 - Tags, backlinks, markdown preview, rich text editing, attachments, or semantic search for notes
 - Recursive folder archive/delete
 - Search deep links to module pages instead of opening specific result detail views
-- Choosing a folder from Quick Add note creation
 - Advanced task recurrence rules, subtasks, priorities, labels, dependencies, reminders, or notifications
 - Dark mode, a full branding/logo system, and a complete design-system package
 

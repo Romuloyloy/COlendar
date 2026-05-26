@@ -148,6 +148,39 @@ def test_list_daily_tasks_by_date(client: TestClient) -> None:
     assert data[0]["due_date"] == "2026-05-09"
 
 
+def test_list_open_daily_tasks_carries_forward_incomplete_tasks(
+    client: TestClient,
+) -> None:
+    past = client.post(
+        "/api/tasks/daily",
+        json={"title": "Past open", "task_date": "2026-05-06"},
+    ).json()
+    today = client.post(
+        "/api/tasks/daily",
+        json={"title": "Today open", "task_date": "2026-05-07"},
+    ).json()
+    completed = client.post(
+        "/api/tasks/daily",
+        json={"title": "Done", "task_date": "2026-05-05"},
+    ).json()
+    future = client.post(
+        "/api/tasks/daily",
+        json={"title": "Future", "task_date": "2026-05-08"},
+    ).json()
+    archived = client.post(
+        "/api/tasks/daily",
+        json={"title": "Archived", "task_date": "2026-05-04"},
+    ).json()
+    client.post(f"/api/tasks/daily/{completed['id']}/complete")
+    client.delete(f"/api/tasks/daily/{archived['id']}")
+
+    response = client.get("/api/tasks/daily?date=2026-05-07&mode=open")
+
+    assert response.status_code == 200
+    assert [task["id"] for task in response.json()] == [past["id"], today["id"]]
+    assert future["id"] not in [task["id"] for task in response.json()]
+
+
 def test_update_daily_task(client: TestClient) -> None:
     category = create_category(client)
     task = client.post(

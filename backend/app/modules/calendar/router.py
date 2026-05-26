@@ -51,6 +51,8 @@ def list_calendar_events(
     from_date: date_type | None = Query(default=None),
     to_date: date_type | None = Query(default=None),
     upcoming: bool = Query(default=False),
+    horizon_days: int = Query(default=365, ge=1, le=366),
+    limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> list[CalendarEventRead]:
     if date is not None and (from_date is not None or to_date is not None):
@@ -68,7 +70,8 @@ def list_calendar_events(
         return list_upcoming_calendar_event_occurrences(
             db,
             from_date or date_type.today(),
-            limit=10,
+            limit=limit,
+            horizon_days=horizon_days,
         )
     if date is not None:
         return list_calendar_events_for_date(db, date)

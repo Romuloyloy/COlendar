@@ -14,7 +14,10 @@ Sheets are the main workspace surface, and they should evolve gradually.
 - Widgets can temporarily open in frontend-only focus mode for more reading and interaction space.
 - Sheet widget items can offer lightweight previews and links back to their owning module.
 - Task, note, event, and category overview widgets can filter by shared category where relevant, either directly or by inheriting the sheet context.
-- Task widgets and Category Overview can use a title override.
+- One-time task widgets can show selected-date tasks or open/carry-forward tasks.
+- Upcoming Events widgets can use a 7, 14, or 30 day horizon.
+- Recent Notes widgets can filter by folder and include descendant folders.
+- Task widgets, Notes widgets, and Category Overview can use a title override where relevant.
 - Review Summary can be used as a simple sheet widget that links to the read-focused Review Center.
 - Sheets have a local-only Stark Mode toggle that darkens only the sheet workspace using the active palette.
 - Slot editing uses a frontend/code-defined widget library sourced from the existing dashboard widget registry.

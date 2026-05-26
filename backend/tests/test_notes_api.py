@@ -195,6 +195,32 @@ def test_move_note_between_folders(client: TestClient) -> None:
     assert response.json()["folder_id"] == second["id"]
 
 
+def test_list_notes_can_filter_by_folder_and_descendants(
+    client: TestClient,
+) -> None:
+    root = client.post("/api/folders", json={"name": "Root"}).json()
+    child = client.post(
+        "/api/folders",
+        json={"name": "Child", "parent_folder_id": root["id"]},
+    ).json()
+    client.post("/api/notes", json={"title": "Root note", "folder_id": root["id"]})
+    client.post("/api/notes", json={"title": "Child note", "folder_id": child["id"]})
+    client.post("/api/notes", json={"title": "Loose note"})
+
+    descendants_response = client.get(f"/api/notes?folder_id={root['id']}")
+    direct_response = client.get(
+        f"/api/notes?folder_id={root['id']}&include_descendants=false"
+    )
+
+    assert descendants_response.status_code == 200
+    assert {note["title"] for note in descendants_response.json()} == {
+        "Root note",
+        "Child note",
+    }
+    assert direct_response.status_code == 200
+    assert [note["title"] for note in direct_response.json()] == ["Root note"]
+
+
 def test_archive_note(client: TestClient) -> None:
     note = client.post("/api/notes", json={"title": "Archive me"}).json()
 

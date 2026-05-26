@@ -84,7 +84,13 @@ function oneTimeTaskMeta(task: DailyTask, selectedDate: string) {
   }
   if (task.due_date) {
     const dueLabel =
-      task.due_date === selectedDate
+      task.due_date < selectedDate
+        ? `Overdue ${formatDisplayDate(task.due_date, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}`
+        : task.due_date === selectedDate
         ? "Due today"
         : `Due ${formatDisplayDate(task.due_date, {
             month: "short",
@@ -99,6 +105,7 @@ function oneTimeTaskMeta(task: DailyTask, selectedDate: string) {
 export function TasksPage() {
   const [selectedDate, setSelectedDate] = useState(todayIsoDate());
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
+  const [openDailyTasks, setOpenDailyTasks] = useState<DailyTask[]>([]);
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>([]);
   const [weeklyCompletions, setWeeklyCompletions] = useState<WeeklyTaskCompletion[]>([]);
   const [categories, setCategories] = useState<TaskCategory[]>([]);
@@ -132,8 +139,15 @@ export function TasksPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const selectedDailyTask = useMemo(
-    () => dailyTasks.find((task) => task.id === selectedDailyTaskId) ?? null,
-    [dailyTasks, selectedDailyTaskId],
+    () =>
+      [...dailyTasks, ...openDailyTasks].find(
+        (task) => task.id === selectedDailyTaskId,
+      ) ?? null,
+    [dailyTasks, openDailyTasks, selectedDailyTaskId],
+  );
+  const carryForwardDailyTasks = useMemo(
+    () => openDailyTasks.filter((task) => task.task_date < selectedDate),
+    [openDailyTasks, selectedDate],
   );
   const selectedWeeklyTask = useMemo(
     () => weeklyTasks.find((task) => task.id === selectedWeeklyTaskId) ?? null,
@@ -154,20 +168,24 @@ export function TasksPage() {
       dailyCategoryFilter === "" ? undefined : Number(dailyCategoryFilter);
     const weeklyCategory =
       weeklyCategoryFilter === "" ? undefined : Number(weeklyCategoryFilter);
-    const [dailyData, weeklyData, completionData, categoryData] = await Promise.all([
-      getDailyTasks(selectedDate, dailyCategory),
-      getWeeklyTasks(selectedDate, weeklyCategory),
-      getWeeklyTaskCompletions(selectedDate),
-      getTaskCategories(),
-    ]);
+    const [dailyData, openDailyData, weeklyData, completionData, categoryData] =
+      await Promise.all([
+        getDailyTasks(selectedDate, dailyCategory),
+        getDailyTasks(selectedDate, dailyCategory, "open"),
+        getWeeklyTasks(selectedDate, weeklyCategory),
+        getWeeklyTaskCompletions(selectedDate),
+        getTaskCategories(),
+      ]);
     setDailyTasks(dailyData);
+    setOpenDailyTasks(openDailyData);
     setWeeklyTasks(weeklyData);
     setWeeklyCompletions(completionData);
     setCategories(categoryData);
 
     if (
       selectedDailyTaskId !== null &&
-      !dailyData.some((task) => task.id === selectedDailyTaskId)
+      !dailyData.some((task) => task.id === selectedDailyTaskId) &&
+      !openDailyData.some((task) => task.id === selectedDailyTaskId)
     ) {
       resetDailyForm();
     }
@@ -608,6 +626,65 @@ export function TasksPage() {
               </button>
             </div>
           </div>
+          {carryForwardDailyTasks.length > 0 ? (
+            <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-950">
+                    Open Carry-forward
+                  </h3>
+                  <p className="text-xs font-medium text-amber-900/75">
+                    Incomplete one-time tasks planned before this date.
+                  </p>
+                </div>
+                <span className="rounded-full border border-amber-300 bg-white/70 px-2 py-0.5 text-xs font-semibold text-amber-950">
+                  {carryForwardDailyTasks.length}
+                </span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {carryForwardDailyTasks.map((task) => (
+                  <div
+                    className={`rounded border px-3 py-2 ${
+                      selectedDailyTaskId === task.id
+                        ? "border-teal-700 bg-white"
+                        : "border-amber-200 bg-white/70"
+                    }`}
+                    key={task.id}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        checked={task.is_completed}
+                        className="mt-1"
+                        onChange={() => toggleDailyTask(task)}
+                        type="checkbox"
+                      />
+                      <button
+                        className="flex-1 text-left"
+                        onClick={() => setSelectedDailyTaskId(task.id)}
+                        type="button"
+                      >
+                        <span className="block text-sm font-medium">
+                          {task.title}
+                        </span>
+                        <span className="mt-1 block text-xs font-medium text-neutral-600">
+                          Planned {formatDisplayDate(task.task_date)}
+                          {oneTimeTaskMeta(task, selectedDate).length > 0
+                            ? ` - ${oneTimeTaskMeta(task, selectedDate).join(" - ")}`
+                            : ""}
+                        </span>
+                        {task.description ? (
+                          <span className="mt-1 block text-xs text-neutral-600">
+                            {task.description}
+                          </span>
+                        ) : null}
+                        <CategoryBadge categoryId={task.category_id} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="mt-4 space-y-2">
             {isLoading ? (
               <p className="text-sm text-neutral-600">Loading one-time tasks...</p>

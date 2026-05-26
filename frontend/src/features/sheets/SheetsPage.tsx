@@ -37,7 +37,8 @@ import type {
   DashboardWidgetProps,
 } from "@/features/dashboard/widget-types";
 import type { DailyTask } from "@/features/tasks/types";
-import type { Note } from "@/features/notes/types";
+import { getFolders } from "@/features/notes/api";
+import type { Folder, Note } from "@/features/notes/types";
 import {
   completeDailyTask,
   completeWeeklyTask,
@@ -99,6 +100,10 @@ type DraftSlot = {
   config_json: {
     category_mode?: SheetWidgetCategoryMode;
     category_id?: number | null;
+    event_horizon_days?: 7 | 14 | 30;
+    folder_id?: number | null;
+    include_descendants?: boolean;
+    task_mode?: "selected_date" | "open";
     title_override?: string;
   };
 };
@@ -117,6 +122,7 @@ export function SheetsPage() {
   const [sheetDetail, setSheetDetail] = useState<SheetDetail | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [categories, setCategories] = useState<TaskCategory[]>([]);
+  const [noteFolders, setNoteFolders] = useState<Folder[]>([]);
   const [draftSlots, setDraftSlots] = useState<DraftSlot[]>(() =>
     emptyDraftSlots(),
   );
@@ -219,13 +225,20 @@ export function SheetsPage() {
   }
 
   async function loadSummary() {
-    const data = await getDashboardSummary(selectedDate);
+    const data = await getDashboardSummary(selectedDate, {
+      upcomingEventsLimit: 30,
+    });
     setSummary(data);
   }
 
   async function loadCategories() {
     const data = await getTaskCategories();
     setCategories(data);
+  }
+
+  async function loadNoteFolders() {
+    const data = await getFolders();
+    setNoteFolders(data);
   }
 
   useEffect(() => {
@@ -241,6 +254,7 @@ export function SheetsPage() {
           sheetId !== null ? loadSheetDetail(sheetId) : Promise.resolve(),
           loadSummary(),
           loadCategories(),
+          loadNoteFolders(),
         ]),
       )
       .catch((caught: Error) => setError(caught.message))
@@ -274,6 +288,7 @@ export function SheetsPage() {
   useEffect(() => {
     function refreshAfterQuickAdd() {
       void loadSummary().catch((caught: Error) => setError(caught.message));
+      void loadNoteFolders().catch(() => setNoteFolders([]));
     }
 
     window.addEventListener("quick-add:created", refreshAfterQuickAdd);
@@ -665,7 +680,14 @@ export function SheetsPage() {
 
   function updateDraftSlotConfig(
     slotIndex: number,
-    key: "category_id" | "category_mode" | "title_override",
+    key:
+      | "category_id"
+      | "category_mode"
+      | "event_horizon_days"
+      | "folder_id"
+      | "include_descendants"
+      | "task_mode"
+      | "title_override",
     value: string,
   ) {
     setNotice(null);
@@ -679,14 +701,7 @@ export function SheetsPage() {
           ...slot,
           config_json: {
             ...slot.config_json,
-            [key]:
-              key === "category_id"
-                ? value
-                  ? Number(value)
-                  : null
-                : key === "category_mode"
-                  ? (value as SheetWidgetCategoryMode)
-                : value,
+            [key]: draftSlotConfigValue(key, value),
           },
         };
       }),
@@ -703,6 +718,7 @@ export function SheetsPage() {
           onToggleDailyTask: toggleDailyTask,
           onToggleWeeklyTask: toggleWeeklyTask,
           onPreviewWeeklyTask: setPreviewWeeklyTask,
+          noteFolders,
           selectedDate,
           sheetContextCategoryId: currentSheetContextCategoryId,
           summary,
@@ -822,6 +838,7 @@ export function SheetsPage() {
           categories={categories}
           draftSlots={draftSlots}
           isSaving={isSaving}
+          noteFolders={noteFolders}
           sheetContextCategory={currentSheetContextCategory}
           onClearSlot={clearDraftSlot}
           onClose={() => setIsSlotEditorOpen(false)}
@@ -1642,6 +1659,7 @@ function SlotEditorPanel({
   draftSlots,
   hasUnsavedChanges,
   isSaving,
+  noteFolders,
   sheetContextCategory,
   onClearSlot,
   onClose,
@@ -1657,6 +1675,7 @@ function SlotEditorPanel({
   draftSlots: DraftSlot[];
   hasUnsavedChanges: boolean;
   isSaving: boolean;
+  noteFolders: Folder[];
   sheetContextCategory: TaskCategory | null;
   onClearSlot: (slotIndex: number) => void;
   onClose: () => void;
@@ -1665,7 +1684,14 @@ function SlotEditorPanel({
   onUpdateSlot: (slotIndex: number, widgetKey: string) => void;
   onUpdateSlotConfig: (
     slotIndex: number,
-    key: "category_id" | "category_mode" | "title_override",
+    key:
+      | "category_id"
+      | "category_mode"
+      | "event_horizon_days"
+      | "folder_id"
+      | "include_descendants"
+      | "task_mode"
+      | "title_override",
     value: string,
   ) => void;
   onUpdateSlotSize: (
@@ -1679,6 +1705,9 @@ function SlotEditorPanel({
     ? getDashboardWidgetDefinition(activeSlot.widget_key)
     : undefined;
   const supportsCategoryFilter = Boolean(activeDefinition?.supportsCategoryFilter);
+  const supportsEventHorizon = Boolean(activeDefinition?.supportsEventHorizon);
+  const supportsFolderFilter = Boolean(activeDefinition?.supportsFolderFilter);
+  const supportsTaskMode = Boolean(activeDefinition?.supportsTaskMode);
   const supportsTitleOverride = Boolean(activeDefinition?.supportsTitleOverride);
   const selectedSlotLocation = sheetSlotLocation(activeSlot.slot_index);
   const selectedCategoryName = selectedCategoryLabel(
@@ -1688,6 +1717,10 @@ function SlotEditorPanel({
   );
   const coveredSlots = coveredSlotAnchors(draftSlots);
   const activeCoveredBy = coveredSlots.get(activeSlot.slot_index);
+  const selectedFolderName =
+    typeof activeSlot.config_json.folder_id === "number"
+      ? noteFolderPath(activeSlot.config_json.folder_id, noteFolders) ?? "Unknown"
+      : "All folders";
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#2c2925]/35 px-6 py-6 backdrop-blur-sm">
@@ -1828,6 +1861,36 @@ function SlotEditorPanel({
                     {activeSlot.col_span}x{activeSlot.row_span}
                   </dd>
                 </div>
+                {supportsTaskMode ? (
+                  <div>
+                    <dt className="font-semibold uppercase text-[#8b8176]">
+                      Task Mode
+                    </dt>
+                    <dd className="truncate">
+                      {activeSlot.config_json.task_mode === "open"
+                        ? "Open"
+                        : "Selected date"}
+                    </dd>
+                  </div>
+                ) : null}
+                {supportsEventHorizon ? (
+                  <div>
+                    <dt className="font-semibold uppercase text-[#8b8176]">
+                      Horizon
+                    </dt>
+                    <dd className="truncate">
+                      {activeSlot.config_json.event_horizon_days ?? 14} days
+                    </dd>
+                  </div>
+                ) : null}
+                {supportsFolderFilter ? (
+                  <div>
+                    <dt className="font-semibold uppercase text-[#8b8176]">
+                      Folder
+                    </dt>
+                    <dd className="truncate">{selectedFolderName}</dd>
+                  </div>
+                ) : null}
               </dl>
             </div>
 
@@ -2002,6 +2065,93 @@ function SlotEditorPanel({
               </div>
             ) : null}
 
+            {supportsTaskMode ? (
+              <label className="block text-sm font-semibold text-[#2c2925]">
+                Task list mode
+                <select
+                  className={inputClassName}
+                  disabled={isSaving}
+                  onChange={(event) =>
+                    onUpdateSlotConfig(
+                      activeSlot.slot_index,
+                      "task_mode",
+                      event.target.value,
+                    )
+                  }
+                  value={activeSlot.config_json.task_mode ?? "selected_date"}
+                >
+                  <option value="selected_date">Selected date</option>
+                  <option value="open">Open tasks</option>
+                </select>
+              </label>
+            ) : null}
+
+            {supportsEventHorizon ? (
+              <label className="block text-sm font-semibold text-[#2c2925]">
+                Event horizon
+                <select
+                  className={inputClassName}
+                  disabled={isSaving}
+                  onChange={(event) =>
+                    onUpdateSlotConfig(
+                      activeSlot.slot_index,
+                      "event_horizon_days",
+                      event.target.value,
+                    )
+                  }
+                  value={activeSlot.config_json.event_horizon_days ?? 14}
+                >
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                  <option value="30">30 days</option>
+                </select>
+              </label>
+            ) : null}
+
+            {supportsFolderFilter ? (
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <label className="block text-sm font-semibold text-[#2c2925]">
+                  Note folder
+                  <select
+                    className={inputClassName}
+                    disabled={isSaving}
+                    onChange={(event) =>
+                      onUpdateSlotConfig(
+                        activeSlot.slot_index,
+                        "folder_id",
+                        event.target.value,
+                      )
+                    }
+                    value={activeSlot.config_json.folder_id ?? ""}
+                  >
+                    <option value="">All folders</option>
+                    {noteFolders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {noteFolderPath(folder.id, noteFolders) ?? folder.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-end gap-2 pb-2 text-sm font-semibold text-[#2c2925]">
+                  <input
+                    checked={activeSlot.config_json.include_descendants ?? true}
+                    disabled={
+                      isSaving || typeof activeSlot.config_json.folder_id !== "number"
+                    }
+                    onChange={(event) =>
+                      onUpdateSlotConfig(
+                        activeSlot.slot_index,
+                        "include_descendants",
+                        String(event.target.checked),
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  Include subfolders
+                </label>
+              </div>
+            ) : null}
+
             {supportsTitleOverride ? (
               <label className="block text-sm font-semibold text-[#2c2925]">
                 Title override
@@ -2076,6 +2226,9 @@ function WidgetLibraryCard({
 }) {
   const configBadges = [
     definition.supportsCategoryFilter ? "Category filter" : null,
+    definition.supportsTaskMode ? "Task mode" : null,
+    definition.supportsEventHorizon ? "Event horizon" : null,
+    definition.supportsFolderFilter ? "Folder filter" : null,
     definition.supportsTitleOverride ? "Title override" : null,
   ].filter((badge): badge is string => Boolean(badge));
 
@@ -2286,13 +2439,40 @@ function normalizedSlotConfig(slot: DraftSlot) {
   };
 
   if (
-    slot.widget_key === "daily-tasks" ||
     slot.widget_key === "weekly-tasks" ||
     slot.widget_key === "category-overview"
   ) {
     return {
       ...categoryConfig,
       title_override: slot.config_json.title_override ?? "",
+    };
+  }
+
+  if (slot.widget_key === "daily-tasks") {
+    return {
+      ...categoryConfig,
+      task_mode:
+        slot.config_json.task_mode === "open" ? "open" : "selected_date",
+      title_override: slot.config_json.title_override ?? "",
+    };
+  }
+
+  if (slot.widget_key === "recent-notes") {
+    return {
+      ...categoryConfig,
+      folder_id:
+        typeof slot.config_json.folder_id === "number"
+          ? slot.config_json.folder_id
+          : null,
+      include_descendants: slot.config_json.include_descendants ?? true,
+      title_override: slot.config_json.title_override ?? "",
+    };
+  }
+
+  if (slot.widget_key === "upcoming-events") {
+    return {
+      ...categoryConfig,
+      event_horizon_days: eventHorizonForConfig(slot.config_json),
     };
   }
 
@@ -2318,11 +2498,79 @@ function normalizeDraftSlotConfig(
     return {};
   }
   const mode = categoryModeForConfig(config);
-  return {
+  const nextConfig: DraftSlot["config_json"] = {
     ...config,
     category_mode: mode,
     category_id: mode === "specific" ? config.category_id ?? null : null,
   };
+  if (widgetKey === "daily-tasks") {
+    nextConfig.task_mode =
+      config.task_mode === "open" ? "open" : "selected_date";
+  }
+  if (widgetKey === "upcoming-events") {
+    nextConfig.event_horizon_days = eventHorizonForConfig(config);
+  }
+  if (widgetKey === "recent-notes") {
+    nextConfig.folder_id =
+      typeof config.folder_id === "number" ? config.folder_id : null;
+    nextConfig.include_descendants = config.include_descendants ?? true;
+  }
+  return nextConfig;
+}
+
+function draftSlotConfigValue(
+  key:
+    | "category_id"
+    | "category_mode"
+    | "event_horizon_days"
+    | "folder_id"
+    | "include_descendants"
+    | "task_mode"
+    | "title_override",
+  value: string,
+) {
+  if (key === "category_id" || key === "folder_id") {
+    return value ? Number(value) : null;
+  }
+  if (key === "category_mode") {
+    return value as SheetWidgetCategoryMode;
+  }
+  if (key === "event_horizon_days") {
+    return eventHorizonForValue(Number(value));
+  }
+  if (key === "include_descendants") {
+    return value === "true";
+  }
+  if (key === "task_mode") {
+    return value === "open" ? "open" : "selected_date";
+  }
+  return value;
+}
+
+function eventHorizonForConfig(config: DraftSlot["config_json"]) {
+  return eventHorizonForValue(config.event_horizon_days);
+}
+
+function eventHorizonForValue(value: unknown): 7 | 14 | 30 {
+  return value === 7 || value === 14 || value === 30 ? value : 14;
+}
+
+function noteFolderPath(folderId: number, folders: Folder[]) {
+  const folderById = new Map(folders.map((folder) => [folder.id, folder]));
+  const path: string[] = [];
+  let current = folderById.get(folderId);
+  const seen = new Set<number>();
+
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    path.unshift(current.name);
+    current =
+      current.parent_folder_id === null
+        ? undefined
+        : folderById.get(current.parent_folder_id);
+  }
+
+  return path.length > 0 ? path.join(" / ") : null;
 }
 
 function selectedCategoryLabel(

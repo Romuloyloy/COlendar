@@ -39,8 +39,12 @@ export function archiveTaskCategory(categoryId: number): Promise<void> {
 export function getDailyTasks(
   date: string,
   categoryId?: number,
+  mode: "selected" | "open" = "selected",
 ): Promise<DailyTask[]> {
   const params = new URLSearchParams({ date });
+  if (mode !== "selected") {
+    params.set("mode", mode);
+  }
   if (categoryId !== undefined) {
     params.set("category_id", String(categoryId));
   }

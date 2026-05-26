@@ -417,6 +417,26 @@ def test_list_upcoming_calendar_events(client: TestClient) -> None:
     assert [event["title"] for event in response.json()] == ["Next"]
 
 
+def test_list_upcoming_calendar_events_respects_horizon(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/calendar/events",
+        json={"title": "Inside", "event_date": "2099-01-08"},
+    )
+    client.post(
+        "/api/calendar/events",
+        json={"title": "Outside", "event_date": "2099-01-09"},
+    )
+
+    response = client.get(
+        "/api/calendar/events?upcoming=true&from_date=2099-01-02&horizon_days=7"
+    )
+
+    assert response.status_code == 200
+    assert [event["title"] for event in response.json()] == ["Inside"]
+
+
 def test_update_calendar_event(client: TestClient) -> None:
     event = client.post(
         "/api/calendar/events",

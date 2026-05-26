@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 def dashboard_summary(
     date: date = Query(...),
     recent_notes_limit: int = Query(default=5, ge=1, le=10),
-    upcoming_events_limit: int = Query(default=5, ge=1, le=10),
+    upcoming_events_limit: int = Query(default=5, ge=1, le=30),
     db: Session = Depends(get_db),
 ) -> DashboardSummary:
     return get_dashboard_summary(

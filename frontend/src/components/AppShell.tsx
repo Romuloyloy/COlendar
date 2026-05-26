@@ -16,7 +16,8 @@ import {
   getTaskCategories,
 } from "@/features/tasks/api";
 import type { TaskCategory } from "@/features/tasks/types";
-import { createNote } from "@/features/notes/api";
+import { createNote, getFolders } from "@/features/notes/api";
+import type { Folder } from "@/features/notes/types";
 import {
   AppButton,
   DateSelector,
@@ -84,6 +85,7 @@ type QuickAddForm = {
   dayOfMonth: string;
   endDate: string;
   categoryId: string;
+  folderId: string;
 };
 
 const WEEKDAYS = [
@@ -122,6 +124,7 @@ function emptyForm(date = todayIsoDate()): QuickAddForm {
     dayOfMonth: `${new Date(`${date}T00:00:00`).getDate()}`,
     endDate: "",
     categoryId: "",
+    folderId: "",
   };
 }
 
@@ -280,6 +283,7 @@ function QuickAddModal({
   const [form, setForm] = useState<QuickAddForm>(() => emptyForm());
   const [isSaving, setIsSaving] = useState(false);
   const [categories, setCategories] = useState<TaskCategory[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -287,9 +291,12 @@ function QuickAddModal({
     if (!isOpen) {
       return;
     }
-    getTaskCategories()
+    void getTaskCategories()
       .then(setCategories)
       .catch(() => setCategories([]));
+    void getFolders()
+      .then(setFolders)
+      .catch(() => setFolders([]));
   }, [isOpen]);
 
   if (!isOpen) {
@@ -352,7 +359,7 @@ function QuickAddModal({
         await createNote({
           title: form.title,
           content: form.content,
-          folder_id: null,
+          folder_id: form.folderId ? Number(form.folderId) : null,
           category_id: form.categoryId ? Number(form.categoryId) : null,
         });
       } else if (type === "calendar-event") {
@@ -486,7 +493,12 @@ function QuickAddModal({
             />
           ) : null}
           {type === "note" ? (
-            <NoteFields categories={categories} form={form} update={update} />
+            <NoteFields
+              categories={categories}
+              folders={folders}
+              form={form}
+              update={update}
+            />
           ) : null}
           {type === "calendar-event" ? (
             <CalendarEventFields
@@ -723,9 +735,10 @@ function WeeklyTaskFields({
 
 function NoteFields({
   categories,
+  folders,
   form,
   update,
-}: FieldProps & { categories: TaskCategory[] }) {
+}: FieldProps & { categories: TaskCategory[]; folders: Folder[] }) {
   return (
     <>
       <Field label="Title">
@@ -758,8 +771,40 @@ function NoteFields({
           ))}
         </select>
       </Field>
+      <Field label="Folder">
+        <select
+          className={inputClass}
+          onChange={(event) => update("folderId", event.target.value)}
+          value={form.folderId}
+        >
+          <option value="">None</option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {noteFolderPath(folder.id, folders) ?? folder.name}
+            </option>
+          ))}
+        </select>
+      </Field>
     </>
   );
+}
+
+function noteFolderPath(folderId: number, folders: Folder[]) {
+  const folderById = new Map(folders.map((folder) => [folder.id, folder]));
+  const path: string[] = [];
+  let current = folderById.get(folderId);
+  const seen = new Set<number>();
+
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    path.unshift(current.name);
+    current =
+      current.parent_folder_id === null
+        ? undefined
+        : folderById.get(current.parent_folder_id);
+  }
+
+  return path.length > 0 ? path.join(" / ") : null;
 }
 
 function CalendarEventFields({

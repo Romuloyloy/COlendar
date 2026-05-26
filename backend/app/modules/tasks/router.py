@@ -115,13 +115,21 @@ def archive_task_category(
 def list_daily_tasks(
     date: date = Query(...),
     category_id: int | None = Query(default=None),
+    mode: str = Query(default="selected", pattern="^(selected|open)$"),
     db: Session = Depends(get_db),
 ) -> list[DailyTask]:
     validate_optional_category(db, category_id)
+    date_filter = (
+        DailyTask.task_date <= date
+        if mode == "open"
+        else DailyTask.task_date == date
+    )
     query = select(DailyTask).where(
-        DailyTask.task_date == date,
+        date_filter,
         DailyTask.is_archived.is_(False),
     )
+    if mode == "open":
+        query = query.where(DailyTask.is_completed.is_(False))
     if category_id is not None:
         query = query.where(DailyTask.category_id == category_id)
     return list(

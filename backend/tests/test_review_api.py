@@ -1,46 +1,50 @@
+from datetime import date
+
 from fastapi.testclient import TestClient
 
 
 def test_review_daily_summary_includes_core_modules(client: TestClient) -> None:
+    selected_date = date.today()
+    selected_date_value = selected_date.isoformat()
     task = client.post(
         "/api/tasks/daily",
-        json={"title": "Write recap", "task_date": "2026-05-25"},
+        json={"title": "Write recap", "task_date": selected_date_value},
     ).json()
     client.post(f"/api/tasks/daily/{task['id']}/complete")
     weekly_task = client.post(
         "/api/tasks/weekly",
         json={
             "title": "Practice",
-            "weekdays": [0],
+            "weekdays": [selected_date.weekday()],
             "recurrence_type": "weekly",
         },
     ).json()
     client.post(
-        f"/api/tasks/weekly/{weekly_task['id']}/complete?completion_date=2026-05-25"
+        f"/api/tasks/weekly/{weekly_task['id']}/complete?completion_date={selected_date_value}"
     )
     client.post(
         "/api/calendar/events",
-        json={"title": "Check-in", "event_date": "2026-05-25"},
+        json={"title": "Check-in", "event_date": selected_date_value},
     )
     client.post(
         "/api/tracker/water",
-        json={"entry_date": "2026-05-25", "amount_ml": 500},
+        json={"entry_date": selected_date_value, "amount_ml": 500},
     )
     client.post(
         "/api/tracker/calories",
-        json={"entry_date": "2026-05-25", "amount_kcal": 700},
+        json={"entry_date": selected_date_value, "amount_kcal": 700},
     )
     client.post(
         "/api/tracker/activity",
         json={
-            "entry_date": "2026-05-25",
+            "entry_date": selected_date_value,
             "activity_type": "Walk",
             "duration_minutes": 20,
         },
     )
     client.post("/api/notes", json={"title": "Daily note", "content": "Done"})
 
-    response = client.get("/api/review/summary?date=2026-05-25")
+    response = client.get(f"/api/review/summary?date={selected_date_value}")
 
     assert response.status_code == 200
     data = response.json()

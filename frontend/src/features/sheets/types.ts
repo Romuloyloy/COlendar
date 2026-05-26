@@ -16,6 +16,10 @@ export type SheetWidgetSlot = {
   config_json: {
     category_mode?: SheetWidgetCategoryMode;
     category_id?: number | null;
+    event_horizon_days?: 7 | 14 | 30;
+    folder_id?: number | null;
+    include_descendants?: boolean;
+    task_mode?: "selected_date" | "open";
     title_override?: string;
   };
   slot_index: number;
@@ -36,6 +40,10 @@ export type SheetSlotsUpdate = {
     config_json?: {
       category_mode?: SheetWidgetCategoryMode;
       category_id?: number | null;
+      event_horizon_days?: 7 | 14 | 30;
+      folder_id?: number | null;
+      include_descendants?: boolean;
+      task_mode?: "selected_date" | "open";
       title_override?: string;
     };
     col_span?: number;

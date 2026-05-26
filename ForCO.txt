@@ -1,37 +1,33 @@
-Hi! This pass implements MVP Stabilization / QA v1.
+Hi! This pass implements Workspace Utility Widgets v1.
 
 What changed:
-- Made `/sheets` the primary workspace destination.
-- Redirected `/` to `/sheets`.
-- Removed Home and Planning from primary navigation.
-- Redirected `/planning` to `/review` while leaving backend planning composition intact.
-- Retired the Planning summary widget from the dashboard/widget registry defaults.
-- Updated the Sheets workspace dropdown to link to current primary app areas.
-- Parent folder selection on Notes now includes notes from descendant folders, with folder path labels still visible.
-- Updated Notes desktop layout to roughly 25% folders / 25% note list / 50% editor.
-- Calendar adjacent-month day clicks now select the date without changing the visible month.
-- Calendar month/date refreshes now use a subtle updating state instead of clearing the view harshly after initial load.
-- Added a Sheets-only Stark Mode toggle that persists in localStorage and works with Robot Vanilla, DuckBerry, and BozzyWheat.
-- Updated README and core docs for the new primary Sheets surface and stabilization behavior.
+- Added open/carry-forward one-time task support for incomplete active tasks planned on or before the selected date.
+- Added an Open Carry-forward section on `/tasks`.
+- Let the One-time Tasks sheet widget switch between selected-date and open task modes.
+- Let Upcoming Events sheet widgets use 7, 14, or 30 day horizons.
+- Let Recent Notes sheet widgets filter by folder, including child folders by default.
+- Added folder selection to Quick Add note creation.
+- Added backend query support and tests for open tasks, event horizons, and notes by folder.
+- Updated README and sheet/UX docs for the new utility widget behavior.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
 2. `docker compose exec backend alembic current`
 3. `docker compose exec backend pytest`
 4. `docker compose exec frontend npm run build`
-5. Open `/` and confirm it redirects to `/sheets`.
-6. Open `/planning` and confirm it redirects to `/review`.
-7. Confirm the primary nav does not show Home or Planning.
-8. On `/notes`, select a parent folder and confirm child-folder notes appear with folder path indicators.
-9. On `/calendar`, view a month with adjacent-month dates and click one; the selected date changes but the visible month stays put.
-10. On `/sheets`, open Workspace controls, toggle Stark Mode, switch palettes, and refresh to confirm the Sheets-only preference persists.
+5. On `/tasks`, create an incomplete task for yesterday and confirm it appears under Open Carry-forward today.
+6. On `/sheets`, configure a One-time Tasks widget to Open tasks and confirm past incomplete tasks appear.
+7. Configure an Upcoming Events widget for 7, 14, and 30 day horizons.
+8. Configure a Recent Notes widget to a folder and confirm descendant notes appear when enabled.
+9. Open Quick Add, choose Note, select a folder, create it, and confirm the note lands in that folder.
 
 What success looks like:
-- Sheets feel like the main workspace without breaking reusable dashboard/widget code.
-- Planning is safely retired from the primary UI.
-- Notes, Calendar, Review, Categories, Search, Quick Add, sheet context, widget config persistence, recurring tasks/events, and palettes still work.
+- Past incomplete one-time tasks are no longer hidden just because their planned date passed.
+- Sheet widget instances can be tuned for common daily views without changing the fixed grid model.
+- Quick Add notes can still be quick, but folder placement is available when needed.
+- Notes, Calendar, Tasks, Quick Add, sheet context, category filters, and widget config persistence still work.
 
 Intentionally not included:
 - No AI, auth, external integrations, notifications, or reminders.
 - No drag-and-drop, freeform resizing, arbitrary layout coordinates, or sheet templates.
-- No new recurrence features or major backend rewrites.
+- No calendar week view, immersive sheet chrome, new recurrence features, or major backend rewrites.

@@ -46,6 +46,21 @@ def get_dashboard_summary(
             )
         )
     )
+    open_daily_tasks = list(
+        db.scalars(
+            select(DailyTask)
+            .where(
+                DailyTask.task_date <= selected_date,
+                DailyTask.is_completed.is_(False),
+                DailyTask.is_archived.is_(False),
+            )
+            .order_by(
+                DailyTask.task_date.asc(),
+                DailyTask.planned_time.asc().nulls_last(),
+                DailyTask.id.asc(),
+            )
+        )
+    )
 
     scheduled_weekly_tasks = list_recurring_tasks_scheduled_for_date(db, selected_date)
 
@@ -98,12 +113,14 @@ def get_dashboard_summary(
         db,
         selected_date,
         limit=upcoming_events_limit,
+        horizon_days=30,
     )
     tracker_summary = get_tracker_summary(db, selected_date)
 
     return DashboardSummary(
         selected_date=selected_date,
         daily_tasks=daily_tasks,
+        open_daily_tasks=open_daily_tasks,
         weekly_tasks=weekly_tasks,
         upcoming_events=upcoming_events,
         tracker_summary=tracker_summary,
@@ -113,6 +130,7 @@ def get_dashboard_summary(
             incomplete_daily_task_count=sum(
                 1 for task in daily_tasks if not task.is_completed
             ),
+            open_daily_task_count=len(open_daily_tasks),
             weekly_task_count=len(weekly_tasks),
             incomplete_weekly_task_count=sum(
                 1 for task in weekly_tasks if not task.is_completed

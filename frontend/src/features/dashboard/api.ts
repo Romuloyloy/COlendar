@@ -5,9 +5,16 @@ import type {
 } from "./types";
 import { apiRequest } from "@/lib/api";
 
-export function getDashboardSummary(date: string): Promise<DashboardSummary> {
+export function getDashboardSummary(
+  date: string,
+  options?: { upcomingEventsLimit?: number },
+): Promise<DashboardSummary> {
+  const params = new URLSearchParams({ date });
+  if (options?.upcomingEventsLimit !== undefined) {
+    params.set("upcoming_events_limit", String(options.upcomingEventsLimit));
+  }
   return apiRequest<DashboardSummary>(
-    `/api/dashboard/summary?date=${encodeURIComponent(date)}`,
+    `/api/dashboard/summary?${params.toString()}`,
   );
 }
 

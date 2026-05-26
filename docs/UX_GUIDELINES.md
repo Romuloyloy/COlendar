@@ -15,6 +15,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Category views should feel like read-focused workspaces, not project-management dashboards.
 - Review Center should feel like a calm read-focused synthesis, not analytics software.
 - Quick Add should remain fast and simple.
+- Quick Add note creation may offer existing folders, but should still work quickly without choosing one.
 - Global Search should remain keyword-based unless AI or semantic search is explicitly requested.
 
 ## Visual Direction
@@ -52,6 +53,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Widget focus mode should feel temporary and calm: centered overlay, subdued sheet background, clear close affordance, and Escape-to-close behavior when available.
 - Sheet widget item clicks should feel useful without becoming editing workflows: use lightweight previews and clear links to the owning full page.
 - Sheet context should be visible near sheet identity, and category-aware widgets should clearly distinguish no filter, sheet-context inheritance, and a specific category.
+- Utility widget options such as open task mode, event horizon, and notes folder filters should live in the slot editor and stay compact.
 
 ## Engineering UX Rules
 

@@ -40,3 +40,24 @@ def validate_parent_folder(
                 detail="Folder nesting cannot be circular",
             )
         parent = get_active_folder_or_404(db, parent.parent_folder_id)
+
+
+def descendant_folder_ids(db: Session, folder_id: int) -> set[int]:
+    get_active_folder_or_404(db, folder_id)
+    folders = list(
+        db.scalars(select(Folder).where(Folder.is_archived.is_(False)))
+    )
+    ids = {folder_id}
+    did_add = True
+
+    while did_add:
+        did_add = False
+        for folder in folders:
+            if (
+                folder.parent_folder_id in ids
+                and folder.id not in ids
+            ):
+                ids.add(folder.id)
+                did_add = True
+
+    return ids

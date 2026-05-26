@@ -12,7 +12,11 @@ from app.modules.notes.schemas import (
     NoteRead,
     NoteUpdate,
 )
-from app.modules.notes.service import get_active_folder_or_404, validate_parent_folder
+from app.modules.notes.service import (
+    descendant_folder_ids,
+    get_active_folder_or_404,
+    validate_parent_folder,
+)
 from app.modules.tasks.service import validate_optional_category
 
 router = APIRouter(prefix="/api", tags=["notes"])
@@ -85,12 +89,23 @@ def archive_folder(folder_id: int, db: Session = Depends(get_db)) -> Response:
 
 
 @router.get("/notes", response_model=list[NoteRead])
-def list_notes(db: Session = Depends(get_db)) -> list[Note]:
+def list_notes(
+    folder_id: int | None = None,
+    include_descendants: bool = True,
+    db: Session = Depends(get_db),
+) -> list[Note]:
+    query = select(Note).where(Note.is_archived.is_(False))
+    if folder_id is not None:
+        folder_ids = (
+            descendant_folder_ids(db, folder_id)
+            if include_descendants
+            else {get_active_folder_or_404(db, folder_id).id}
+        )
+        query = query.where(Note.folder_id.in_(folder_ids))
+
     return list(
         db.scalars(
-            select(Note)
-            .where(Note.is_archived.is_(False))
-            .order_by(Note.updated_at.desc(), Note.id.desc())
+            query.order_by(Note.updated_at.desc(), Note.id.desc())
         )
     )
 

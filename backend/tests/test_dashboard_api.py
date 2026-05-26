@@ -151,6 +151,26 @@ def test_dashboard_summary_includes_daily_tasks_for_date(client: TestClient) -> 
     assert data["counts"]["incomplete_daily_task_count"] == 1
 
 
+def test_dashboard_summary_includes_open_daily_tasks(client: TestClient) -> None:
+    client.post(
+        "/api/tasks/daily",
+        json={"title": "Past open", "task_date": "2026-05-06"},
+    )
+    completed = client.post(
+        "/api/tasks/daily",
+        json={"title": "Past done", "task_date": "2026-05-05"},
+    ).json()
+    client.post("/api/tasks/daily", json={"title": "Future", "task_date": "2026-05-08"})
+    client.post(f"/api/tasks/daily/{completed['id']}/complete")
+
+    response = client.get("/api/dashboard/summary?date=2026-05-07")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [task["title"] for task in data["open_daily_tasks"]] == ["Past open"]
+    assert data["counts"]["open_daily_task_count"] == 1
+
+
 def test_dashboard_summary_excludes_archived_daily_tasks(client: TestClient) -> None:
     task = client.post(
         "/api/tasks/daily",
