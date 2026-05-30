@@ -121,6 +121,8 @@ Invoke-RestMethod http://localhost:8000/health/db
 - `/sheets` is the primary workspace destination and renders the persisted 4x2 sheet workspace.
 - The dashboard code still exists as a reusable widget foundation, but it is no longer the root/home surface.
 - The Sheets page renders code-defined dashboard widgets in persisted sheet slots, with controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans, optional sheet category context for category-aware widgets, and a Sheets-only Stark Mode toggle that persists in `localStorage`.
+- Immersive sheet chrome keeps the grid dominant: the top Workspace dropdown closes on outside click unless pinned, opens from a stable top-center position, includes palette and Stark controls, and sheet changes briefly show the active sheet name and order near the bottom edge.
+- Sheet success feedback, including saved slot configuration notices, clears automatically after a short confirmation period.
 - The global nav includes Quick Add, which can also be opened with `Ctrl+K` on Windows; note creation can choose an existing folder or stay folderless.
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page uses a desktop 25% / 25% / 50% folder/list/editor layout and selecting a parent folder shows notes from descendant folders with folder path indicators.
@@ -312,42 +314,42 @@ Workspace shell behavior:
 - returning to `/sheets` restores the remembered sheet when it still exists
 - if the remembered sheet was deleted, `/sheets` falls back to the first valid sheet
 - the primary surface is a desktop-first 4 columns x 2 rows grid
-- the sheet area fills the available viewport below the app shell as much as practical
+- the sheet area fills the viewport as an immersive workspace surface
 - normal long page scrolling is avoided on `/sheets`
 - each cell is visually contained
 - widget content is clipped or internally scrollable inside its own cell
 - top-level error, notice, and loading states stay compact
 
-Top-center dropdown behavior:
+Immersive sheet chrome behavior:
 
-- a small top-center Workspace trigger is always clickable on `/sheets`
-- clicking it opens a simple dropdown/control panel
-- the dropdown links to Sheets, Review, Notes, Tasks, Calendar, Tracker, Categories, and Search
-- the dropdown includes a Quick Add button wired to the existing global Quick Add modal
-- the dropdown includes the shared day DateNavigator for the sheet widgets
-- the dropdown includes a Sheets-only Stark Mode toggle saved in browser `localStorage`
-- the dropdown includes current sheet controls, not a full command palette
-- the dropdown documents the sheet keyboard shortcuts
-- dangerous actions live under `Advanced`
+- the global app header is hidden on `/sheets` so the fixed 4x2 grid dominates the viewport
+- the top edge has a small Workspace handle that opens the workspace menu
+- the top menu links to Sheets, Review, Notes, Tasks, Calendar, Tracker, Categories, and Search
+- the top menu includes Quick Add, the shared widget DateNavigator, sheet jump selection, and the Sheets-only Stark Mode toggle
+- the top menu can be pinned so it stays visible until unpinned or closed
+- left and right edge arrows appear at the viewport edges for previous/next sheet navigation
+- the bottom edge has a Manage handle for sheet customization and management
+- the bottom menu includes Customize slots, sheet reorder controls, create sheet, rename/context controls, delete, reset, and Use dashboard layout
+- dangerous actions still require confirmation
 
 Keyboard shortcuts on `/sheets`:
 
 - `Left Arrow`: previous sheet
 - `Right Arrow`: next sheet
-- `Esc`: close the Workspace dropdown or slot editor
+- `Esc`: close focus mode, slot editor, edge menus, or pinned top menu
 - `Ctrl+Shift+A`: open Quick Add
 - shortcuts do not fire while typing in inputs, textareas, selects, or editable content
 - the existing global `Ctrl+K` Quick Add shortcut also ignores typing fields
 
 Sheet navigation behavior:
 
-- previous/next buttons are available in both the workspace header and dropdown
+- previous/next controls are available as left/right edge arrows
 - previous/next are disabled at the first or last sheet
-- the current sheet name is shown in the workspace header and dropdown trigger
-- the dropdown includes a sheet selector for jumping between sheets
+- the current sheet name is shown in the top edge workspace menu
+- the top edge menu includes a sheet selector for jumping between sheets
 - sheets can be created and renamed
 - sheets can optionally store one shared category as their sheet context
-- sheet context can be selected, changed, or cleared from the workspace dropdown
+- sheet context can be selected, changed, or cleared from the bottom management menu
 - Move left and Move right reorder the current sheet without drag-and-drop
 - reorder controls are disabled at the first or last sheet
 - previous/next navigation follows the saved sheet order
@@ -417,7 +419,7 @@ Examples:
 - Upcoming Events widgets can use configurable 7, 14, or 30 day horizons
 - Category Overview widgets can summarize one category across tasks, notes, and events
 
-Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, category overview, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time task widgets can show either selected-date tasks or open/carry-forward tasks, with planned date and overdue metadata. Upcoming Events widgets can be configured for 7, 14, or 30 day horizons. Recent Notes widgets can filter by folder and include descendant folders. Calendar, Notes, Category Overview, and Tracker compact widgets link to their full module pages. Occupied sheet tiles now expose subtle Open, Focus, and Configure actions in the tile header. Clicking a note opens a note preview modal with an Open in Notes link; clicking task or event text opens a lightweight preview with metadata and a link to Tasks or Calendar. Checkboxes still toggle task completion directly. Cells still allow internal scrolling when content is too long.
+Sheet widgets render in compact mode. The dashboard keeps normal widgets, while `/sheets` uses concise cell-friendly variants for task lists, notes, calendar events, category overview, and tracking totals. One-time and recurring task widgets show concise task counts, short lists, a more-count when clipped, and an action to Tasks. One-time task widgets can show either selected-date tasks or open/carry-forward tasks, with planned date and overdue metadata. Upcoming Events widgets can be configured for 7, 14, or 30 day horizons. Recent Notes widgets can filter by folder and include descendant folders. Calendar, Notes, Category Overview, and Tracker compact widgets link to their full module pages. Occupied sheet tiles expose subtle Open, Focus, and Configure actions in the tile header. Clicking a note opens a note preview modal with an Open in Notes link; clicking task or event text opens a lightweight preview with metadata and a link to Tasks or Calendar. Compact sheet task widgets use larger button-like completion controls for one-time and recurring tasks. Cells still allow internal scrolling when content is too long.
 
 Workspace Focus Mode v1 adds a temporary frontend-only Focus action to occupied sheet widgets. Focus mode opens the selected widget in a centered, enlarged overlay while the sheet remains preserved underneath. It uses the richer normal widget rendering for more breathing room, can be closed with the Close button or `Escape`, and is not persisted across refresh.
 
@@ -426,15 +428,15 @@ Sheet Widget Interaction Polish v1 keeps that frontend-only model and makes shee
 Sheets Visual Refinement v1 keeps that behavior intact and focuses on polish:
 
 - `/sheets` now reads more like a dedicated workspace canvas, with a warmer layered background, a softly separated sheet surface, and tile hover states that stay subtle.
-- The top-center workspace control has a stronger floating-control identity, a clearer active sheet label, grouped app links, grouped sheet controls, and visually separated advanced actions.
-- The workspace header shows the active sheet name plus its position in the sheet order, while previous/next controls keep the same simple navigation model.
+- Immersive Sheet Chrome v1 replaces the always-visible sheet header with top, side, and bottom edge controls.
+- The top edge menu carries workspace navigation and can be pinned, while the bottom edge menu carries sheet management and advanced actions.
 - Compact widgets use a calmer shared card treatment, softer list rows, clearer metadata, consistent empty states, and less default admin-table styling.
-- Motion is intentionally light: hover transitions and dropdown appearance only. There are no dramatic animations or new product behaviors.
+- Motion is intentionally light: hover transitions and panel appearance only. There are no dramatic animations or new product behaviors.
 
 Palette + Empty Slot Quick Add v1 added two small frontend-only refinements:
 
 - The default/current palette is named `Robot Vanilla`.
-- Users can switch the accent palette to `DuckBerry` or `BozzyWheat` from the app shell palette selector.
+- Users can switch the accent palette to `DuckBerry` or `BozzyWheat` from the app shell palette selector or the `/sheets` top Workspace dropdown.
 - Palette choice is stored in browser `localStorage`, not the backend.
 - Palette changes affect the global accent layer plus a subtle surface tint: primary buttons, focus rings, active/hover nav states, eyebrows, pills, sheet add affordances, selected sheet/widget accents, cards, panels, inputs, and other soft white surfaces.
 - Empty sheet slots show a soft plus/Add widget affordance.
@@ -548,7 +550,7 @@ Quick Add is a simple app-shell create panel available from every main page:
 - Search
 - Tracker
 
-Open it from the navigation bar with the `Quick Add` button. On Windows, `Ctrl+K` also opens it. The dashboard Quick Actions widget can also open the same app-shell Quick Add panel.
+Open it from the navigation bar with the `Quick Add` button, or from the top edge Workspace menu on `/sheets`. On Windows, `Ctrl+K` also opens it. The dashboard Quick Actions widget can also open the same app-shell Quick Add panel.
 
 Quick Add can create:
 
@@ -787,7 +789,7 @@ The frontend now has a small shared foundation to keep the MVP pages from feelin
 
 UI Foundation v1 gives the app a soft minimalist personal-workspace direction: warm off-white backgrounds, pale cream surfaces, muted sage/teal primary actions, lavender/sage supporting accents, soft rose danger actions, low-contrast borders, rounded cards, readable typography, and gentle shadows. The current/default palette is `Robot Vanilla`; `DuckBerry` and `BozzyWheat` are local-only palette options saved in browser `localStorage` that tint both accents and soft white surfaces.
 
-Dashboard widgets and sheet widgets now share a calmer card language. Sheets Visual Refinement v1 extends that foundation for `/sheets` with a dedicated workspace-canvas surface, softer tile elevation, more coherent compact widget rows, and a more intentional floating workspace dropdown while preserving the existing fixed 4x2 layout and behavior.
+Dashboard widgets and sheet widgets now share a calmer card language. Sheets Visual Refinement v1 extends that foundation for `/sheets` with a dedicated workspace-canvas surface, softer tile elevation, and more coherent compact widget rows. Immersive Sheet Chrome v1 keeps the fixed 4x2 layout but moves sheet navigation and management into edge controls so the grid reads as the primary workspace.
 
 Feature modules still own their product-specific API functions and page behavior. The shared layer is intentionally small and practical; it is not a full design system, brand system, or state framework.
 

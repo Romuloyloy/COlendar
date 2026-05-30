@@ -22,7 +22,11 @@ Sheets are the main workspace surface, and they should evolve gradually.
 - Sheets have a local-only Stark Mode toggle that darkens only the sheet workspace using the active palette.
 - Slot editing uses a frontend/code-defined widget library sourced from the existing dashboard widget registry.
 - Compact rendering matters.
-- The top-center workspace dropdown is part of the intended UX.
+- Immersive sheet chrome keeps `/sheets` full-viewport, with top, side, and bottom edge controls instead of always-visible page chrome.
+- The top edge workspace menu can be pinned, while the bottom edge menu owns sheet management actions.
+- Unpinned edge menus should close when clicking outside, while pinned top-menu state stays intentional.
+- Sheet changes should use a brief bottom-edge fade indicator instead of persistent extra chrome.
+- Palette and Sheets-only Stark controls belong together in the top workspace menu.
 
 ## Dashboard And Sheets
 
@@ -52,6 +56,7 @@ These should be implemented gradually, not all at once.
 - Keep focus mode temporary; do not persist it or turn it into floating windows.
 - Keep previews lightweight; full editing belongs in Tasks, Notes, Calendar, and other owning modules.
 - Keep compact widget rendering reliable inside the fixed grid.
+- Keep edge chrome lightweight and reversible; it should not become a replacement app shell outside `/sheets`.
 - Preserve support for duplicate widget instances on the same sheet.
 - Keep category-aware widgets scoped to shared task/note/event categories; tracker widgets remain category-free.
 - Keep sheet context optional and nullable; widgets that do not inherit it should continue to render normally.

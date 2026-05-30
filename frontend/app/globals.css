@@ -79,14 +79,41 @@ body {
   color: var(--color-text);
 }
 
-@keyframes sheetPanelIn {
+@keyframes sheetTopPanelIn {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.99);
+    transform: translateX(-50%) translateY(-6px) scale(0.99);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes sheetBottomPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes sheetChangeFade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  14%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
   }
 }
 
@@ -309,6 +336,9 @@ body {
   .sheet-stark .sheet-tile,
   .sheet-stark .sheet-floating-panel,
   .sheet-stark .sheet-control-chip,
+  .sheet-stark .sheet-edge-handle,
+  .sheet-stark .sheet-side-arrow,
+  .sheet-stark .sheet-task-complete,
   .sheet-stark .sheet-compact-card,
   .sheet-stark .sheet-focus-panel,
   .sheet-stark .sheet-focus-header,
@@ -331,13 +361,18 @@ body {
   .sheet-stark .sheet-size-option:hover:not(:disabled),
   .sheet-stark .app-button-secondary:hover,
   .sheet-stark .sheet-widget-action:hover,
-  .sheet-stark .sheet-focus-button:hover {
+  .sheet-stark .sheet-focus-button:hover,
+  .sheet-stark .sheet-side-arrow:hover,
+  .sheet-stark .sheet-task-complete:hover {
     background-color: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-surface)) !important;
   }
 
   .sheet-stark .app-button-secondary,
   .sheet-stark .sheet-widget-action,
   .sheet-stark .sheet-focus-button,
+  .sheet-stark .sheet-edge-handle,
+  .sheet-stark .sheet-side-arrow,
+  .sheet-stark .sheet-task-complete,
   .sheet-stark .app-pill,
   .sheet-stark .sheet-add-slot,
   .sheet-stark .sheet-add-icon,
@@ -384,8 +419,114 @@ body {
   }
 
   .sheet-surface {
-    @apply rounded-[28px] border border-[#ded6ca]/80 p-3 shadow-[0_18px_44px_rgb(82_70_55_/_0.07)] backdrop-blur-sm;
-    background-color: color-mix(in srgb, var(--color-surface) 40%, transparent);
+    @apply rounded-[24px] border border-[#ded6ca]/80 p-2 shadow-[0_18px_44px_rgb(82_70_55_/_0.07)] backdrop-blur-sm sm:p-3;
+    background-color: color-mix(in srgb, var(--color-surface) 32%, transparent);
+  }
+
+  .sheet-immersive-stage {
+    isolation: isolate;
+  }
+
+  .sheet-edge-zone {
+    @apply absolute left-0 right-0 z-30 flex justify-center;
+    pointer-events: none;
+  }
+
+  .sheet-top-edge {
+    @apply top-0 h-20 items-start pt-1.5;
+  }
+
+  .sheet-bottom-edge {
+    @apply bottom-0 h-24 items-end pb-1.5;
+  }
+
+  .sheet-edge-zone-open {
+    z-index: 35;
+  }
+
+  .sheet-edge-handle {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#d8d0c3]/90 px-3 py-1.5 text-xs font-semibold text-[#3b3732] shadow-[0_8px_22px_rgb(82_70_55_/_0.10)] backdrop-blur transition duration-200;
+    background-color: color-mix(in srgb, var(--color-surface) 88%, transparent);
+    opacity: 0.48;
+    pointer-events: auto;
+  }
+
+  .sheet-edge-handle:hover,
+  .sheet-edge-handle:focus-visible,
+  .sheet-edge-zone:hover .sheet-edge-handle,
+  .sheet-edge-zone:focus-within .sheet-edge-handle,
+  .sheet-edge-zone-open .sheet-edge-handle {
+    opacity: 1;
+    transform: translateY(1px);
+  }
+
+  .sheet-edge-handle-bottom:hover,
+  .sheet-edge-handle-bottom:focus-visible,
+  .sheet-bottom-edge:hover .sheet-edge-handle-bottom,
+  .sheet-bottom-edge:focus-within .sheet-edge-handle-bottom,
+  .sheet-bottom-edge.sheet-edge-zone-open .sheet-edge-handle-bottom {
+    transform: translateY(-1px);
+  }
+
+  .sheet-edge-handle-label {
+    @apply hidden sm:inline;
+  }
+
+  .sheet-top-panel-wrap {
+    @apply absolute left-1/2 top-12 w-[min(94vw,980px)] -translate-x-1/2 animate-[sheetTopPanelIn_180ms_ease-out];
+    pointer-events: auto;
+  }
+
+  .sheet-bottom-panel-wrap {
+    @apply absolute bottom-12 left-1/2 w-[min(96vw,1120px)] -translate-x-1/2 animate-[sheetBottomPanelIn_180ms_ease-out];
+    pointer-events: auto;
+  }
+
+  .sheet-edge-panel {
+    max-height: min(78vh, 680px);
+    overflow: auto;
+  }
+
+  .sheet-side-edge {
+    @apply absolute bottom-0 top-0 z-20 flex w-16 items-center opacity-0 transition duration-200;
+  }
+
+  .sheet-side-edge-left {
+    @apply left-0 justify-start pl-2;
+  }
+
+  .sheet-side-edge-right {
+    @apply right-0 justify-end pr-2;
+  }
+
+  .sheet-side-edge:hover,
+  .sheet-side-edge:focus-within {
+    opacity: 1;
+  }
+
+  .sheet-side-arrow {
+    @apply flex size-12 items-center justify-center rounded-full border border-[#d8d0c3]/90 text-3xl font-semibold text-[#3b3732] shadow-[0_10px_26px_rgb(82_70_55_/_0.12)] backdrop-blur transition disabled:cursor-not-allowed disabled:opacity-20;
+    background-color: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  }
+
+  .sheet-side-arrow:hover:not(:disabled) {
+    border-color: var(--color-primary-ring);
+    background-color: var(--color-primary-soft);
+    transform: scale(1.03);
+  }
+
+  .sheet-change-indicator {
+    @apply pointer-events-none absolute inset-x-0 bottom-5 z-20 animate-[sheetChangeFade_1400ms_ease-in-out_forwards];
+  }
+
+  .sheet-change-name {
+    @apply mx-auto w-fit rounded-full border border-[#d8d0c3]/80 px-4 py-2 text-sm font-semibold text-[#3b3732] shadow-[0_8px_22px_rgb(82_70_55_/_0.10)] backdrop-blur;
+    background-color: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  }
+
+  .sheet-change-position {
+    @apply absolute bottom-0 right-5 rounded-full border border-[#d8d0c3]/80 px-3 py-1.5 text-xs font-semibold text-[#766f66] shadow-[0_8px_22px_rgb(82_70_55_/_0.08)] backdrop-blur;
+    background-color: color-mix(in srgb, var(--color-surface) 82%, transparent);
   }
 
   .sheet-tile {
@@ -576,6 +717,27 @@ body {
   .sheet-scroll::-webkit-scrollbar-thumb {
     background: #cbbfb0;
     border-radius: 999px;
+  }
+
+  .sheet-task-complete {
+    @apply mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl border border-[#ded6ca] text-sm font-semibold text-[#766f66] shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55;
+    background-color: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  }
+
+  .sheet-task-complete:hover:not(:disabled) {
+    border-color: var(--color-primary-ring);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-strong);
+  }
+
+  .sheet-task-complete-on {
+    border-color: color-mix(in srgb, var(--color-primary) 74%, #ded6ca);
+    background-color: color-mix(in srgb, var(--color-primary-soft) 82%, var(--color-surface));
+    color: var(--color-primary-strong);
+  }
+
+  .sheet-task-complete-mark {
+    @apply flex size-4 items-center justify-center rounded-md border border-current text-[11px] leading-none;
   }
 }
 

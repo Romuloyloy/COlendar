@@ -67,7 +67,7 @@ Dashboard widgets and sheet widgets should feel related, while sheet widgets may
 
 `/sheets` is the long-term workspace identity. Its visual style should feel like a soft workspace canvas:
 
-- floating top-center controls
+- immersive top, side, and bottom edge controls
 - calm tile-like sheet cells
 - compact readable widgets
 - controlled `1x1`, `2x1`, `1x2`, and `2x2` widget spans that visually merge covered cells
@@ -81,12 +81,18 @@ Sheets Visual Refinement v1 adds a more intentional workspace layer without chan
 - a warm layered canvas behind the fixed grid
 - a lightly separated sheet surface around the 4x2 cells
 - soft tile hover states and contained internal slot scrolling
-- a clearer active-sheet header with sheet order context
-- a floating workspace dropdown with grouped navigation, sheet controls, and advanced actions
+- clearer active-sheet identity inside edge chrome
+- edge-based workspace and management menus with grouped navigation, sheet controls, and dangerous actions
 - compact widget cards with consistent row, metadata, metric, empty, and link treatments
-- light motion only for hover and dropdown entrance
-- empty slots that show a soft add affordance and open Quick Add in normal viewing mode
+- light motion only for hover and panel entrance
+- empty slots that show a soft add affordance and open slot editing in normal viewing mode
 - a calm slot editor with a grouped widget library for configuration mode
+
+Immersive Sheet Chrome v1 keeps the same fixed grid and widget model, but hides the global app shell on `/sheets`. The workspace menu appears from a top edge handle, can be pinned, and carries app navigation, Quick Add, date selection, sheet jump selection, and Stark Mode. Sheet management lives in a bottom edge menu, while previous/next sheet arrows live on the left and right viewport edges.
+
+Sheet Chrome Polish v2 keeps that structure calm and predictable: unpinned edge menus close on outside click, the pinned top menu remains open until explicitly closed, top and bottom dropdowns animate from their actual centered positions, palette and Stark controls live together in the top dropdown, sheet changes briefly fade the sheet name and order into the bottom edge, and success notices auto-clear.
+
+Compact task widgets should use a larger, button-like completion control instead of a tiny checkbox. It should stay calm, rounded, and no taller than the compact task row.
 
 Widget Library + Slot Editor UX v2 keeps the library frontend/code-defined. Widget cards should be compact and readable, show a widget name, group/type, short preview, and configuration support, and keep duplicate widget instances possible by assigning widgets to individual slots.
 

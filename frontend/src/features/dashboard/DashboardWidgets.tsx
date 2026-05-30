@@ -189,6 +189,34 @@ function CompactEmpty({ message }: { message: string }) {
   return <p className="sheet-compact-muted-box">{message}</p>;
 }
 
+function SheetTaskCompletionButton({
+  checked,
+  disabled,
+  label,
+  onToggle,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      aria-checked={checked}
+      aria-label={label}
+      className={`sheet-task-complete ${
+        checked ? "sheet-task-complete-on" : ""
+      }`}
+      disabled={disabled}
+      onClick={onToggle}
+      role="checkbox"
+      type="button"
+    >
+      <span className="sheet-task-complete-mark">{checked ? "✓" : ""}</span>
+    </button>
+  );
+}
+
 function StatCell({
   label,
   value,
@@ -360,12 +388,11 @@ export function DailyTasksWidget({
           ) : (
             tasks.slice(0, 5).map((task) => (
               <div className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
-                <input
+                <SheetTaskCompletionButton
                   checked={task.is_completed}
-                  className="mt-1"
                   disabled={isSaving}
-                  onChange={() => onToggleDailyTask(task)}
-                  type="checkbox"
+                  label={`${task.is_completed ? "Mark incomplete" : "Complete"} ${task.title}`}
+                  onToggle={() => onToggleDailyTask(task)}
                 />
                 <button
                   className={`min-w-0 flex-1 truncate text-left ${
@@ -501,12 +528,11 @@ export function WeeklyTasksWidget({
           ) : (
             tasks.slice(0, 5).map((task) => (
               <div className="sheet-compact-list-item flex min-w-0 items-start gap-2 text-sm" key={task.id}>
-                <input
+                <SheetTaskCompletionButton
                   checked={task.is_completed}
-                  className="mt-1"
                   disabled={isSaving}
-                  onChange={() => onToggleWeeklyTask(task)}
-                  type="checkbox"
+                  label={`${task.is_completed ? "Mark incomplete" : "Complete"} ${task.title}`}
+                  onToggle={() => onToggleWeeklyTask(task)}
                 />
                 <button
                   className={`min-w-0 flex-1 truncate text-left ${

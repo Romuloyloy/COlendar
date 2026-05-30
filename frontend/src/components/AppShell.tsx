@@ -26,6 +26,13 @@ import {
   inputClassName,
 } from "@/components/ui";
 import { todayIsoDate } from "@/lib/date";
+import {
+  applyPalette,
+  PALETTE_CHANGED_EVENT,
+  palettes,
+  savedPalette,
+  type PaletteValue,
+} from "@/lib/palette";
 
 const navItems = [
   ["Sheets", "/sheets"],
@@ -37,16 +44,6 @@ const navItems = [
   ["Calendar", "/calendar"],
   ["Tracker", "/tracker"],
 ];
-
-const PALETTE_STORAGE_KEY = "calendar:palette";
-
-const palettes = [
-  { value: "robot-vanilla", label: "Robot Vanilla" },
-  { value: "duckberry", label: "DuckBerry" },
-  { value: "bozzywheat", label: "BozzyWheat" },
-] as const;
-
-type PaletteValue = (typeof palettes)[number]["value"];
 
 const quickAddTypes = [
   { value: "daily-task", label: "One-time Task" },
@@ -153,20 +150,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [palette, setPalette] = useState<PaletteValue>("robot-vanilla");
   const pathname = usePathname();
+  const isSheetsRoute = pathname === "/sheets" || pathname.startsWith("/sheets/");
 
   useEffect(() => {
-    const savedPalette = window.localStorage.getItem(PALETTE_STORAGE_KEY);
-    const nextPalette = isPaletteValue(savedPalette)
-      ? savedPalette
-      : "robot-vanilla";
+    const nextPalette = savedPalette();
     setPalette(nextPalette);
     document.documentElement.dataset.palette = nextPalette;
+
+    function handlePaletteChange(event: Event) {
+      setPalette((event as CustomEvent<PaletteValue>).detail);
+    }
+
+    window.addEventListener(PALETTE_CHANGED_EVENT, handlePaletteChange);
+    return () =>
+      window.removeEventListener(PALETTE_CHANGED_EVENT, handlePaletteChange);
   }, []);
 
   function updatePalette(nextPalette: PaletteValue) {
     setPalette(nextPalette);
-    window.localStorage.setItem(PALETTE_STORAGE_KEY, nextPalette);
-    document.documentElement.dataset.palette = nextPalette;
+    applyPalette(nextPalette);
   }
 
   useEffect(() => {
@@ -193,52 +195,54 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="app-shell-header">
-        <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link className="text-lg font-semibold text-[#2c2925]" href="/sheets">
-            COlendar
-          </Link>
-          <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-            {navItems.map(([label, href]) => (
-              <Link
-                className={`app-nav-link ${
-                  isActiveNavItem(pathname, href) ? "app-nav-link-active" : ""
-                }`}
-                href={href}
-                key={href}
-              >
-                {label}
-              </Link>
-            ))}
-            <label className="sr-only" htmlFor="app-palette">
-              Palette
-            </label>
-            <select
-              className="app-palette-select"
-              id="app-palette"
-              onChange={(event) =>
-                updatePalette(event.target.value as PaletteValue)
-              }
-              title="Palette"
-              value={palette}
-            >
-              {palettes.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
+      {!isSheetsRoute ? (
+        <header className="app-shell-header">
+          <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
+            <Link className="text-lg font-semibold text-[#2c2925]" href="/sheets">
+              COlendar
+            </Link>
+            <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+              {navItems.map(([label, href]) => (
+                <Link
+                  className={`app-nav-link ${
+                    isActiveNavItem(pathname, href) ? "app-nav-link-active" : ""
+                  }`}
+                  href={href}
+                  key={href}
+                >
+                  {label}
+                </Link>
               ))}
-            </select>
-            <AppButton
-              className="min-h-9 px-3 py-1.5"
-              variant="primary"
-              onClick={() => setIsQuickAddOpen(true)}
-              type="button"
-            >
-              Quick Add
-            </AppButton>
-          </div>
-        </nav>
-      </header>
+              <label className="sr-only" htmlFor="app-palette">
+                Palette
+              </label>
+              <select
+                className="app-palette-select"
+                id="app-palette"
+                onChange={(event) =>
+                  updatePalette(event.target.value as PaletteValue)
+                }
+                title="Palette"
+                value={palette}
+              >
+                {palettes.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <AppButton
+                className="min-h-9 px-3 py-1.5"
+                variant="primary"
+                onClick={() => setIsQuickAddOpen(true)}
+                type="button"
+              >
+                Quick Add
+              </AppButton>
+            </div>
+          </nav>
+        </header>
+      ) : null}
       {children}
       <QuickAddModal
         isOpen={isQuickAddOpen}
@@ -246,10 +250,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
     </>
   );
-}
-
-function isPaletteValue(value: string | null): value is PaletteValue {
-  return palettes.some((palette) => palette.value === value);
 }
 
 function isActiveNavItem(pathname: string, href: string) {

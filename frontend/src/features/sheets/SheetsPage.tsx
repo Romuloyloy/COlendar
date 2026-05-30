@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import {
   createSheet,
@@ -48,7 +56,6 @@ import {
 } from "@/features/tasks/api";
 import type { TaskCategory } from "@/features/tasks/types";
 import {
-  AppButton,
   DateNavigator,
   ErrorState,
   LoadingState,
@@ -56,6 +63,12 @@ import {
   inputClassName,
 } from "@/components/ui";
 import { formatDisplayDate, formatTime, todayIsoDate } from "@/lib/date";
+import {
+  applyPalette,
+  palettes,
+  savedPalette,
+  type PaletteValue,
+} from "@/lib/palette";
 
 const SLOT_COUNT = 8;
 const GRID_COLUMNS = 4;
@@ -115,6 +128,11 @@ type PendingConfirmation = {
   onConfirm: () => Promise<void>;
 } | null;
 
+type SheetChangeIndicator = {
+  name: string;
+  position: string;
+} | null;
+
 export function SheetsPage() {
   const [selectedDate, setSelectedDate] = useState(todayIsoDate());
   const [sheets, setSheets] = useState<Sheet[]>([]);
@@ -131,7 +149,12 @@ export function SheetsPage() {
   const [renameValue, setRenameValue] = useState("");
   const [sheetContextCategoryId, setSheetContextCategoryId] = useState("");
   const [isControlOpen, setIsControlOpen] = useState(false);
+  const [isTopMenuPinned, setIsTopMenuPinned] = useState(false);
+  const [isBottomMenuOpen, setIsBottomMenuOpen] = useState(false);
   const [isStarkMode, setIsStarkMode] = useState(false);
+  const [palette, setPalette] = useState<PaletteValue>("robot-vanilla");
+  const [sheetChangeIndicator, setSheetChangeIndicator] =
+    useState<SheetChangeIndicator>(null);
   const [isSlotEditorOpen, setIsSlotEditorOpen] = useState(false);
   const [focusedSlotIndex, setFocusedSlotIndex] = useState<number | null>(null);
   const [editingSlotIndex, setEditingSlotIndex] = useState(0);
@@ -146,6 +169,9 @@ export function SheetsPage() {
   const [previewWeeklyTask, setPreviewWeeklyTask] =
     useState<DashboardWeeklyTask | null>(null);
   const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
+  const topMenuRef = useRef<HTMLDivElement>(null);
+  const bottomMenuRef = useRef<HTMLDivElement>(null);
+  const hasSelectedInitialSheet = useRef(false);
 
   const selectedSheetIndex = useMemo(
     () => sheets.findIndex((sheet) => sheet.id === selectedSheetId),
@@ -231,6 +257,11 @@ export function SheetsPage() {
     setSummary(data);
   }
 
+  function updatePalette(nextPalette: PaletteValue) {
+    setPalette(nextPalette);
+    applyPalette(nextPalette);
+  }
+
   async function loadCategories() {
     const data = await getTaskCategories();
     setCategories(data);
@@ -247,6 +278,7 @@ export function SheetsPage() {
     setIsStarkMode(
       window.localStorage.getItem(SHEETS_STARK_MODE_STORAGE_KEY) === "true",
     );
+    setPalette(savedPalette());
 
     loadSheets()
       .then((sheetId) =>
@@ -260,6 +292,62 @@ export function SheetsPage() {
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (selectedSheetId === null) {
+      return;
+    }
+
+    if (!hasSelectedInitialSheet.current) {
+      hasSelectedInitialSheet.current = true;
+      return;
+    }
+
+    const selectedIndex = sheets.findIndex((sheet) => sheet.id === selectedSheetId);
+    const selectedSheet = sheets[selectedIndex];
+    if (!selectedSheet || selectedIndex < 0) {
+      return;
+    }
+
+    setSheetChangeIndicator({
+      name: selectedSheet.name,
+      position: `${selectedIndex + 1} / ${sheets.length}`,
+    });
+
+    const timeoutId = window.setTimeout(
+      () => setSheetChangeIndicator(null),
+      1400,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedSheetId, sheets]);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setNotice(null), 2200);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (
+        isControlOpen &&
+        !isTopMenuPinned &&
+        !topMenuRef.current?.contains(target)
+      ) {
+        setIsControlOpen(false);
+      }
+      if (isBottomMenuOpen && !bottomMenuRef.current?.contains(target)) {
+        setIsBottomMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [isBottomMenuOpen, isControlOpen, isTopMenuPinned]);
 
   useEffect(() => {
     if (selectedSheetId === null) {
@@ -313,14 +401,25 @@ export function SheetsPage() {
           setIsSlotEditorOpen(false);
           return;
         }
-        if (isControlOpen) {
+        if (isBottomMenuOpen) {
+          event.preventDefault();
+          setIsBottomMenuOpen(false);
+          return;
+        }
+        if (isControlOpen && !isTopMenuPinned) {
           event.preventDefault();
           setIsControlOpen(false);
         }
         return;
       }
 
-      if (focusedSlotIndex !== null || isSlotEditorOpen || isControlOpen) {
+      if (
+        focusedSlotIndex !== null ||
+        isSlotEditorOpen ||
+        isControlOpen ||
+        isTopMenuPinned ||
+        isBottomMenuOpen
+      ) {
         return;
       }
 
@@ -348,8 +447,10 @@ export function SheetsPage() {
     return () => window.removeEventListener("keydown", handleWorkspaceKeyDown);
   }, [
     focusedSlotIndex,
+    isBottomMenuOpen,
     isControlOpen,
     isSlotEditorOpen,
+    isTopMenuPinned,
     selectedSheetIndex,
     sheets.length,
   ]);
@@ -727,88 +828,84 @@ export function SheetsPage() {
 
   return (
     <main
-      className={`sheet-canvas relative h-[calc(100vh-73px)] min-h-[680px] overflow-hidden text-[#2c2925] ${
+      className={`sheet-canvas relative h-screen min-h-[620px] overflow-hidden text-[#2c2925] ${
         isStarkMode ? "sheet-stark" : ""
       }`}
     >
-      <TopCenterControls
+      <TopEdgeWorkspaceMenu
         currentSheetName={currentSheetName}
         currentSheetContextCategory={currentSheetContextCategory}
-        isControlOpen={isControlOpen}
+        isOpen={isControlOpen || isTopMenuPinned}
+        isPinned={isTopMenuPinned}
         isSaving={isSaving}
         isStarkMode={isStarkMode}
+        menuRef={topMenuRef}
+        onOpenQuickAdd={openQuickAdd}
+        onPaletteChange={updatePalette}
+        onSelectedSheetChange={selectSheet}
+        onSetControlOpen={setIsControlOpen}
+        onSetPinned={setIsTopMenuPinned}
+        onSetStarkMode={updateStarkMode}
+        palette={palette}
+        selectedDate={selectedDate}
+        selectedDateLabel={selectedDateLabel}
+        selectedSheetId={selectedSheetId}
+        selectedSheetIndex={selectedSheetIndex}
+        setSelectedDate={setSelectedDate}
+        sheets={sheets}
+      />
+
+      <SheetEdgeNavigation
+        isSaving={isSaving}
+        onNextSheet={selectNextSheet}
+        onPreviousSheet={selectPreviousSheet}
+        selectedSheetIndex={selectedSheetIndex}
+        sheetCount={sheets.length}
+      />
+
+      <BottomSheetManagementMenu
         categories={categories}
+        currentSheetName={currentSheetName}
+        currentSheetContextCategory={currentSheetContextCategory}
+        isOpen={isBottomMenuOpen}
+        isSaving={isSaving}
+        menuRef={bottomMenuRef}
         newSheetName={newSheetName}
         newSheetContextCategoryId={newSheetContextCategoryId}
         onCreateSheet={handleCreateSheet}
         onMoveSheetLeft={handleMoveSheetLeft}
         onMoveSheetRight={handleMoveSheetRight}
-        onNextSheet={selectNextSheet}
-        onOpenQuickAdd={openQuickAdd}
-        onOpenSlotEditor={() => openSlotEditor()}
-        onPreviousSheet={selectPreviousSheet}
+        onOpenSlotEditor={() => {
+          openSlotEditor();
+          setIsBottomMenuOpen(false);
+        }}
         onRenameSheet={handleRenameSheet}
         onRequestDeleteSheet={requestDeleteSheet}
         onResetCurrentSheetFromDashboard={requestResetCurrentSheetFromDashboard}
         onResetSheets={requestResetSheets}
-        onSelectedSheetChange={selectSheet}
-        onSetControlOpen={setIsControlOpen}
-        onSetStarkMode={updateStarkMode}
+        onSetOpen={setIsBottomMenuOpen}
         renameValue={renameValue}
-        sheetContextCategoryId={sheetContextCategoryId}
-        selectedDate={selectedDate}
-        selectedDateLabel={selectedDateLabel}
         selectedSheetId={selectedSheetId}
         selectedSheetIndex={selectedSheetIndex}
         setNewSheetContextCategoryId={setNewSheetContextCategoryId}
         setNewSheetName={setNewSheetName}
-        setSheetContextCategoryId={setSheetContextCategoryId}
         setRenameValue={setRenameValue}
-        setSelectedDate={setSelectedDate}
-        sheets={sheets}
+        setSheetContextCategoryId={setSheetContextCategoryId}
+        sheetContextCategoryId={sheetContextCategoryId}
+        sheetCount={sheets.length}
       />
 
-      <section className="flex h-full flex-col px-6 pb-6 pt-16">
-        <div className="mb-3 grid min-h-12 grid-cols-[minmax(120px,1fr)_minmax(0,2fr)_minmax(120px,1fr)] items-center gap-4">
-          <AppButton
-            className="justify-self-start shadow-sm"
-            disabled={isSaving || selectedSheetIndex <= 0}
-            onClick={selectPreviousSheet}
-            type="button"
-          >
-            Previous
-          </AppButton>
-          <div className="min-w-0 text-center">
-            <p className="app-eyebrow">
-              Sheet Workspace
-            </p>
-            <h1 className="truncate text-2xl font-semibold text-[#2c2925]">
-              {currentSheetName}
-            </h1>
-            <p className="mt-1 text-xs font-medium text-[#766f66]">
-              {selectedSheetIndex >= 0
-                ? `${selectedSheetIndex + 1} of ${sheets.length} sheets`
-                : "Preparing workspace"}
-              {currentSheetContextCategory
-                ? ` / Sheet context: ${currentSheetContextCategory.name}`
-                : " / No sheet context"}
-            </p>
+      {sheetChangeIndicator ? (
+        <div aria-live="polite" className="sheet-change-indicator">
+          <div className="sheet-change-name">{sheetChangeIndicator.name}</div>
+          <div className="sheet-change-position">
+            {sheetChangeIndicator.position}
           </div>
-          <AppButton
-            className="justify-self-end shadow-sm"
-            disabled={
-              isSaving ||
-              selectedSheetIndex < 0 ||
-              selectedSheetIndex >= sheets.length - 1
-            }
-            onClick={selectNextSheet}
-            type="button"
-          >
-            Next
-          </AppButton>
         </div>
+      ) : null}
 
-        <div className="mb-3 min-h-10">
+      <section className="sheet-immersive-stage flex h-full flex-col px-2 pb-2 pt-2 sm:px-3 sm:pb-3 sm:pt-3">
+        <div className="pointer-events-none absolute left-1/2 top-14 z-20 w-[min(92vw,640px)] -translate-x-1/2">
           {error ? <ErrorState message={error} /> : null}
           {!error && notice ? <NoticeState message={notice} /> : null}
         </div>
@@ -899,330 +996,478 @@ export function SheetsPage() {
     </main>
   );
 }
-function TopCenterControls({
+
+function TopEdgeWorkspaceMenu({
+  currentSheetName,
+  currentSheetContextCategory,
+  isOpen,
+  isPinned,
+  isSaving,
+  isStarkMode,
+  menuRef,
+  onOpenQuickAdd,
+  onPaletteChange,
+  onSelectedSheetChange,
+  onSetControlOpen,
+  onSetPinned,
+  onSetStarkMode,
+  palette,
+  selectedDate,
+  selectedDateLabel,
+  selectedSheetId,
+  selectedSheetIndex,
+  setSelectedDate,
+  sheets,
+}: {
+  currentSheetName: string;
+  currentSheetContextCategory: TaskCategory | null;
+  isOpen: boolean;
+  isPinned: boolean;
+  isSaving: boolean;
+  isStarkMode: boolean;
+  menuRef: RefObject<HTMLDivElement | null>;
+  onOpenQuickAdd: () => void;
+  onPaletteChange: (palette: PaletteValue) => void;
+  onSelectedSheetChange: (sheetId: number) => void;
+  onSetControlOpen: (isOpen: boolean) => void;
+  onSetPinned: (isPinned: boolean) => void;
+  onSetStarkMode: (isStarkMode: boolean) => void;
+  palette: PaletteValue;
+  selectedDate: string;
+  selectedDateLabel: string;
+  selectedSheetId: number | null;
+  selectedSheetIndex: number;
+  setSelectedDate: (value: string) => void;
+  sheets: Sheet[];
+}) {
+  const sheetPosition =
+    selectedSheetIndex >= 0
+      ? `${selectedSheetIndex + 1} of ${sheets.length}`
+      : "Preparing";
+
+  function togglePinned() {
+    const nextPinned = !isPinned;
+    onSetPinned(nextPinned);
+    onSetControlOpen(nextPinned);
+  }
+
+  function closeMenu() {
+    onSetPinned(false);
+    onSetControlOpen(false);
+  }
+
+  return (
+    <div
+      className={`sheet-edge-zone sheet-top-edge ${
+        isOpen ? "sheet-edge-zone-open" : ""
+      }`}
+      ref={menuRef}
+    >
+      <button
+        aria-expanded={isOpen}
+        aria-label="Open workspace menu"
+        className="sheet-edge-handle sheet-edge-handle-top"
+        onClick={() => onSetControlOpen(!isOpen)}
+        type="button"
+      >
+        <span aria-hidden="true">v</span>
+        <span className="sheet-edge-handle-label">Workspace</span>
+      </button>
+
+      {isOpen ? (
+        <div className="sheet-top-panel-wrap">
+          <div className="sheet-floating-panel sheet-edge-panel p-4">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+              <div className="min-w-0">
+                <p className="app-eyebrow">Workspace</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <h1 className="max-w-full truncate text-lg font-semibold text-[#2c2925]">
+                    {currentSheetName}
+                  </h1>
+                  <span className="app-pill px-2 py-0.5 text-[11px]">
+                    {sheetPosition}
+                  </span>
+                  {currentSheetContextCategory ? (
+                    <span className="app-pill px-2 py-0.5 text-[11px]">
+                      {currentSheetContextCategory.name}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {workspaceLinks.map(([label, href]) => (
+                    <Link
+                      className="app-button-secondary min-h-9 px-3 py-2 text-center text-xs"
+                      href={href}
+                      key={href}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid min-w-[260px] gap-3">
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <select
+                    className={inputClassName}
+                    disabled={isSaving || sheets.length === 0}
+                    onChange={(event) =>
+                      onSelectedSheetChange(Number(event.target.value))
+                    }
+                    value={selectedSheetId ?? ""}
+                  >
+                    {sheets.map((sheet) => (
+                      <option key={sheet.id} value={sheet.id}>
+                        {sheet.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="app-button-primary min-h-10 px-3"
+                    onClick={onOpenQuickAdd}
+                    type="button"
+                  >
+                    Quick Add
+                  </button>
+                </div>
+                <DateNavigator
+                  label={`Widget date (${selectedDateLabel})`}
+                  onChange={setSelectedDate}
+                  value={selectedDate}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="grid gap-1 text-xs font-semibold text-[#3b3732]">
+                    Palette
+                    <select
+                      className={inputClassName}
+                      onChange={(event) =>
+                        onPaletteChange(event.target.value as PaletteValue)
+                      }
+                      value={palette}
+                    >
+                      {palettes.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="sheet-stark-toggle flex min-h-10 items-center gap-2 rounded-full border border-[#ded6ca] px-3 text-sm font-semibold text-[#3b3732]">
+                    <input
+                      checked={isStarkMode}
+                      className="h-4 w-4 accent-[var(--color-primary)]"
+                      onChange={(event) => onSetStarkMode(event.target.checked)}
+                      type="checkbox"
+                    />
+                    Stark
+                  </label>
+                  <button
+                    aria-pressed={isPinned}
+                    className={`app-button-secondary min-h-10 px-3 ${
+                      isPinned ? "border-[var(--color-primary-ring)]" : ""
+                    }`}
+                    onClick={togglePinned}
+                    type="button"
+                  >
+                    {isPinned ? "Pinned" : "Pin"}
+                  </button>
+                  <button
+                    className="app-button-secondary min-h-10 px-3"
+                    onClick={closeMenu}
+                    type="button"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SheetEdgeNavigation({
+  isSaving,
+  onNextSheet,
+  onPreviousSheet,
+  selectedSheetIndex,
+  sheetCount,
+}: {
+  isSaving: boolean;
+  onNextSheet: () => void;
+  onPreviousSheet: () => void;
+  selectedSheetIndex: number;
+  sheetCount: number;
+}) {
+  return (
+    <>
+      <div className="sheet-side-edge sheet-side-edge-left">
+        <button
+          aria-label="Previous sheet"
+          className="sheet-side-arrow"
+          disabled={isSaving || selectedSheetIndex <= 0}
+          onClick={onPreviousSheet}
+          type="button"
+        >
+          &lt;
+        </button>
+      </div>
+      <div className="sheet-side-edge sheet-side-edge-right">
+        <button
+          aria-label="Next sheet"
+          className="sheet-side-arrow"
+          disabled={
+            isSaving ||
+            selectedSheetIndex < 0 ||
+            selectedSheetIndex >= sheetCount - 1
+          }
+          onClick={onNextSheet}
+          type="button"
+        >
+          &gt;
+        </button>
+      </div>
+    </>
+  );
+}
+
+function BottomSheetManagementMenu({
   categories,
   currentSheetName,
   currentSheetContextCategory,
-  isControlOpen,
+  isOpen,
   isSaving,
-  isStarkMode,
+  menuRef,
   newSheetName,
   newSheetContextCategoryId,
   onCreateSheet,
   onMoveSheetLeft,
   onMoveSheetRight,
-  onNextSheet,
-  onOpenQuickAdd,
   onOpenSlotEditor,
-  onPreviousSheet,
   onRenameSheet,
   onRequestDeleteSheet,
   onResetCurrentSheetFromDashboard,
   onResetSheets,
-  onSelectedSheetChange,
-  onSetControlOpen,
-  onSetStarkMode,
+  onSetOpen,
   renameValue,
-  selectedDate,
-  selectedDateLabel,
   selectedSheetId,
   selectedSheetIndex,
   setNewSheetContextCategoryId,
   setNewSheetName,
   setRenameValue,
   setSheetContextCategoryId,
-  setSelectedDate,
   sheetContextCategoryId,
-  sheets,
+  sheetCount,
 }: {
   categories: TaskCategory[];
   currentSheetName: string;
   currentSheetContextCategory: TaskCategory | null;
-  isControlOpen: boolean;
+  isOpen: boolean;
   isSaving: boolean;
-  isStarkMode: boolean;
+  menuRef: RefObject<HTMLDivElement | null>;
   newSheetName: string;
   newSheetContextCategoryId: string;
   onCreateSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onMoveSheetLeft: () => Promise<void>;
   onMoveSheetRight: () => Promise<void>;
-  onNextSheet: () => void;
-  onOpenQuickAdd: () => void;
   onOpenSlotEditor: () => void;
-  onPreviousSheet: () => void;
   onRenameSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onRequestDeleteSheet: () => void;
   onResetCurrentSheetFromDashboard: () => void;
   onResetSheets: () => void;
-  onSelectedSheetChange: (sheetId: number) => void;
-  onSetControlOpen: (isOpen: boolean) => void;
-  onSetStarkMode: (isStarkMode: boolean) => void;
+  onSetOpen: (isOpen: boolean) => void;
   renameValue: string;
-  selectedDate: string;
-  selectedDateLabel: string;
   selectedSheetId: number | null;
   selectedSheetIndex: number;
   setNewSheetContextCategoryId: (value: string) => void;
   setNewSheetName: (value: string) => void;
   setRenameValue: (value: string) => void;
   setSheetContextCategoryId: (value: string) => void;
-  setSelectedDate: (value: string) => void;
   sheetContextCategoryId: string;
-  sheets: Sheet[];
+  sheetCount: number;
 }) {
   return (
-    <div className="absolute left-1/2 top-3 z-30 w-[min(92vw,780px)] -translate-x-1/2">
-      <div className="flex justify-center">
-        <button
-          aria-expanded={isControlOpen}
-          className="sheet-control-chip"
-          onClick={() => onSetControlOpen(!isControlOpen)}
-          type="button"
-        >
-          <span className="text-[var(--color-primary)]">Workspace</span>
-          <span className="mx-2 text-[#cbbfb0]">/</span>
-          {currentSheetName}
-          {currentSheetContextCategory ? (
-            <span className="ml-2 text-xs text-[#766f66]">
-              {currentSheetContextCategory.name}
-            </span>
-          ) : null}
-        </button>
-      </div>
-
-      {isControlOpen ? (
-        <div className="sheet-floating-panel mt-3 animate-[sheetPanelIn_160ms_ease-out] p-4">
-          <div className="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
-            <section>
-              <p className="app-eyebrow">
-                App Areas
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {workspaceLinks.map(([label, href]) => (
-                  <Link
-                    className="app-button-secondary min-h-9 px-3 py-2 text-center text-xs"
-                    href={href}
-                    key={href}
+    <div
+      className={`sheet-edge-zone sheet-bottom-edge ${
+        isOpen ? "sheet-edge-zone-open" : ""
+      }`}
+      ref={menuRef}
+    >
+      {isOpen ? (
+        <div className="sheet-bottom-panel-wrap">
+          <div className="sheet-floating-panel sheet-edge-panel p-4">
+            <div className="grid gap-4 xl:grid-cols-[0.8fr_1fr_1fr]">
+              <section className="min-w-0">
+                <p className="app-eyebrow">Sheet</p>
+                <h2 className="mt-1 truncate text-lg font-semibold text-[#2c2925]">
+                  {currentSheetName}
+                </h2>
+                <p className="app-muted mt-1 text-xs font-medium">
+                  {currentSheetContextCategory
+                    ? `Context: ${currentSheetContextCategory.name}`
+                    : "No sheet context"}
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  <button
+                    className="app-button-primary"
+                    disabled={isSaving || selectedSheetId === null}
+                    onClick={onOpenSlotEditor}
+                    type="button"
                   >
-                    {label}
-                  </Link>
-                ))}
-              </div>
+                    Customize slots
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className="app-button-secondary"
+                      disabled={isSaving || selectedSheetIndex <= 0}
+                      onClick={onMoveSheetLeft}
+                      type="button"
+                    >
+                      Move left
+                    </button>
+                    <button
+                      className="app-button-secondary"
+                      disabled={
+                        isSaving ||
+                        selectedSheetIndex < 0 ||
+                        selectedSheetIndex >= sheetCount - 1
+                      }
+                      onClick={onMoveSheetRight}
+                      type="button"
+                    >
+                      Move right
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <p className="app-eyebrow">Create Sheet</p>
+                <form className="mt-2 grid gap-2" onSubmit={onCreateSheet}>
+                  <input
+                    className={inputClassName}
+                    onChange={(event) => setNewSheetName(event.target.value)}
+                    placeholder="New sheet name"
+                    required
+                    type="text"
+                    value={newSheetName}
+                  />
+                  <select
+                    className={inputClassName}
+                    disabled={isSaving}
+                    onChange={(event) =>
+                      setNewSheetContextCategoryId(event.target.value)
+                    }
+                    value={newSheetContextCategoryId}
+                  >
+                    <option value="">No sheet context</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="app-button-primary"
+                    disabled={isSaving}
+                    type="submit"
+                  >
+                    Create
+                  </button>
+                </form>
+              </section>
+
+              <section>
+                <p className="app-eyebrow">Rename / Context</p>
+                <form className="mt-2 grid gap-2" onSubmit={onRenameSheet}>
+                  <input
+                    className={inputClassName}
+                    disabled={isSaving || selectedSheetId === null}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    required
+                    type="text"
+                    value={renameValue}
+                  />
+                  <select
+                    className={inputClassName}
+                    disabled={isSaving || selectedSheetId === null}
+                    onChange={(event) =>
+                      setSheetContextCategoryId(event.target.value)
+                    }
+                    value={sheetContextCategoryId}
+                  >
+                    <option value="">No sheet context</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="app-button-secondary"
+                    disabled={isSaving || selectedSheetId === null}
+                    type="submit"
+                  >
+                    Save sheet
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#ded6ca] pt-3">
               <button
-                className="app-button-primary mt-3 w-full"
-                onClick={onOpenQuickAdd}
+                className="app-button-danger"
+                disabled={isSaving || selectedSheetId === null || sheetCount <= 1}
+                onClick={onRequestDeleteSheet}
+                title={
+                  sheetCount <= 1
+                    ? "Create another sheet before deleting this one."
+                    : "Delete current sheet"
+                }
                 type="button"
               >
-                Quick Add
+                Delete sheet
               </button>
-              <div className="app-soft-box mt-3 px-3 py-2 text-xs leading-5 text-[#766f66]">
-                Shortcuts: Left/Right changes sheets, Esc closes panels,
-                Ctrl+Shift+A opens Quick Add.
-              </div>
-              <DateNavigator
-                className="mt-3"
-                label={`Widget date (${selectedDateLabel})`}
-                onChange={setSelectedDate}
-                value={selectedDate}
-              />
-              <label className="sheet-stark-toggle mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#ded6ca] px-3 py-2 text-sm font-semibold text-[#3b3732]">
-                <span>
-                  Stark Mode
-                  <span className="app-muted mt-0.5 block text-xs font-medium">
-                    Sheets only
-                  </span>
-                </span>
-                <input
-                  checked={isStarkMode}
-                  className="h-4 w-4 accent-[var(--color-primary)]"
-                  onChange={(event) => onSetStarkMode(event.target.checked)}
-                  type="checkbox"
-                />
-              </label>
-            </section>
-
-            <section className="border-t border-[#ded6ca] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-              <p className="app-eyebrow">
-                Sheet Controls
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
-                <button
-                  className="app-button-secondary min-h-10 px-3"
-                  disabled={isSaving || selectedSheetIndex <= 0}
-                  onClick={onPreviousSheet}
-                  type="button"
-                >
-                  Previous
-                </button>
-                <select
-                  className={inputClassName}
-                  disabled={isSaving || sheets.length === 0}
-                  onChange={(event) => onSelectedSheetChange(Number(event.target.value))}
-                  value={selectedSheetId ?? ""}
-                >
-                  {sheets.map((sheet) => (
-                    <option key={sheet.id} value={sheet.id}>
-                      {sheet.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="app-button-secondary min-h-10 px-3"
-                  disabled={
-                    isSaving ||
-                    selectedSheetIndex < 0 ||
-                    selectedSheetIndex >= sheets.length - 1
-                  }
-                  onClick={onNextSheet}
-                  type="button"
-                >
-                  Next
-                </button>
-              </div>
-
-              <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={onCreateSheet}>
-                <input
-                  className={inputClassName}
-                  onChange={(event) => setNewSheetName(event.target.value)}
-                  placeholder="New sheet name"
-                  required
-                  type="text"
-                  value={newSheetName}
-                />
-                <select
-                  className={inputClassName}
-                  disabled={isSaving}
-                  onChange={(event) => setNewSheetContextCategoryId(event.target.value)}
-                  value={newSheetContextCategoryId}
-                >
-                  <option value="">No sheet context</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="app-button-primary"
-                  disabled={isSaving}
-                  type="submit"
-                >
-                  Create
-                </button>
-              </form>
-
-              <form className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={onRenameSheet}>
-                <input
-                  className={inputClassName}
-                  disabled={isSaving || selectedSheetId === null}
-                  onChange={(event) => setRenameValue(event.target.value)}
-                  required
-                  type="text"
-                  value={renameValue}
-                />
-                <select
-                  className={inputClassName}
-                  disabled={isSaving || selectedSheetId === null}
-                  onChange={(event) => setSheetContextCategoryId(event.target.value)}
-                  value={sheetContextCategoryId}
-                >
-                  <option value="">No sheet context</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="app-button-secondary"
-                  disabled={isSaving || selectedSheetId === null}
-                  type="submit"
-                >
-                  Save sheet
-                </button>
-              </form>
-              <p className="app-muted mt-2 text-xs">
-                Sheet context lets category-aware widgets inherit a category.
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  className="app-button-primary"
-                  disabled={isSaving || selectedSheetId === null}
-                  onClick={onOpenSlotEditor}
-                  type="button"
-                >
-                  Customize slots
-                </button>
-                <button
-                  className="app-button-secondary"
-                  disabled={isSaving || selectedSheetIndex <= 0}
-                  onClick={onMoveSheetLeft}
-                  type="button"
-                >
-                  Move left
-                </button>
-                <button
-                  className="app-button-secondary"
-                  disabled={
-                    isSaving ||
-                    selectedSheetIndex < 0 ||
-                    selectedSheetIndex >= sheets.length - 1
-                  }
-                  onClick={onMoveSheetRight}
-                  type="button"
-                >
-                  Move right
-                </button>
-                <button
-                  className="app-button-secondary ml-auto"
-                  onClick={() => onSetControlOpen(false)}
-                  type="button"
-                >
-                  Close
-                </button>
-              </div>
-
-              <details className="mt-3 rounded-xl border border-[#e7c5c9]/80 bg-[#fff4f3]/60 p-3">
-                <summary className="cursor-pointer text-sm font-semibold text-[#3b3732]">
-                  Advanced
-                </summary>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    className="app-button-danger"
-                    disabled={isSaving || selectedSheetId === null || sheets.length <= 1}
-                    onClick={onRequestDeleteSheet}
-                    type="button"
-                    title={
-                      sheets.length <= 1
-                        ? "Create another sheet before deleting this one."
-                        : "Delete current sheet"
-                    }
-                  >
-                    Delete sheet
-                  </button>
-                <button
-                  className="app-button-danger"
-                  disabled={isSaving}
-                  onClick={onResetSheets}
-                  type="button"
-                >
-                  Reset sheets
-                </button>
-                <button
-                  className="app-button-danger"
-                  disabled={isSaving || selectedSheetId === null}
-                  onClick={onResetCurrentSheetFromDashboard}
-                  type="button"
-                >
-                  Use dashboard layout
-                </button>
-                </div>
-              </details>
-            </section>
+              <button
+                className="app-button-danger"
+                disabled={isSaving}
+                onClick={onResetSheets}
+                type="button"
+              >
+                Reset sheets
+              </button>
+              <button
+                className="app-button-danger"
+                disabled={isSaving || selectedSheetId === null}
+                onClick={onResetCurrentSheetFromDashboard}
+                type="button"
+              >
+                Use dashboard layout
+              </button>
+              <button
+                className="app-button-secondary ml-auto"
+                onClick={() => onSetOpen(false)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
+
+      <button
+        aria-expanded={isOpen}
+        aria-label="Open sheet management menu"
+        className="sheet-edge-handle sheet-edge-handle-bottom"
+        onClick={() => onSetOpen(!isOpen)}
+        type="button"
+      >
+        <span aria-hidden="true">^</span>
+        <span className="sheet-edge-handle-label">Manage</span>
+      </button>
     </div>
   );
 }

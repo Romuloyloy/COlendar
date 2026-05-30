@@ -46,12 +46,19 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Keep sheet controls obvious and reversible where practical.
 - Sheets should feel like a soft workspace canvas, not a rigid table.
 - Sheet cells should feel like calm workspace tiles while preserving the fixed grid.
-- The workspace dropdown should feel like a lightweight floating control surface, with app navigation, sheet controls, and dangerous actions visually grouped.
+- Immersive sheet chrome should keep the grid dominant while preserving clear edge handles for top workspace actions, side sheet navigation, and bottom sheet management.
+- Top edge workspace controls and bottom sheet-management controls should stay visually distinct.
+- Unpinned sheet dropdowns should close on outside click. A pinned top dropdown should stay open until the user explicitly closes or unpins it.
+- Sheet dropdown motion should begin from the final centered position without a visible jump.
+- Brief bottom-edge sheet-name and order feedback is preferable to permanent navigation labels.
+- Palette and Sheets-only Stark controls should live together in the top workspace dropdown.
+- Successful sheet saves should confirm briefly and then clear automatically without blocking interaction.
 - Compact widget rows should prioritize fast scanning: clear titles, muted metadata, soft row hover states, and calm empty states.
 - Sheet motion should stay subtle and functional: hover, opacity, and small position changes only.
 - Empty sheet slots should feel gently actionable in normal viewing mode: primary click opens slot editing for that slot, without a nested Quick Add shortcut.
 - Widget focus mode should feel temporary and calm: centered overlay, subdued sheet background, clear close affordance, and Escape-to-close behavior when available.
 - Sheet widget item clicks should feel useful without becoming editing workflows: use lightweight previews and clear links to the owning full page.
+- Compact sheet task completion controls should be large enough to click comfortably without making rows feel heavy.
 - Sheet context should be visible near sheet identity, and category-aware widgets should clearly distinguish no filter, sheet-context inheritance, and a specific category.
 - Utility widget options such as open task mode, event horizon, and notes folder filters should live in the slot editor and stay compact.
 

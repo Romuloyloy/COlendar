@@ -1,33 +1,34 @@
-Hi! This pass implements Workspace Utility Widgets v1.
+Hi! This pass implements Sheet Chrome Polish v2.
 
 What changed:
-- Added open/carry-forward one-time task support for incomplete active tasks planned on or before the selected date.
-- Added an Open Carry-forward section on `/tasks`.
-- Let the One-time Tasks sheet widget switch between selected-date and open task modes.
-- Let Upcoming Events sheet widgets use 7, 14, or 30 day horizons.
-- Let Recent Notes sheet widgets filter by folder, including child folders by default.
-- Added folder selection to Quick Add note creation.
-- Added backend query support and tests for open tasks, event horizons, and notes by folder.
-- Updated README and sheet/UX docs for the new utility widget behavior.
+- Added outside-click behavior for sheet dropdowns. The unpinned top dropdown and bottom Manage dropdown close when clicking outside; a pinned top dropdown stays open.
+- Fixed dropdown entrance animation so the top menu opens from its real centered position without a visible jump.
+- Added brief bottom-edge sheet-change feedback with the active sheet name and order, such as `3 / 6`.
+- Added Robot Vanilla, DuckBerry, and BozzyWheat palette selection to the top Workspace dropdown beside the Sheets-only Stark Mode control.
+- Kept palette and Stark selections persisted in browser `localStorage`.
+- Made sheet success notices clear automatically after a short confirmation period.
+- Updated README and sheet/UI docs for the polished chrome behavior.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
-2. `docker compose exec backend alembic current`
-3. `docker compose exec backend pytest`
-4. `docker compose exec frontend npm run build`
-5. On `/tasks`, create an incomplete task for yesterday and confirm it appears under Open Carry-forward today.
-6. On `/sheets`, configure a One-time Tasks widget to Open tasks and confirm past incomplete tasks appear.
-7. Configure an Upcoming Events widget for 7, 14, and 30 day horizons.
-8. Configure a Recent Notes widget to a folder and confirm descendant notes appear when enabled.
-9. Open Quick Add, choose Note, select a folder, create it, and confirm the note lands in that folder.
+2. `docker compose exec backend pytest`
+3. `docker compose exec frontend npm run build`
+4. Open `/sheets`, open the top Workspace dropdown, and click outside it. Confirm the unpinned dropdown closes.
+5. Pin the top dropdown and click outside it. Confirm it stays open until closed or unpinned.
+6. Confirm the dropdown opens directly from the top-center position without jumping across the viewport.
+7. Change palettes and toggle Stark Mode from the top dropdown, then refresh and confirm both persist.
+8. Change sheets with the edge arrows, keyboard arrows, and sheet selector. Confirm the sheet name and order briefly fade in near the bottom.
+9. Open the bottom Manage dropdown and click outside it. Confirm it closes.
+10. Save slot configuration and confirm the success message disappears automatically.
 
 What success looks like:
-- Past incomplete one-time tasks are no longer hidden just because their planned date passed.
-- Sheet widget instances can be tuned for common daily views without changing the fixed grid model.
-- Quick Add notes can still be quick, but folder placement is available when needed.
-- Notes, Calendar, Tasks, Quick Add, sheet context, category filters, and widget config persistence still work.
+- Sheet chrome feels stable without changing the saved grid or widget model.
+- Dropdowns are calm, centered, and predictable.
+- Sheet-change and save feedback appear briefly without becoming permanent clutter.
+- Sheet ordering, last active sheet persistence, widget configs, spanning, focus mode, Stark Mode, and palettes still work.
+- Quick Add, Global Search, notes, tasks, calendar, review, categories, and tracker routes remain intact.
 
 Intentionally not included:
-- No AI, auth, external integrations, notifications, or reminders.
-- No drag-and-drop, freeform resizing, arbitrary layout coordinates, or sheet templates.
-- No calendar week view, immersive sheet chrome, new recurrence features, or major backend rewrites.
+- No calendar week view.
+- No drag-and-drop, freeform resizing, arbitrary layout coordinates, new backend models, or migrations.
+- No AI, auth, external integrations, notifications, reminders, or unrelated features.
