@@ -192,24 +192,6 @@ def _notes_touched_on_date(db: Session, selected_date: date) -> list[Note]:
     )
 
 
-def _notes_touched_between(
-    db: Session,
-    week_start: date,
-    week_end: date,
-    category_id: int | None = None,
-) -> list[Note]:
-    query = select(Note).where(
-        Note.is_archived.is_(False),
-        or_(
-            func.date(Note.created_at).between(week_start, week_end),
-            func.date(Note.updated_at).between(week_start, week_end),
-        ),
-    )
-    if category_id is not None:
-        query = query.where(Note.category_id == category_id)
-    return list(db.scalars(query.order_by(Note.updated_at.desc(), Note.id.desc())))
-
-
 def _category_summaries(
     db: Session,
     week_start: date,
@@ -239,9 +221,7 @@ def _category_summaries(
                     category.id,
                     week_start,
                 ),
-                note_count=len(
-                    _notes_touched_between(db, week_start, week_end, category.id)
-                ),
+                note_count=_category_note_count(db, category.id),
                 event_count=sum(
                     len(
                         list_calendar_events_for_date(
@@ -286,4 +266,16 @@ def _category_recurring_count(db: Session, category_id: int, week_start: date) -
             )
         )
         for offset in range(7)
+    )
+
+
+def _category_note_count(db: Session, category_id: int) -> int:
+    return (
+        db.scalar(
+            select(func.count(Note.id)).where(
+                Note.category_id == category_id,
+                Note.is_archived.is_(False),
+            )
+        )
+        or 0
     )

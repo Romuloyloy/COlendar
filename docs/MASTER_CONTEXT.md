@@ -115,6 +115,7 @@ Implemented:
 - retired planning route redirected to Review
 - Sheets-only Stark Mode
 - read-focused review center
+- settings/utilities page with backup-style JSON export and diagnostics
 - archive behavior
 - migrations
 - backend tests
@@ -130,6 +131,7 @@ Not implemented:
 - external integrations
 - advanced analytics
 - advanced recurrence systems
+- import/restore from exports
 
 ---
 
@@ -223,8 +225,8 @@ Do not require re-explaining the entire project each time.
 # Current Development Phase
 
 Current phase:
-- MVP stabilization
-- QA cleanup
+- v0.1 alpha stabilization
+- local-first data safety
 - sheet workspace hardening
 
 The project is transitioning from:
@@ -239,6 +241,7 @@ Priorities now:
 - extensibility
 - UX polish
 - architecture quality
+- backup/export reliability
 
 NOT:
 - rapid uncontrolled feature expansion

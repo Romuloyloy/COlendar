@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.modules.categories.router import router as categories_router
 from app.modules.calendar.router import router as calendar_router
 from app.modules.dashboard.router import router as dashboard_router
+from app.modules.export.router import router as export_router
 from app.modules.notes.router import router as notes_router
 from app.modules.planning.router import router as planning_router
 from app.modules.review.router import router as review_router
@@ -32,6 +33,7 @@ app.include_router(health_router)
 app.include_router(categories_router)
 app.include_router(calendar_router)
 app.include_router(dashboard_router)
+app.include_router(export_router)
 app.include_router(notes_router)
 app.include_router(planning_router)
 app.include_router(review_router)

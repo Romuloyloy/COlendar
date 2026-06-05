@@ -83,6 +83,7 @@ const workspaceLinks = [
   ["Calendar", "/calendar"],
   ["Tracker", "/tracker"],
   ["Categories", "/categories"],
+  ["Settings", "/settings"],
   ["Search", "/search"],
 ] as const;
 

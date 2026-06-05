@@ -43,6 +43,7 @@ const navItems = [
   ["Tasks", "/tasks"],
   ["Calendar", "/calendar"],
   ["Tracker", "/tracker"],
+  ["Settings", "/settings"],
 ];
 
 const quickAddTypes = [

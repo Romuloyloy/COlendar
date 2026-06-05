@@ -27,7 +27,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://colendar:colendar_dev_password@db:5432/colendar}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8018}:8018"
     depends_on:
       db:
         condition: service_healthy
@@ -40,7 +40,7 @@ services:
     container_name: colendar-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8018}
       WATCHPACK_POLLING: "true"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"

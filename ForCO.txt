@@ -1,34 +1,33 @@
-Hi! This pass implements Sheet Chrome Polish v2.
+Hi! This pass implements Reliability + Data Safety Pack v1 and moves the backend server to port 8018.
 
 What changed:
-- Added outside-click behavior for sheet dropdowns. The unpinned top dropdown and bottom Manage dropdown close when clicking outside; a pinned top dropdown stays open.
-- Fixed dropdown entrance animation so the top menu opens from its real centered position without a visible jump.
-- Added brief bottom-edge sheet-change feedback with the active sheet name and order, such as `3 / 6`.
-- Added Robot Vanilla, DuckBerry, and BozzyWheat palette selection to the top Workspace dropdown beside the Sheets-only Stark Mode control.
-- Kept palette and Stark selections persisted in browser `localStorage`.
-- Made sheet success notices clear automatically after a short confirmation period.
-- Updated README and sheet/UI docs for the polished chrome behavior.
+- Backend now listens on port `8018`, and Docker Compose/frontend defaults point to `http://localhost:8018`.
+- Added backup-style export endpoints under `/api/export`, including full export plus notes, tasks, calendar, tracker, categories, and sheets exports.
+- Full export includes metadata, categories, folders, notes, one-time tasks, recurring tasks, task completions, calendar events, tracker entries, sheets, sheet slots, and dashboard widget preferences.
+- Exports include archived records for backup completeness.
+- Added `/settings` with full/module JSON download buttons, backend/database diagnostics, active palette/Stark state, local-first data safety notes, and known limitations.
+- Linked Settings from normal navigation and the sheet Workspace dropdown.
+- Added `docs/MILESTONE_V0_1_ALPHA.md` and `docs/KNOWN_LIMITATIONS.md`.
+- Updated README and master context for v0.1 alpha, export/backup, diagnostics, and local data safety.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
 2. `docker compose exec backend pytest`
 3. `docker compose exec frontend npm run build`
-4. Open `/sheets`, open the top Workspace dropdown, and click outside it. Confirm the unpinned dropdown closes.
-5. Pin the top dropdown and click outside it. Confirm it stays open until closed or unpinned.
-6. Confirm the dropdown opens directly from the top-center position without jumping across the viewport.
-7. Change palettes and toggle Stark Mode from the top dropdown, then refresh and confirm both persist.
-8. Change sheets with the edge arrows, keyboard arrows, and sheet selector. Confirm the sheet name and order briefly fade in near the bottom.
-9. Open the bottom Manage dropdown and click outside it. Confirm it closes.
-10. Save slot configuration and confirm the success message disappears automatically.
+4. Open `http://localhost:3000/settings`.
+5. Confirm diagnostics show backend/database status when the stack is running.
+6. Download the full JSON export and confirm the filename includes a timestamp.
+7. Download module exports for notes/tasks/calendar/tracker/categories/sheets.
+8. Check `http://localhost:8018/health` and `http://localhost:8018/health/db`.
+9. Confirm normal routes still work: `/`, `/sheets`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/review`, `/search`, `/categories`.
 
 What success looks like:
-- Sheet chrome feels stable without changing the saved grid or widget model.
-- Dropdowns are calm, centered, and predictable.
-- Sheet-change and save feedback appear briefly without becoming permanent clutter.
-- Sheet ordering, last active sheet persistence, widget configs, spanning, focus mode, Stark Mode, and palettes still work.
-- Quick Add, Global Search, notes, tasks, calendar, review, categories, and tracker routes remain intact.
+- The app has a clear v0.1 local alpha safety story.
+- Exports are readable JSON and include archived records.
+- The Settings page gives practical backup and diagnostics utility without becoming a huge settings system.
+- No new tables or migrations are added.
 
 Intentionally not included:
-- No calendar week view.
-- No drag-and-drop, freeform resizing, arbitrary layout coordinates, new backend models, or migrations.
-- No AI, auth, external integrations, notifications, reminders, or unrelated features.
+- No import/restore.
+- No cloud backup.
+- No auth, AI, external integrations, notifications, reminders, drag-and-drop, sheet templates, or new recurrence features.

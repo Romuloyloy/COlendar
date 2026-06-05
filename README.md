@@ -1,6 +1,6 @@
 # COlendar
 
-COlendar is a local-first personal productivity workspace in MVP hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, Sheets-only Stark Mode, shared category workspaces for tasks/notes/events, a read-focused Review Center, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events, recurring events, and task occurrences, basic water/activity/calorie tracking, retired planning views redirected into Review, shared frontend UI patterns, global Quick Add, and Global Search.
+COlendar is a local-first personal productivity workspace in v0.1 alpha hardening. The current app has a Next.js frontend, a FastAPI backend, PostgreSQL, Docker Compose, SQLAlchemy, Alembic migrations, Dashboard Customization v1 on top of Widget Foundation v1, Sheet Workspace Shell v1 on top of Sheet/Grid Prototype v1, UI Foundation v1, local palette selection, Sheets-only Stark Mode, shared category workspaces for tasks/notes/events, a read-focused Review Center, notes with nested folders, MVP one-time/recurring tasks, a calendar that visually shows events, recurring events, and task occurrences, basic water/activity/calorie tracking, retired planning views redirected into Review, shared frontend UI patterns, global Quick Add, Global Search, and a Settings page with export/backup and diagnostics utilities.
 
 ## Project Structure
 
@@ -39,6 +39,8 @@ Core project docs live in `docs/` and are intended to make future Codex prompts 
 - `docs/SHEETS_VISION.md`: long-term sheet workspace direction.
 - `docs/UX_GUIDELINES.md`: product and UI rules.
 - `docs/UI_SYSTEM.md`: concise UI Foundation v1 tokens and component guidance.
+- `docs/MILESTONE_V0_1_ALPHA.md`: current v0.1 alpha milestone snapshot.
+- `docs/KNOWN_LIMITATIONS.md`: honest local-first limitations and safety notes.
 - `docs/features/`: scoped feature specs.
 
 ## Windows Prerequisites
@@ -79,7 +81,7 @@ docker compose up --build -d
 This starts:
 
 - Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8000`
+- Backend: `http://localhost:8018`
 - PostgreSQL: localhost port `5432` by default
 
 The first build can take a few minutes while Docker downloads images and installs dependencies.
@@ -96,10 +98,11 @@ Open these in your browser:
 - Categories page: `http://localhost:3000/categories`
 - Review Center: `http://localhost:3000/review`
 - Search page: `http://localhost:3000/search`
+- Settings & Utilities: `http://localhost:3000/settings`
 - Retired Planning route: `http://localhost:3000/planning` redirects to `/review`
 - Tracker page: `http://localhost:3000/tracker`
-- Backend health: `http://localhost:8000/health`
-- Backend database health: `http://localhost:8000/health/db`
+- Backend health: `http://localhost:8018/health`
+- Backend database health: `http://localhost:8018/health/db`
 
 Or check them from PowerShell:
 
@@ -112,10 +115,11 @@ Or check them from PowerShell:
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/categories).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/review).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/search).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:3000/settings).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/planning).StatusCode
 (Invoke-WebRequest -UseBasicParsing http://localhost:3000/tracker).StatusCode
-Invoke-RestMethod http://localhost:8000/health
-Invoke-RestMethod http://localhost:8000/health/db
+Invoke-RestMethod http://localhost:8018/health
+Invoke-RestMethod http://localhost:8018/health/db
 ```
 
 - `/sheets` is the primary workspace destination and renders the persisted 4x2 sheet workspace.
@@ -130,11 +134,43 @@ Invoke-RestMethod http://localhost:8000/health/db
 - The Calendar page shows events, one-time tasks, and recurring task occurrences in the month grid while keeping event editing in the Calendar module and task editing in the Tasks module.
 - The Categories page provides read-focused workspace views for active shared categories across tasks, notes, and calendar events.
 - The Review Center shows a read-focused daily review, weekly review, category summary, and tracker summary composed from existing modules.
+- The Settings page provides backup-style JSON exports, health diagnostics, local data safety notes, and a concise known-limitations summary.
 - Planning has been retired from primary navigation; `/planning` redirects to Review while backend planning composition remains available for compatibility.
 - The Tracker page lets you log water, lightweight activity, and calories for a selected date.
 - `/health` returns JSON with `status: ok`.
 - `/health/db` returns JSON with `database: connected`.
 - Docker Desktop shows the frontend, backend, and database containers running.
+
+## v0.1 Alpha Milestone
+
+COlendar v0.1 is the Stable Local Workspace Alpha. It is intended to be usable on a trusted local machine with Docker Compose, while still being honest about missing production features.
+
+Stable enough for regular local use:
+
+- sheet workspace, notes, tasks, calendar, tracker, categories, review, search, and Quick Add
+- local PostgreSQL persistence through Docker volumes
+- archive-first delete behavior across core modules
+- backup-style JSON exports from `/settings`
+- backend tests and frontend production build verification
+
+Experimental or intentionally unfinished:
+
+- mobile ergonomics
+- production deployment hardening
+- import/restore from exports
+- external integrations, auth, AI, notifications, and cloud backup
+
+See `docs/MILESTONE_V0_1_ALPHA.md` and `docs/KNOWN_LIMITATIONS.md` for the fuller milestone and limitation notes.
+
+## Export, Backup, And Local Data Safety
+
+The Settings page at `http://localhost:3000/settings` can download a full JSON backup or module-specific JSON exports for notes, tasks, calendar, tracker, categories, and sheets. Exports include archived records for backup completeness and include metadata such as export timestamp, app name, version, and format.
+
+This is export-only in v1. Import/restore is not implemented yet. Keep export files somewhere safe before major migrations, resets, or experiments.
+
+COlendar stores data in local PostgreSQL through Docker Compose. Docker volumes are what keep that data alive between container rebuilds. Running `docker compose down -v` removes volumes and can delete local app data, so create exports first unless you are intentionally starting over.
+
+The export endpoints expose personal productivity data and should not be exposed publicly without auth and deployment hardening.
 
 ## Database Layer
 
@@ -1154,7 +1190,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8018
 ```
 
 This expects PostgreSQL to be available separately and `DATABASE_URL` to point at it.
