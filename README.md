@@ -131,7 +131,7 @@ Invoke-RestMethod http://localhost:8018/health/db
 - The global nav includes Search, which opens a practical keyword search page for active productivity data.
 - The Notes page uses a desktop 25% / 25% / 50% folder/list/editor layout and selecting a parent folder shows notes from descendant folders with folder path indicators.
 - The Tasks page lets you create one-time tasks and recurring tasks, and shows older incomplete one-time tasks as open carry-forward work.
-- The Calendar page shows events, one-time tasks, and recurring task occurrences in the month grid while keeping event editing in the Calendar module and task editing in the Tasks module.
+- The Calendar page shows events, one-time tasks, and recurring task occurrences in the month grid, and has a weekly hourly event view while keeping event editing in the Calendar module and task editing in the Tasks module.
 - The Categories page provides read-focused workspace views for active shared categories across tasks, notes, and calendar events.
 - The Review Center shows a read-focused daily review, weekly review, category summary, and tracker summary composed from existing modules.
 - The Settings page provides backup-style JSON exports, health diagnostics, local data safety notes, and a concise known-limitations summary.
@@ -365,6 +365,7 @@ Immersive sheet chrome behavior:
 - the top menu can be pinned so it stays visible until unpinned or closed
 - left and right edge arrows appear at the viewport edges for previous/next sheet navigation
 - the bottom edge has a Manage handle for sheet customization and management
+- hovering the bottom edge also exposes a quick Customize entry for on-sheet widget rearranging
 - the bottom menu includes Customize slots, sheet reorder controls, create sheet, rename/context controls, delete, reset, and Use dashboard layout
 - dangerous actions still require confirmation
 
@@ -412,6 +413,11 @@ Slot editing behavior:
 - unavailable size presets are disabled when they would cross the 4x2 grid edge or overlap another widget
 - covered cells visually merge into the anchor widget area and are freed when the anchor widget is cleared
 - empty slots in the editor are labeled as Add widget/configuration targets, and empty slots in normal sheet mode use primary click for slot editing
+- in edit mode, occupied anchor slots can be moved by dragging the slot handle onto an empty valid slot
+- drag moves preserve the widget key, current span preset, and slot configuration, then persist through the existing Save changes action
+- invalid drag targets, including occupied cells, covered cells, overlap, and 4x2 edge overflow, are rejected before save
+- simple Move left/right/up/down controls provide the same empty-slot movement fallback without freeform layout
+- on-sheet customize mode lets the user rearrange widgets directly on the sheet, with subtle widget jiggle, valid empty-slot drop targets, and Save/Revert controls
 - the widget library groups existing registry widgets by Overview / Utility, Tasks, Notes, Calendar, and Tracker
 - widget library cards show display name, short preview text, group/type, and whether extra configuration is supported
 - Clear slot empties the active slot
@@ -478,12 +484,12 @@ Palette + Empty Slot Quick Add v1 added two small frontend-only refinements:
 - Empty sheet slots show a soft plus/Add widget affordance.
 - Clicking the main empty slot affordance in normal `/sheets` viewing mode opens the slot editor for that slot.
 - Empty sheet slots do not include a Quick Add button.
-- Slot assignment still happens through the existing Customize slots flow and slot editor; no sheet slot storage model changed.
+- Slot assignment and widget configuration still happen through the existing Customize slots flow and slot editor; on-sheet customize mode only rearranges existing widgets. No sheet slot storage model changed.
 - The Planning summary widget is retired from the widget registry; use Review, Calendar, Tasks, and Sheets for current planning context.
 - Recent Notes and Upcoming Events sheet widgets can be filtered by shared category, like task widgets.
 - Category Overview sheet widgets require a selected shared category and can use an optional title override.
 
-Widget Library + Slot Editor UX v2 keeps widget definitions frontend/code-defined and uses the existing dashboard widget registry as the source of truth. Widget Spanning v1 adds controlled slot spans without adding drag-and-drop, freeform resizing, arbitrary `x/y/w/h` placement, backend widget APIs, or a plugin system. Workspace Focus Mode v1 adds only temporary enlarged viewing, not permanent resizing or floating windows. Duplicate widget instances remain supported because each sheet slot still stores its own `widget_key`, `config_json`, and span preset.
+Widget Library + Slot Editor UX v2 keeps widget definitions frontend/code-defined and uses the existing dashboard widget registry as the source of truth. Widget Spanning v1 adds controlled slot spans without freeform resizing, arbitrary `x/y/w/h` placement, backend widget APIs, or a plugin system. Sheet Drag-and-Drop v1 adds controlled edit-mode movement from one anchor slot to an empty valid slot only. On-Sheet Customize Mode v1 exposes that movement directly on the sheet with Save/Revert controls. These do not add freeform layout, arbitrary resizing, dashboard drag-and-drop, or backend storage changes. Workspace Focus Mode v1 adds only temporary enlarged viewing, not permanent resizing or floating windows. Duplicate widget instances remain supported because each sheet slot still stores its own `widget_key`, `config_json`, and span preset.
 
 Interaction philosophy for sheets:
 
@@ -497,7 +503,8 @@ Interaction philosophy for sheets:
 
 Current sheet limitations:
 
-- no drag-and-drop
+- no normal viewing-mode or dashboard drag-and-drop
+- no drag-and-drop swapping; edit-mode movement is limited to empty valid slot targets
 - no freeform widget resizing
 - no persisted focus state or floating windows
 - no `x/y/w/h` grid placement
@@ -515,7 +522,7 @@ Future direction:
 
 - keep the dashboard stable while iterating on `/sheets`
 - document a stronger sheet/widget contract for compact rendering and widget config schemas
-- later add drag-and-drop, resizing, and `x/y/w/h` placement as a separate phase
+- later consider richer rearranging, resizing, and `x/y/w/h` placement as separate specs only if the fixed-grid UX is ready for them
 - later evolve from code-defined dashboard widgets toward richer widget instances only when the UX contract is stable
 
 The backend sheet module owns only sheet and slot persistence:
@@ -680,9 +687,14 @@ Time handling is intentionally simple for the MVP. Event dates and times are loc
 The browser UI at `http://localhost:3000/calendar` currently provides:
 
 - A monthly calendar grid for the visible month
-- Previous month, Today, and next month navigation
+- A weekly hourly calendar grid for the selected week
+- Month/Week view switching
+- Previous/current/next navigation for the active view
 - Day selection from the month grid
+- Day selection from the week header
 - Compact month-cell indicators for calendar events, one-time tasks, and recurring task occurrences
+- Hour-positioned event blocks for timed calendar events in week view
+- All-day / unscheduled rows for events without a clear start time in week view
 - Frontend-only visibility toggles for events, one-time tasks, and recurring tasks
 - A selected-day panel separated into Events, One-time Tasks, and Recurring Tasks
 - An upcoming events list
@@ -698,7 +710,9 @@ The browser UI at `http://localhost:3000/calendar` currently provides:
 
 Calendar Tasks View v1 keeps the product model separated: Calendar Events are scheduled happenings, One-time Tasks are dated completable tasks, and Recurring Tasks are task templates with occurrences. The Calendar page displays these items together for planning, but tasks and events are not merged in the backend data model. Event create/edit/archive behavior still uses the Calendar event API, while task completion still uses the Tasks API. Recurring calendar events are event templates projected into dated occurrences; they do not create task completions.
 
-Month navigation fetches a read-only composed calendar overview for the visible grid range. Day cells show grouped counts rather than full task/event lists to avoid overcrowding. Selecting a day updates the selected-day panel and creates new events for that date by default.
+Calendar Week View v1 adds a frontend weekly hourly view over the existing calendar overview/range APIs. It visually places timed calendar event occurrences by hour, keeps no-time events in a simple all-day/unscheduled row, and lets clicking an event use the existing event edit form. Clicking an empty hourly cell pre-fills the existing create-event form with that date and hour. It does not add drag-and-drop scheduling, reminders, task/event unification, or new recurrence behavior.
+
+Month navigation fetches a read-only composed calendar overview for the visible grid range. Week navigation fetches the selected Monday-Sunday range. Month day cells show grouped counts rather than full task/event lists to avoid overcrowding. Selecting a day updates the selected-day panel and creates new events for that date by default.
 
 The dashboard at `http://localhost:3000` now shows real upcoming calendar events from the selected date onward. The dashboard still only composes calendar data; event ownership remains in the Calendar module.
 
@@ -734,7 +748,7 @@ Current calendar limitations:
 - No reminders or notifications
 - No external calendar sync
 - No drag-and-drop event moving
-- No advanced week/day calendar views
+- No drag-and-drop scheduling, reminders, notifications, external calendar sync, or task/event unification
 - No task/event unification
 - No calendar-side task create/edit forms beyond completion toggles
 - No recurrence exceptions or skipped-occurrence editing yet
@@ -1226,7 +1240,8 @@ This phase does not include:
 - AI features
 - AI-generated review summaries or natural-language review analysis
 - Redis, workers, background jobs, pgvector, or semantic search
-- Drag-and-drop, freeform resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
+- Freeform resizable widgets, final no-scroll sheets, or `x/y/w/h` grid placement
+- Dashboard drag-and-drop, normal-mode sheet drag-and-drop, drag swapping, or arbitrary sheet widget placement
 - Persisted widget instances, database-defined widgets, widget plugin APIs, advanced widget configuration, or formal sheet-scoped widget settings
 - A formal command palette engine
 - External calendar sync, invitations, attendees, reminders, or notifications

@@ -27,6 +27,7 @@ This document defines the current product language around tasks, recurring tasks
 - Recurring Calendar Events are event templates projected into dated occurrences.
 - Planning composes One-time Tasks, Weekly Tasks, and Calendar Events.
 - Calendar is the visual date/time view and may display task occurrences next to events.
+- Calendar week view places Calendar Events by hour, while tasks remain visible in selected-day/calendar overview surfaces rather than becoming scheduled event blocks.
 - Showing tasks on Calendar does not merge task and event ownership or data models.
 
 ## Current Limitations
@@ -34,6 +35,7 @@ This document defines the current product language around tasks, recurring tasks
 - No advanced recurrence engine yet.
 - No recurrence exceptions or skipped-occurrence editing yet.
 - Events and tasks are not unified yet.
+- Week view does not add drag-and-drop scheduling, reminders, notifications, or recurrence exceptions.
 - Backend `/api/tasks/daily` may remain legacy naming for one-time dated tasks.
 - Backend `/api/tasks/weekly` may remain legacy naming for recurring task templates.
 

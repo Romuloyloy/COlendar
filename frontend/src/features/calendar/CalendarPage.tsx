@@ -34,6 +34,11 @@ import {
 } from "@/lib/date";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const HOUR_LABELS = Array.from({ length: 24 }, (_, hour) => hour);
+const HOUR_HEIGHT = 64;
+const MIN_EVENT_HEIGHT = 34;
+
+type CalendarViewMode = "month" | "week";
 
 function formatEventTime(event: CalendarEvent) {
   if (!event.start_time && !event.end_time) {
@@ -80,6 +85,20 @@ function monthLabel(value: string) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
+function weekLabel(weekStart: string) {
+  const weekEnd = addDaysToIsoDate(weekStart, 6);
+  const start = formatDisplayDate(weekStart, {
+    month: "short",
+    day: "numeric",
+  });
+  const end = formatDisplayDate(weekEnd, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${start} - ${end}`;
+}
+
 function dayNumber(value: string) {
   return new Date(`${value}T00:00:00`).getDate();
 }
@@ -88,6 +107,14 @@ function buildMonthDays(monthStart: string) {
   const startOffset = weekdayFromIsoDate(monthStart);
   const gridStart = addDaysToIsoDate(monthStart, -startOffset);
   return Array.from({ length: 42 }, (_, index) => addDaysToIsoDate(gridStart, index));
+}
+
+function weekStartIso(value: string) {
+  return addDaysToIsoDate(value, -weekdayFromIsoDate(value));
+}
+
+function buildWeekDays(weekStart: string) {
+  return Array.from({ length: 7 }, (_, index) => addDaysToIsoDate(weekStart, index));
 }
 
 function sameMonth(value: string, monthStart: string) {
@@ -146,6 +173,39 @@ function eventCategoryLabel(event: CalendarEvent, categories: TaskCategory[]) {
   }
 
   return categories.find((category) => category.id === event.category_id)?.name ?? null;
+}
+
+function eventCategory(event: CalendarEvent, categories: TaskCategory[]) {
+  if (event.category_id === null) {
+    return null;
+  }
+  return categories.find((category) => category.id === event.category_id) ?? null;
+}
+
+function minutesFromTime(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+function eventHasTimedStart(event: CalendarEvent) {
+  return minutesFromTime(event.start_time) !== null;
+}
+
+function timeFromHour(hour: number) {
+  return `${`${hour}`.padStart(2, "0")}:00`;
+}
+
+function timeFromHourEnd(hour: number) {
+  if (hour >= 23) {
+    return "23:59";
+  }
+  return `${`${hour + 1}`.padStart(2, "0")}:00`;
 }
 
 function EventCard({
@@ -313,8 +373,244 @@ function VisibilityToggle({
   );
 }
 
+function WeekCalendarView({
+  categories,
+  isLoading,
+  onCreateAt,
+  onSelectDate,
+  onSelectEvent,
+  overviewByDate,
+  selectedDate,
+  selectedEventId,
+  weekDays,
+}: {
+  categories: TaskCategory[];
+  isLoading: boolean;
+  onCreateAt: (date: string, hour: number) => void;
+  onSelectDate: (date: string) => void;
+  onSelectEvent: (event: CalendarEvent) => void;
+  overviewByDate: Record<string, CalendarOverviewDay>;
+  selectedDate: string;
+  selectedEventId: number | null;
+  weekDays: string[];
+}) {
+  return (
+    <section className="overflow-hidden rounded-md border border-neutral-300 bg-white shadow-sm">
+      <div className="grid grid-cols-[72px_repeat(7,minmax(128px,1fr))] border-b border-neutral-200 bg-[var(--color-app-bg-soft)]">
+        <div className="border-r border-neutral-200 px-3 py-3 text-xs font-semibold uppercase text-neutral-500">
+          Week
+        </div>
+        {weekDays.map((date) => {
+          const isSelected = date === selectedDate;
+          const isToday = date === todayIsoDate();
+          return (
+            <button
+              className={`border-r border-neutral-200 px-3 py-3 text-left transition last:border-r-0 ${
+                isSelected ? "bg-teal-50" : "hover:bg-white"
+              }`}
+              key={date}
+              onClick={() => onSelectDate(date)}
+              type="button"
+            >
+              <span className="block text-xs font-semibold uppercase text-neutral-500">
+                {WEEKDAY_LABELS[weekdayFromIsoDate(date)]}
+              </span>
+              <span
+                className={`mt-1 inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold ${
+                  isToday ? "bg-teal-700 text-white" : "text-neutral-950"
+                }`}
+              >
+                {dayNumber(date)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-[72px_repeat(7,minmax(128px,1fr))] border-b border-neutral-200 bg-white">
+        <div className="border-r border-neutral-200 px-3 py-3 text-xs font-semibold text-neutral-500">
+          All-day
+        </div>
+        {weekDays.map((date) => {
+          const dayEvents = overviewByDate[date]?.calendar_events ?? [];
+          const unscheduledEvents = dayEvents.filter(
+            (event) => !eventHasTimedStart(event),
+          );
+          return (
+            <div
+              className="min-h-20 space-y-1 border-r border-neutral-200 p-2 last:border-r-0"
+              key={date}
+            >
+              {isLoading ? (
+                <p className="text-xs text-neutral-500">Loading...</p>
+              ) : unscheduledEvents.length === 0 ? (
+                <p className="text-xs text-neutral-400">No unscheduled events</p>
+              ) : (
+                unscheduledEvents.map((event) => (
+                  <WeekEventPill
+                    categories={categories}
+                    event={event}
+                    isSelected={
+                      selectedEventId === event.id && selectedDate === event.event_date
+                    }
+                    key={calendarEventOccurrenceKey(event)}
+                    onSelect={onSelectEvent}
+                  />
+                ))
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="max-h-[720px] overflow-auto">
+        <div
+          className="grid grid-cols-[72px_repeat(7,minmax(128px,1fr))]"
+          style={{ minHeight: HOUR_LABELS.length * HOUR_HEIGHT }}
+        >
+          <div className="border-r border-neutral-200 bg-[var(--color-app-bg-soft)]">
+            {HOUR_LABELS.map((hour) => (
+              <div
+                className="border-b border-neutral-200 px-2 pt-1 text-right text-xs font-medium text-neutral-500"
+                key={hour}
+                style={{ height: HOUR_HEIGHT }}
+              >
+                {timeFromHour(hour)}
+              </div>
+            ))}
+          </div>
+
+          {weekDays.map((date) => {
+            const dayEvents = overviewByDate[date]?.calendar_events ?? [];
+            const timedEvents = dayEvents.filter(eventHasTimedStart);
+            return (
+              <div
+                className={`relative border-r border-neutral-200 last:border-r-0 ${
+                  date === selectedDate ? "bg-teal-50/30" : "bg-white"
+                }`}
+                key={date}
+              >
+                {HOUR_LABELS.map((hour) => (
+                  <button
+                    aria-label={`Create event on ${formatDisplayDate(date)} at ${timeFromHour(hour)}`}
+                    className="block w-full border-b border-neutral-100 text-left hover:bg-teal-50/50"
+                    key={hour}
+                    onClick={() => onCreateAt(date, hour)}
+                    style={{ height: HOUR_HEIGHT }}
+                    type="button"
+                  />
+                ))}
+                {timedEvents.map((event, index) => (
+                  <WeekTimedEvent
+                    categories={categories}
+                    event={event}
+                    index={index}
+                    isSelected={
+                      selectedEventId === event.id && selectedDate === event.event_date
+                    }
+                    key={calendarEventOccurrenceKey(event)}
+                    onSelect={onSelectEvent}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WeekEventPill({
+  categories,
+  event,
+  isSelected,
+  onSelect,
+}: {
+  categories: TaskCategory[];
+  event: CalendarEvent;
+  isSelected: boolean;
+  onSelect: (event: CalendarEvent) => void;
+}) {
+  const category = eventCategory(event, categories);
+  return (
+    <button
+      className={`w-full rounded-md border px-2 py-1.5 text-left text-xs transition ${
+        isSelected
+          ? "border-teal-700 bg-teal-50 text-teal-950"
+          : "border-sky-200 bg-sky-50 text-sky-950 hover:border-sky-400"
+      }`}
+      onClick={() => onSelect(event)}
+      style={{ borderLeftColor: category?.color || undefined, borderLeftWidth: 4 }}
+      type="button"
+    >
+      <span className="block truncate font-semibold">{event.title}</span>
+      <span className="block truncate text-[11px] text-neutral-600">
+        {formatEventTime(event)}
+        {category ? ` / ${category.name}` : ""}
+        {event.recurrence_type !== "none" ? " / recurring" : ""}
+      </span>
+    </button>
+  );
+}
+
+function WeekTimedEvent({
+  categories,
+  event,
+  index,
+  isSelected,
+  onSelect,
+}: {
+  categories: TaskCategory[];
+  event: CalendarEvent;
+  index: number;
+  isSelected: boolean;
+  onSelect: (event: CalendarEvent) => void;
+}) {
+  const category = eventCategory(event, categories);
+  const startMinutes = minutesFromTime(event.start_time) ?? 0;
+  const endMinutes = minutesFromTime(event.end_time) ?? startMinutes + 60;
+  const durationMinutes = Math.max(endMinutes - startMinutes, 30);
+  const stackOffset = index % 3;
+  const top = (startMinutes / 60) * HOUR_HEIGHT;
+  const height = Math.max((durationMinutes / 60) * HOUR_HEIGHT, MIN_EVENT_HEIGHT);
+
+  return (
+    <button
+      className={`absolute z-10 overflow-hidden rounded-md border px-2 py-1 text-left text-xs shadow-sm transition ${
+        isSelected
+          ? "border-teal-700 bg-teal-50 text-teal-950 ring-2 ring-teal-200"
+          : "border-sky-200 bg-sky-50 text-sky-950 hover:border-sky-400"
+      }`}
+      onClick={(clickEvent) => {
+        clickEvent.stopPropagation();
+        onSelect(event);
+      }}
+      style={{
+        borderLeftColor: category?.color || undefined,
+        borderLeftWidth: 4,
+        height,
+        left: 6 + stackOffset * 10,
+        right: 6,
+        top,
+      }}
+      type="button"
+    >
+      <span className="block truncate font-semibold">{event.title}</span>
+      <span className="block truncate text-[11px] text-neutral-600">
+        {formatEventTime(event)}
+      </span>
+      <span className="block truncate text-[11px] text-neutral-600">
+        {category?.name ?? "No category"}
+        {event.recurrence_type !== "none" ? " / recurring" : ""}
+      </span>
+    </button>
+  );
+}
+
 export function CalendarPage() {
   const today = todayIsoDate();
+  const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [selectedDate, setSelectedDate] = useState(today);
   const [visibleMonth, setVisibleMonth] = useState(monthStartIso(today));
   const [overviewDays, setOverviewDays] = useState<CalendarOverviewDay[]>([]);
@@ -347,6 +643,11 @@ export function CalendarPage() {
   const monthDays = useMemo(() => buildMonthDays(visibleMonth), [visibleMonth]);
   const monthRangeStart = monthDays[0];
   const monthRangeEnd = monthDays[monthDays.length - 1];
+  const visibleWeekStart = useMemo(() => weekStartIso(selectedDate), [selectedDate]);
+  const weekDays = useMemo(() => buildWeekDays(visibleWeekStart), [visibleWeekStart]);
+  const visibleRangeStart = viewMode === "week" ? weekDays[0] : monthRangeStart;
+  const visibleRangeEnd =
+    viewMode === "week" ? weekDays[weekDays.length - 1] : monthRangeEnd;
 
   const overviewByDate = useMemo(() => {
     return overviewDays.reduce<Record<string, CalendarOverviewDay>>((grouped, day) => {
@@ -365,11 +666,18 @@ export function CalendarPage() {
   const selectedDateRecurringTasks = selectedOverviewDay?.recurring_tasks ?? [];
 
   const selectedEvent = useMemo(
-    () =>
-      [...monthEvents, ...upcomingEvents].find(
-        (event) => event.id === selectedEventId,
-      ) ?? null,
-    [monthEvents, selectedEventId, upcomingEvents],
+    () => {
+      const events = [...monthEvents, ...upcomingEvents];
+      return (
+        events.find(
+          (event) =>
+            event.id === selectedEventId && event.event_date === selectedDate,
+        ) ??
+        events.find((event) => event.id === selectedEventId) ??
+        null
+      );
+    },
+    [monthEvents, selectedDate, selectedEventId, upcomingEvents],
   );
 
   async function loadData({ showInitialLoading = false } = {}) {
@@ -384,7 +692,7 @@ export function CalendarPage() {
 
     try {
       const [overview, upcomingData, categoryData] = await Promise.all([
-        getCalendarOverview(monthRangeStart, monthRangeEnd),
+        getCalendarOverview(visibleRangeStart, visibleRangeEnd),
         getUpcomingCalendarEvents(selectedDate),
         getTaskCategories(),
       ]);
@@ -417,7 +725,7 @@ export function CalendarPage() {
     loadData({ showInitialLoading: true }).catch((caught: Error) =>
       setError(caught.message),
     );
-  }, [monthRangeStart, monthRangeEnd, selectedDate]);
+  }, [visibleRangeStart, visibleRangeEnd, selectedDate]);
 
   useEffect(() => {
     function refreshAfterQuickAdd() {
@@ -427,7 +735,7 @@ export function CalendarPage() {
     window.addEventListener("quick-add:created", refreshAfterQuickAdd);
     return () =>
       window.removeEventListener("quick-add:created", refreshAfterQuickAdd);
-  }, [monthRangeStart, monthRangeEnd, selectedDate]);
+  }, [visibleRangeStart, visibleRangeEnd, selectedDate]);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -500,11 +808,49 @@ export function CalendarPage() {
     resetForm(nextMonth);
   }
 
+  function moveWeek(weeks: number) {
+    const nextDate = addDaysToIsoDate(selectedDate, weeks * 7);
+    setSelectedDate(nextDate);
+    setVisibleMonth(monthStartIso(nextDate));
+    resetForm(nextDate);
+  }
+
   function returnToToday() {
     const currentDate = todayIsoDate();
     setVisibleMonth(monthStartIso(currentDate));
     setSelectedDate(currentDate);
     resetForm(currentDate);
+  }
+
+  function handleCalendarPrevious() {
+    if (viewMode === "week") {
+      moveWeek(-1);
+    } else {
+      moveMonth(-1);
+    }
+  }
+
+  function handleCalendarNext() {
+    if (viewMode === "week") {
+      moveWeek(1);
+    } else {
+      moveMonth(1);
+    }
+  }
+
+  function handleCreateAt(date: string, hour: number) {
+    setSelectedDate(date);
+    setVisibleMonth(monthStartIso(date));
+    resetForm(date);
+    setEventDate(date);
+    setStartTime(timeFromHour(hour));
+    setEndTime(timeFromHourEnd(hour));
+  }
+
+  function handleSelectEvent(event: CalendarEvent) {
+    setSelectedEventId(event.id);
+    setSelectedDate(event.event_date);
+    setVisibleMonth(monthStartIso(event.event_date));
   }
 
   async function runAction(action: () => Promise<void>) {
@@ -603,7 +949,7 @@ export function CalendarPage() {
 
   return (
     <main className="app-page">
-      <section className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="mx-auto grid w-full max-w-[90vw] gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-6">
           <section className="rounded-md border border-neutral-300 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -612,11 +958,14 @@ export function CalendarPage() {
                   Calendar
                 </p>
                 <h1 className="mt-1 text-3xl font-semibold text-neutral-950">
-                  {monthLabel(visibleMonth)}
+                  {viewMode === "week"
+                    ? weekLabel(visibleWeekStart)
+                    : monthLabel(visibleMonth)}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-700">
-                  View events, one-time tasks, and recurring task occurrences
-                  together without merging how they are managed.
+                  {viewMode === "week"
+                    ? "Plan the selected week by hour while keeping event editing in the existing calendar flow."
+                    : "View events, one-time tasks, and recurring task occurrences together without merging how they are managed."}
                 </p>
                 {isRefreshing && !isLoading ? (
                   <p className="mt-1 text-xs font-semibold text-teal-700">
@@ -624,47 +973,66 @@ export function CalendarPage() {
                   </p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex rounded-md border border-neutral-300 bg-white p-1">
+                  {(["month", "week"] as const).map((mode) => (
+                    <button
+                      aria-pressed={viewMode === mode}
+                      className={`h-8 rounded px-3 text-sm font-semibold ${
+                        viewMode === mode
+                          ? "bg-teal-700 text-white"
+                          : "text-neutral-700 hover:bg-neutral-100"
+                      }`}
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      type="button"
+                    >
+                      {mode === "month" ? "Month" : "Week"}
+                    </button>
+                  ))}
+                </div>
                 <button
                   className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
-                  onClick={() => moveMonth(-1)}
+                  onClick={handleCalendarPrevious}
                   type="button"
                 >
-                  Prev
+                  {viewMode === "week" ? "Previous week" : "Prev"}
                 </button>
                 <button
                   className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
                   onClick={returnToToday}
                   type="button"
                 >
-                  Today
+                  {viewMode === "week" ? "This week" : "Today"}
                 </button>
                 <button
                   className="h-10 rounded-md border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
-                  onClick={() => moveMonth(1)}
+                  onClick={handleCalendarNext}
                   type="button"
                 >
-                  Next
+                  {viewMode === "week" ? "Next week" : "Next"}
                 </button>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <VisibilityToggle
-                checked={showEvents}
-                label="Show events"
-                onChange={setShowEvents}
-              />
-              <VisibilityToggle
-                checked={showOneTimeTasks}
-                label="Show one-time tasks"
-                onChange={setShowOneTimeTasks}
-              />
-              <VisibilityToggle
-                checked={showRecurringTasks}
-                label="Show recurring tasks"
-                onChange={setShowRecurringTasks}
-              />
-            </div>
+            {viewMode === "month" ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <VisibilityToggle
+                  checked={showEvents}
+                  label="Show events"
+                  onChange={setShowEvents}
+                />
+                <VisibilityToggle
+                  checked={showOneTimeTasks}
+                  label="Show one-time tasks"
+                  onChange={setShowOneTimeTasks}
+                />
+                <VisibilityToggle
+                  checked={showRecurringTasks}
+                  label="Show recurring tasks"
+                  onChange={setShowRecurringTasks}
+                />
+              </div>
+            ) : null}
             {error ? (
               <div className="mt-4">
                 <ErrorState message={error} />
@@ -677,76 +1045,90 @@ export function CalendarPage() {
             ) : null}
           </section>
 
-          <section className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm">
-            <div className="grid grid-cols-7 border-b border-neutral-200 pb-2 text-center text-xs font-semibold uppercase tracking-normal text-neutral-600">
-              {WEEKDAY_LABELS.map((weekday) => (
-                <span key={weekday}>{weekday}</span>
-              ))}
-            </div>
-            <div className="mt-2 grid grid-cols-7 gap-1">
-              {monthDays.map((date) => {
-                const dayOverview = overviewByDate[date];
-                const dayEvents = dayOverview?.calendar_events ?? [];
-                const dayDailyTasks = dayOverview?.daily_tasks ?? [];
-                const dayRecurringTasks = dayOverview?.recurring_tasks ?? [];
-                const visibleItemCount =
-                  (showEvents ? dayEvents.length : 0) +
-                  (showOneTimeTasks ? dayDailyTasks.length : 0) +
-                  (showRecurringTasks ? dayRecurringTasks.length : 0);
-                const isSelected = date === selectedDate;
-                const isToday = date === todayIsoDate();
-                const isCurrentMonth = sameMonth(date, visibleMonth);
+          {viewMode === "month" ? (
+            <section className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm">
+              <div className="grid grid-cols-7 border-b border-neutral-200 pb-2 text-center text-xs font-semibold uppercase tracking-normal text-neutral-600">
+                {WEEKDAY_LABELS.map((weekday) => (
+                  <span key={weekday}>{weekday}</span>
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-1">
+                {monthDays.map((date) => {
+                  const dayOverview = overviewByDate[date];
+                  const dayEvents = dayOverview?.calendar_events ?? [];
+                  const dayDailyTasks = dayOverview?.daily_tasks ?? [];
+                  const dayRecurringTasks = dayOverview?.recurring_tasks ?? [];
+                  const visibleItemCount =
+                    (showEvents ? dayEvents.length : 0) +
+                    (showOneTimeTasks ? dayDailyTasks.length : 0) +
+                    (showRecurringTasks ? dayRecurringTasks.length : 0);
+                  const isSelected = date === selectedDate;
+                  const isToday = date === todayIsoDate();
+                  const isCurrentMonth = sameMonth(date, visibleMonth);
 
-                return (
-                  <button
-                    className={`flex min-h-28 flex-col rounded-md border p-2 text-left transition ${
-                      isSelected
-                        ? "border-teal-700 bg-teal-50"
-                        : "border-neutral-200 hover:border-neutral-400"
-                    } ${isCurrentMonth ? "bg-white" : "bg-neutral-50 text-neutral-500"}`}
-                    key={date}
-                    onClick={() => selectDate(date)}
-                    type="button"
-                  >
-                    <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
-                        isToday ? "bg-teal-700 text-white" : "text-neutral-900"
-                      }`}
+                  return (
+                    <button
+                      className={`flex min-h-28 flex-col rounded-md border p-2 text-left transition ${
+                        isSelected
+                          ? "border-teal-700 bg-teal-50"
+                          : "border-neutral-200 hover:border-neutral-400"
+                      } ${isCurrentMonth ? "bg-white" : "bg-neutral-50 text-neutral-500"}`}
+                      key={date}
+                      onClick={() => selectDate(date)}
+                      type="button"
                     >
-                      {dayNumber(date)}
-                    </span>
-                    <span className="mt-2 flex flex-1 flex-col gap-1 overflow-hidden">
-                      {isLoading ? (
-                        <span className="text-xs text-neutral-500">Loading...</span>
-                      ) : visibleItemCount === 0 ? (
-                        <span className="text-xs text-neutral-400">No items</span>
-                      ) : (
-                        <>
-                          {showEvents && dayEvents.length > 0 ? (
-                            <span className="rounded bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
-                              {dayEvents.length} event
-                              {dayEvents.length === 1 ? "" : "s"}
-                            </span>
-                          ) : null}
-                          {showOneTimeTasks && dayDailyTasks.length > 0 ? (
-                            <span className="rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
-                              {dayDailyTasks.length} task
-                              {dayDailyTasks.length === 1 ? "" : "s"}
-                            </span>
-                          ) : null}
-                          {showRecurringTasks && dayRecurringTasks.length > 0 ? (
-                            <span className="rounded bg-teal-50 px-2 py-1 text-xs font-medium text-teal-800">
-                              {dayRecurringTasks.length} recurring
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+                      <span
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
+                          isToday ? "bg-teal-700 text-white" : "text-neutral-900"
+                        }`}
+                      >
+                        {dayNumber(date)}
+                      </span>
+                      <span className="mt-2 flex flex-1 flex-col gap-1 overflow-hidden">
+                        {isLoading ? (
+                          <span className="text-xs text-neutral-500">Loading...</span>
+                        ) : visibleItemCount === 0 ? (
+                          <span className="text-xs text-neutral-400">No items</span>
+                        ) : (
+                          <>
+                            {showEvents && dayEvents.length > 0 ? (
+                              <span className="rounded bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
+                                {dayEvents.length} event
+                                {dayEvents.length === 1 ? "" : "s"}
+                              </span>
+                            ) : null}
+                            {showOneTimeTasks && dayDailyTasks.length > 0 ? (
+                              <span className="rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                                {dayDailyTasks.length} task
+                                {dayDailyTasks.length === 1 ? "" : "s"}
+                              </span>
+                            ) : null}
+                            {showRecurringTasks && dayRecurringTasks.length > 0 ? (
+                              <span className="rounded bg-teal-50 px-2 py-1 text-xs font-medium text-teal-800">
+                                {dayRecurringTasks.length} recurring
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : (
+            <WeekCalendarView
+              categories={categories}
+              isLoading={isLoading}
+              onCreateAt={handleCreateAt}
+              onSelectDate={selectDate}
+              onSelectEvent={handleSelectEvent}
+              overviewByDate={overviewByDate}
+              selectedDate={selectedDate}
+              selectedEventId={selectedEventId}
+              weekDays={weekDays}
+            />
+          )}
 
           <section className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
             <section className="rounded-md border border-neutral-300 bg-white p-4 shadow-sm">
@@ -789,7 +1171,7 @@ export function CalendarPage() {
                             event={event}
                             isSelected={selectedEventId === event.id}
                             key={calendarEventOccurrenceKey(event)}
-                            onSelect={(selected) => setSelectedEventId(selected.id)}
+                            onSelect={handleSelectEvent}
                           />
                         ))
                       )}
@@ -1068,11 +1450,7 @@ export function CalendarPage() {
                   event={event}
                   isSelected={selectedEventId === event.id}
                   key={calendarEventOccurrenceKey(event)}
-                  onSelect={(selected) => {
-                    setSelectedEventId(selected.id);
-                    setSelectedDate(selected.event_date);
-                    setVisibleMonth(monthStartIso(selected.event_date));
-                  }}
+                  onSelect={handleSelectEvent}
                 />
               ))
             )}

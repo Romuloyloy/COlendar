@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -157,6 +158,7 @@ export function SheetsPage() {
   const [sheetChangeIndicator, setSheetChangeIndicator] =
     useState<SheetChangeIndicator>(null);
   const [isSlotEditorOpen, setIsSlotEditorOpen] = useState(false);
+  const [isOnSheetCustomizeMode, setIsOnSheetCustomizeMode] = useState(false);
   const [focusedSlotIndex, setFocusedSlotIndex] = useState<number | null>(null);
   const [editingSlotIndex, setEditingSlotIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -241,6 +243,7 @@ export function SheetsPage() {
     setRenameValue(detail.name);
     setSheetContextCategoryId(detail.context_category_id?.toString() ?? "");
     setDraftSlots(createDraftSlots(detail));
+    setIsOnSheetCustomizeMode(false);
   }
 
   function updateStarkMode(nextValue: boolean) {
@@ -402,6 +405,11 @@ export function SheetsPage() {
           setIsSlotEditorOpen(false);
           return;
         }
+        if (isOnSheetCustomizeMode) {
+          event.preventDefault();
+          revertDraftSlotChanges();
+          return;
+        }
         if (isBottomMenuOpen) {
           event.preventDefault();
           setIsBottomMenuOpen(false);
@@ -417,6 +425,7 @@ export function SheetsPage() {
       if (
         focusedSlotIndex !== null ||
         isSlotEditorOpen ||
+        isOnSheetCustomizeMode ||
         isControlOpen ||
         isTopMenuPinned ||
         isBottomMenuOpen
@@ -450,6 +459,7 @@ export function SheetsPage() {
     focusedSlotIndex,
     isBottomMenuOpen,
     isControlOpen,
+    isOnSheetCustomizeMode,
     isSlotEditorOpen,
     isTopMenuPinned,
     selectedSheetIndex,
@@ -463,8 +473,10 @@ export function SheetsPage() {
 
     try {
       await action();
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -490,8 +502,27 @@ export function SheetsPage() {
   function openSlotEditor(slotIndex = editingSlotIndex) {
     setEditingSlotIndex(slotIndex);
     setFocusedSlotIndex(null);
+    setIsOnSheetCustomizeMode(false);
     setIsSlotEditorOpen(true);
     setIsControlOpen(false);
+  }
+
+  function openOnSheetCustomizeMode() {
+    setFocusedSlotIndex(null);
+    setIsSlotEditorOpen(false);
+    setIsBottomMenuOpen(false);
+    setIsControlOpen(false);
+    setIsTopMenuPinned(false);
+    setIsOnSheetCustomizeMode(true);
+    setNotice(null);
+  }
+
+  function revertDraftSlotChanges() {
+    if (sheetDetail) {
+      setDraftSlots(createDraftSlots(sheetDetail));
+    }
+    setIsOnSheetCustomizeMode(false);
+    setNotice("Sheet layout reverted.");
   }
 
   async function handleCreateSheet(event: FormEvent<HTMLFormElement>) {
@@ -593,6 +624,7 @@ export function SheetsPage() {
       }
       setEditingSlotIndex(0);
       setIsSlotEditorOpen(false);
+      setIsOnSheetCustomizeMode(false);
       setFocusedSlotIndex(null);
       setIsControlOpen(false);
       setNotice("Default sheets restored.");
@@ -641,6 +673,7 @@ export function SheetsPage() {
       setDraftSlots(createDraftSlots(updated));
       setEditingSlotIndex(0);
       setIsSlotEditorOpen(false);
+      setIsOnSheetCustomizeMode(false);
       setFocusedSlotIndex(null);
       setIsControlOpen(false);
       setNotice("Current sheet reset to dashboard-style layout.");
@@ -684,10 +717,10 @@ export function SheetsPage() {
 
   async function handleSaveSlots() {
     if (!sheetDetail) {
-      return;
+      return false;
     }
 
-    await runAction(async () => {
+    return runAction(async () => {
       const updated = await updateSheetSlots(sheetDetail.id, {
         slots: draftSlots.map((slot) => ({
           slot_index: slot.slot_index,
@@ -702,6 +735,13 @@ export function SheetsPage() {
       setEditingSlotIndex((current) => Math.min(current, SLOT_COUNT - 1));
       setNotice("Sheet slots saved.");
     });
+  }
+
+  async function handleSaveOnSheetCustomizeMode() {
+    const didSave = await handleSaveSlots();
+    if (didSave) {
+      setIsOnSheetCustomizeMode(false);
+    }
   }
 
   async function runTaskAction(action: () => Promise<void>) {
@@ -746,6 +786,14 @@ export function SheetsPage() {
           : slot,
       ),
     );
+  }
+
+  function moveDraftSlot(sourceSlotIndex: number, targetSlotIndex: number) {
+    setNotice(null);
+    setDraftSlots((current) =>
+      moveDraftSlotToIndex(current, sourceSlotIndex, targetSlotIndex),
+    );
+    setEditingSlotIndex(targetSlotIndex);
   }
 
   function clearDraftSlot(slotIndex: number) {
@@ -864,37 +912,40 @@ export function SheetsPage() {
         sheetCount={sheets.length}
       />
 
-      <BottomSheetManagementMenu
-        categories={categories}
-        currentSheetName={currentSheetName}
-        currentSheetContextCategory={currentSheetContextCategory}
-        isOpen={isBottomMenuOpen}
-        isSaving={isSaving}
-        menuRef={bottomMenuRef}
-        newSheetName={newSheetName}
-        newSheetContextCategoryId={newSheetContextCategoryId}
-        onCreateSheet={handleCreateSheet}
-        onMoveSheetLeft={handleMoveSheetLeft}
-        onMoveSheetRight={handleMoveSheetRight}
-        onOpenSlotEditor={() => {
-          openSlotEditor();
-          setIsBottomMenuOpen(false);
-        }}
-        onRenameSheet={handleRenameSheet}
-        onRequestDeleteSheet={requestDeleteSheet}
-        onResetCurrentSheetFromDashboard={requestResetCurrentSheetFromDashboard}
-        onResetSheets={requestResetSheets}
-        onSetOpen={setIsBottomMenuOpen}
-        renameValue={renameValue}
-        selectedSheetId={selectedSheetId}
-        selectedSheetIndex={selectedSheetIndex}
-        setNewSheetContextCategoryId={setNewSheetContextCategoryId}
-        setNewSheetName={setNewSheetName}
-        setRenameValue={setRenameValue}
-        setSheetContextCategoryId={setSheetContextCategoryId}
-        sheetContextCategoryId={sheetContextCategoryId}
-        sheetCount={sheets.length}
-      />
+      {!isOnSheetCustomizeMode ? (
+        <BottomSheetManagementMenu
+          categories={categories}
+          currentSheetName={currentSheetName}
+          currentSheetContextCategory={currentSheetContextCategory}
+          isOpen={isBottomMenuOpen}
+          isSaving={isSaving}
+          menuRef={bottomMenuRef}
+          newSheetName={newSheetName}
+          newSheetContextCategoryId={newSheetContextCategoryId}
+          onCreateSheet={handleCreateSheet}
+          onMoveSheetLeft={handleMoveSheetLeft}
+          onMoveSheetRight={handleMoveSheetRight}
+          onOpenCustomizeMode={openOnSheetCustomizeMode}
+          onOpenSlotEditor={() => {
+            openSlotEditor();
+            setIsBottomMenuOpen(false);
+          }}
+          onRenameSheet={handleRenameSheet}
+          onRequestDeleteSheet={requestDeleteSheet}
+          onResetCurrentSheetFromDashboard={requestResetCurrentSheetFromDashboard}
+          onResetSheets={requestResetSheets}
+          onSetOpen={setIsBottomMenuOpen}
+          renameValue={renameValue}
+          selectedSheetId={selectedSheetId}
+          selectedSheetIndex={selectedSheetIndex}
+          setNewSheetContextCategoryId={setNewSheetContextCategoryId}
+          setNewSheetName={setNewSheetName}
+          setRenameValue={setRenameValue}
+          setSheetContextCategoryId={setSheetContextCategoryId}
+          sheetContextCategoryId={sheetContextCategoryId}
+          sheetCount={sheets.length}
+        />
+      ) : null}
 
       {sheetChangeIndicator ? (
         <div aria-live="polite" className="sheet-change-indicator">
@@ -919,9 +970,12 @@ export function SheetsPage() {
           <div className="sheet-surface min-h-0 flex-1">
             <SheetGrid
               draftSlots={draftSlots}
+              isCustomizeMode={isOnSheetCustomizeMode}
               isSummaryReady={summary !== null}
+              isSaving={isSaving}
               onEditSlot={openSlotEditor}
               onFocusSlot={setFocusedSlotIndex}
+              onMoveSlot={moveDraftSlot}
               onPreviewNote={setPreviewNote}
               taskCategories={categories}
               widgetProps={widgetProps}
@@ -929,6 +983,15 @@ export function SheetsPage() {
           </div>
         )}
       </section>
+
+      {isOnSheetCustomizeMode ? (
+        <OnSheetCustomizeControls
+          hasUnsavedChanges={hasUnsavedSlotChanges}
+          isSaving={isSaving}
+          onRevert={revertDraftSlotChanges}
+          onSave={handleSaveOnSheetCustomizeMode}
+        />
+      ) : null}
 
       {isSlotEditorOpen ? (
         <SlotEditorPanel
@@ -940,8 +1003,11 @@ export function SheetsPage() {
           sheetContextCategory={currentSheetContextCategory}
           onClearSlot={clearDraftSlot}
           onClose={() => setIsSlotEditorOpen(false)}
-          onSaveSlots={handleSaveSlots}
+          onSaveSlots={async () => {
+            await handleSaveSlots();
+          }}
           onSelectSlot={setEditingSlotIndex}
+          onMoveSlot={moveDraftSlot}
           onUpdateSlot={updateDraftSlot}
           onUpdateSlotConfig={updateDraftSlotConfig}
           onUpdateSlotSize={updateDraftSlotSize}
@@ -1246,6 +1312,7 @@ function BottomSheetManagementMenu({
   onCreateSheet,
   onMoveSheetLeft,
   onMoveSheetRight,
+  onOpenCustomizeMode,
   onOpenSlotEditor,
   onRenameSheet,
   onRequestDeleteSheet,
@@ -1273,6 +1340,7 @@ function BottomSheetManagementMenu({
   onCreateSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onMoveSheetLeft: () => Promise<void>;
   onMoveSheetRight: () => Promise<void>;
+  onOpenCustomizeMode: () => void;
   onOpenSlotEditor: () => void;
   onRenameSheet: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onRequestDeleteSheet: () => void;
@@ -1459,41 +1527,161 @@ function BottomSheetManagementMenu({
         </div>
       ) : null}
 
-      <button
-        aria-expanded={isOpen}
-        aria-label="Open sheet management menu"
-        className="sheet-edge-handle sheet-edge-handle-bottom"
-        onClick={() => onSetOpen(!isOpen)}
-        type="button"
-      >
-        <span aria-hidden="true">^</span>
-        <span className="sheet-edge-handle-label">Manage</span>
-      </button>
+      <div className="sheet-bottom-handle-row">
+        <button
+          aria-label="Customize sheet widgets"
+          className="sheet-edge-handle sheet-edge-handle-bottom sheet-edge-handle-customize"
+          disabled={isSaving || selectedSheetId === null}
+          onClick={onOpenCustomizeMode}
+          type="button"
+        >
+          <span aria-hidden="true">+</span>
+          <span className="sheet-edge-handle-label">Customize</span>
+        </button>
+        <button
+          aria-expanded={isOpen}
+          aria-label="Open sheet management menu"
+          className="sheet-edge-handle sheet-edge-handle-bottom"
+          onClick={() => onSetOpen(!isOpen)}
+          type="button"
+        >
+          <span aria-hidden="true">^</span>
+          <span className="sheet-edge-handle-label">Manage</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OnSheetCustomizeControls({
+  hasUnsavedChanges,
+  isSaving,
+  onRevert,
+  onSave,
+}: {
+  hasUnsavedChanges: boolean;
+  isSaving: boolean;
+  onRevert: () => void;
+  onSave: () => Promise<void>;
+}) {
+  return (
+    <div className="sheet-customize-controls" aria-live="polite">
+      <div className="sheet-customize-controls-panel">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#2c2925]">
+            Customize sheet
+          </p>
+          <p className="app-muted text-xs">
+            Drag widgets to empty highlighted slots.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            className="app-button-secondary min-h-9 px-3 py-1.5 text-xs"
+            disabled={isSaving}
+            onClick={onRevert}
+            type="button"
+          >
+            Revert
+          </button>
+          <button
+            className="app-button-primary min-h-9 px-3 py-1.5 text-xs"
+            disabled={isSaving || !hasUnsavedChanges}
+            onClick={() => {
+              void onSave();
+            }}
+            type="button"
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 function SheetGrid({
   draftSlots,
+  isCustomizeMode,
   isSummaryReady,
+  isSaving,
   onEditSlot,
   onFocusSlot,
+  onMoveSlot,
   onPreviewNote,
   taskCategories,
   widgetProps,
 }: {
   draftSlots: DraftSlot[];
+  isCustomizeMode: boolean;
   isSummaryReady: boolean;
+  isSaving: boolean;
   onEditSlot: (slotIndex: number) => void;
   onFocusSlot: (slotIndex: number) => void;
+  onMoveSlot: (sourceSlotIndex: number, targetSlotIndex: number) => void;
   onPreviewNote: (note: Note) => void;
   taskCategories: TaskCategory[];
   widgetProps: DashboardWidgetProps | null;
 }) {
   const coveredSlots = coveredSlotAnchors(draftSlots);
+  const [draggedSlotIndex, setDraggedSlotIndex] = useState<number | null>(null);
+
+  function handleTileDragStart(
+    event: DragEvent<HTMLDivElement>,
+    slot: DraftSlot,
+  ) {
+    if (!isCustomizeMode || isSaving || !slot.widget_key) {
+      event.preventDefault();
+      return;
+    }
+    setDraggedSlotIndex(slot.slot_index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(slot.slot_index));
+  }
+
+  function handleTileDragEnd() {
+    setDraggedSlotIndex(null);
+  }
+
+  function handleTileDragOver(
+    event: DragEvent<HTMLDivElement>,
+    targetSlotIndex: number,
+  ) {
+    if (
+      isCustomizeMode &&
+      draggedSlotIndex !== null &&
+      canMoveDraftSlot(draftSlots, draggedSlotIndex, targetSlotIndex)
+    ) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    }
+  }
+
+  function handleTileDrop(
+    event: DragEvent<HTMLDivElement>,
+    targetSlotIndex: number,
+  ) {
+    const transferData = event.dataTransfer.getData("text/plain");
+    setDraggedSlotIndex(null);
+    if (transferData === "") {
+      return;
+    }
+    const sourceSlotIndex = Number(transferData);
+    if (
+      Number.isInteger(sourceSlotIndex) &&
+      canMoveDraftSlot(draftSlots, sourceSlotIndex, targetSlotIndex)
+    ) {
+      event.preventDefault();
+      onMoveSlot(sourceSlotIndex, targetSlotIndex);
+    }
+  }
 
   return (
-    <section className="grid h-full min-h-0 grid-cols-4 grid-rows-2 gap-3">
+    <section
+      className={`grid h-full min-h-0 grid-cols-4 grid-rows-2 gap-3 ${
+        isCustomizeMode ? "sheet-grid-customize" : ""
+      }`}
+    >
       {draftSlots.map((slot) => {
         if (coveredSlots.has(slot.slot_index)) {
           return null;
@@ -1501,14 +1689,33 @@ function SheetGrid({
         const definition = slot.widget_key
           ? getDashboardWidgetDefinition(slot.widget_key)
           : undefined;
+        const canDrag = isCustomizeMode && Boolean(definition) && !isSaving;
+        const canDrop =
+          isCustomizeMode &&
+          draggedSlotIndex !== null &&
+          canMoveDraftSlot(draftSlots, draggedSlotIndex, slot.slot_index);
         return (
           <div
-            className="sheet-tile"
+            className={`sheet-tile ${isCustomizeMode ? "sheet-tile-customize" : ""} ${
+              draggedSlotIndex === slot.slot_index ? "sheet-tile-dragging" : ""
+            } ${canDrop ? "sheet-tile-drop-target" : ""}`}
+            draggable={canDrag}
             key={slot.slot_index}
+            onDragEnd={handleTileDragEnd}
+            onDragOver={(event) => handleTileDragOver(event, slot.slot_index)}
+            onDragStart={(event) => handleTileDragStart(event, slot)}
+            onDrop={(event) => handleTileDrop(event, slot.slot_index)}
             style={{
               gridColumn: `${(slot.slot_index % GRID_COLUMNS) + 1} / span ${slot.col_span}`,
               gridRow: `${Math.floor(slot.slot_index / GRID_COLUMNS) + 1} / span ${slot.row_span}`,
             }}
+            title={
+              canDrop
+                ? "Move widget here"
+                : canDrag
+                  ? "Drag this widget to an empty valid slot"
+                  : undefined
+            }
           >
             <div className="flex h-full min-h-0 flex-col">
               <div className="sheet-slot-header">
@@ -1516,7 +1723,11 @@ function SheetGrid({
                   Slot {slot.slot_index + 1} / {definition?.displayName ?? "Empty"} / {slot.col_span}x{slot.row_span}
                 </p>
                 <div className="flex min-w-0 items-center gap-1.5">
-                  {definition ? (
+                  {isCustomizeMode && definition ? (
+                    <span className="sheet-widget-action sheet-widget-action-primary">
+                      Drag
+                    </span>
+                  ) : definition ? (
                     <Link
                       className="sheet-widget-action"
                       href={widgetOpenHref(definition.id)}
@@ -1525,7 +1736,7 @@ function SheetGrid({
                       Open
                     </Link>
                   ) : null}
-                  {definition && widgetProps ? (
+                  {!isCustomizeMode && definition && widgetProps ? (
                     <button
                       className="sheet-widget-action sheet-widget-action-primary"
                       onClick={() => onFocusSlot(slot.slot_index)}
@@ -1537,6 +1748,7 @@ function SheetGrid({
                   ) : null}
                   <button
                     className="sheet-widget-action"
+                    disabled={isCustomizeMode}
                     onClick={() => onEditSlot(slot.slot_index)}
                     title="Configure slot"
                     type="button"
@@ -1545,7 +1757,11 @@ function SheetGrid({
                   </button>
                 </div>
               </div>
-              <div className="sheet-scroll min-h-0 flex-1 overflow-auto p-2.5 [&>section]:h-full [&>section]:overflow-auto [&>section]:shadow-none">
+              <div
+                className={`sheet-scroll min-h-0 flex-1 overflow-auto p-2.5 [&>section]:h-full [&>section]:overflow-auto [&>section]:shadow-none ${
+                  isCustomizeMode ? "pointer-events-none" : ""
+                }`}
+              >
                 {definition && widgetProps ? (
                   <WidgetRenderer
                     definition={definition}
@@ -1909,6 +2125,7 @@ function SlotEditorPanel({
   sheetContextCategory,
   onClearSlot,
   onClose,
+  onMoveSlot,
   onSaveSlots,
   onSelectSlot,
   onUpdateSlot,
@@ -1925,6 +2142,7 @@ function SlotEditorPanel({
   sheetContextCategory: TaskCategory | null;
   onClearSlot: (slotIndex: number) => void;
   onClose: () => void;
+  onMoveSlot: (sourceSlotIndex: number, targetSlotIndex: number) => void;
   onSaveSlots: () => Promise<void>;
   onSelectSlot: (slotIndex: number) => void;
   onUpdateSlot: (slotIndex: number, widgetKey: string) => void;
@@ -1967,6 +2185,60 @@ function SlotEditorPanel({
     typeof activeSlot.config_json.folder_id === "number"
       ? noteFolderPath(activeSlot.config_json.folder_id, noteFolders) ?? "Unknown"
       : "All folders";
+  const [draggedSlotIndex, setDraggedSlotIndex] = useState<number | null>(null);
+  const draggedSlot =
+    draggedSlotIndex !== null
+      ? draftSlots.find((slot) => slot.slot_index === draggedSlotIndex)
+      : undefined;
+
+  function handleSlotDragStart(
+    event: DragEvent<HTMLButtonElement>,
+    slot: DraftSlot,
+  ) {
+    if (!slot.widget_key || coveredSlots.has(slot.slot_index)) {
+      event.preventDefault();
+      return;
+    }
+    setDraggedSlotIndex(slot.slot_index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(slot.slot_index));
+  }
+
+  function handleSlotDragEnd() {
+    setDraggedSlotIndex(null);
+  }
+
+  function handleSlotDragOver(
+    event: DragEvent<HTMLButtonElement>,
+    targetSlotIndex: number,
+  ) {
+    if (
+      draggedSlotIndex !== null &&
+      canMoveDraftSlot(draftSlots, draggedSlotIndex, targetSlotIndex)
+    ) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    }
+  }
+
+  function handleSlotDrop(
+    event: DragEvent<HTMLButtonElement>,
+    targetSlotIndex: number,
+  ) {
+    event.preventDefault();
+    const transferData = event.dataTransfer.getData("text/plain");
+    setDraggedSlotIndex(null);
+    if (transferData === "") {
+      return;
+    }
+    const sourceSlotIndex = Number(transferData);
+    if (!Number.isInteger(sourceSlotIndex)) {
+      return;
+    }
+    if (canMoveDraftSlot(draftSlots, sourceSlotIndex, targetSlotIndex)) {
+      onMoveSlot(sourceSlotIndex, targetSlotIndex);
+    }
+  }
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#2c2925]/35 px-6 py-6 backdrop-blur-sm">
@@ -2001,6 +2273,10 @@ function SlotEditorPanel({
               Empty slots open widget configuration here. In normal sheet mode,
               empty slots open this slot editor.
             </p>
+            <p className="app-muted mt-2 text-xs leading-5">
+              Drag a widget handle onto an empty valid slot, then save to persist.
+              Spans and widget settings move with it.
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
               {draftSlots.map((slot) => {
                 const definition = slot.widget_key
@@ -2012,19 +2288,51 @@ function SlotEditorPanel({
                   coveredBy !== undefined
                     ? draftSlots.find((draftSlot) => draftSlot.slot_index === coveredBy)
                     : undefined;
+                const canDrag = Boolean(definition) && coveredBy === undefined;
+                const canDrop =
+                  draggedSlotIndex !== null &&
+                  canMoveDraftSlot(draftSlots, draggedSlotIndex, slot.slot_index);
+                const invalidDrop =
+                  draggedSlotIndex !== null &&
+                  draggedSlotIndex !== slot.slot_index &&
+                  !canDrop;
                 return (
                   <button
                     className={`sheet-slot-choice ${
                       isActive
                         ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)] shadow-sm"
                         : "sheet-slot-choice-idle"
-                    }`}
+                    } ${draggedSlotIndex === slot.slot_index ? "sheet-slot-choice-dragging" : ""} ${
+                      canDrop ? "sheet-slot-choice-drop" : ""
+                    } ${invalidDrop ? "sheet-slot-choice-invalid" : ""}`}
+                    draggable={canDrag}
                     key={slot.slot_index}
+                    onDragEnd={handleSlotDragEnd}
+                    onDragOver={(event) =>
+                      handleSlotDragOver(event, slot.slot_index)
+                    }
+                    onDragStart={(event) => handleSlotDragStart(event, slot)}
+                    onDrop={(event) => handleSlotDrop(event, slot.slot_index)}
                     onClick={() => onSelectSlot(coveredBy ?? slot.slot_index)}
+                    title={
+                      canDrop
+                        ? `Move ${draggedSlot?.widget_key ?? "widget"} here`
+                        : invalidDrop
+                          ? "This widget cannot fit here without overlapping another widget."
+                          : undefined
+                    }
                     type="button"
                   >
-                    <span className="block font-semibold">
-                      Slot {slot.slot_index + 1}
+                    <span className="flex items-center justify-between gap-2 font-semibold">
+                      <span>Slot {slot.slot_index + 1}</span>
+                      {canDrag ? (
+                        <span
+                          aria-label="Drag widget"
+                          className="sheet-drag-handle"
+                        >
+                          Move
+                        </span>
+                      ) : null}
                     </span>
                     <span className="mt-0.5 block truncate text-xs">
                       {coveredAnchor
@@ -2139,6 +2447,59 @@ function SlotEditorPanel({
                 ) : null}
               </dl>
             </div>
+
+            {activeSlot.widget_key ? (
+              <section>
+                <p className="text-sm font-semibold text-[#2c2925]">
+                  Move widget
+                </p>
+                <p className="app-muted mt-1 text-xs leading-5">
+                  Move controls are a fallback for the same valid empty-slot rules
+                  used by drag-and-drop.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                  {[
+                    { label: "Left", target: activeSlot.slot_index - 1 },
+                    { label: "Right", target: activeSlot.slot_index + 1 },
+                    {
+                      label: "Up",
+                      target: activeSlot.slot_index - GRID_COLUMNS,
+                    },
+                    {
+                      label: "Down",
+                      target: activeSlot.slot_index + GRID_COLUMNS,
+                    },
+                  ].map((move) => {
+                    const crossesRow =
+                      (move.label === "Left" &&
+                        activeSlot.slot_index % GRID_COLUMNS === 0) ||
+                      (move.label === "Right" &&
+                        activeSlot.slot_index % GRID_COLUMNS ===
+                          GRID_COLUMNS - 1);
+                    const canMove =
+                      !crossesRow &&
+                      canMoveDraftSlot(
+                        draftSlots,
+                        activeSlot.slot_index,
+                        move.target,
+                      );
+                    return (
+                      <button
+                        className="app-button-secondary min-h-9 px-3 py-1.5 text-xs"
+                        disabled={isSaving || !canMove}
+                        key={move.label}
+                        onClick={() =>
+                          onMoveSlot(activeSlot.slot_index, move.target)
+                        }
+                        type="button"
+                      >
+                        Move {move.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
 
             <section>
               <p className="text-sm font-semibold text-[#2c2925]">Widget size</p>
@@ -2913,6 +3274,87 @@ function slotSizeUnavailableReason(
     occupiedByOther.has(coveredIndex),
   );
   return overlaps ? "This size would overlap another widget." : null;
+}
+
+function canMoveDraftSlot(
+  slots: DraftSlot[],
+  sourceSlotIndex: number,
+  targetSlotIndex: number,
+) {
+  if (
+    sourceSlotIndex === targetSlotIndex ||
+    targetSlotIndex < 0 ||
+    targetSlotIndex >= SLOT_COUNT
+  ) {
+    return false;
+  }
+
+  const sourceSlot = slots.find((slot) => slot.slot_index === sourceSlotIndex);
+  if (!sourceSlot?.widget_key) {
+    return false;
+  }
+
+  if (occupiedSlotAnchors(slots).has(targetSlotIndex)) {
+    return false;
+  }
+
+  const startColumn = targetSlotIndex % GRID_COLUMNS;
+  const startRow = Math.floor(targetSlotIndex / GRID_COLUMNS);
+  if (
+    startColumn + sourceSlot.col_span > GRID_COLUMNS ||
+    startRow + sourceSlot.row_span > 2
+  ) {
+    return false;
+  }
+
+  const occupiedByOther = occupiedSlotAnchors(
+    slots.filter((slot) => slot.slot_index !== sourceSlotIndex),
+  );
+  const proposedSlot = {
+    ...sourceSlot,
+    slot_index: targetSlotIndex,
+  };
+
+  return !coveredSlotIndexes(proposedSlot).some((coveredIndex) =>
+    occupiedByOther.has(coveredIndex),
+  );
+}
+
+function moveDraftSlotToIndex(
+  slots: DraftSlot[],
+  sourceSlotIndex: number,
+  targetSlotIndex: number,
+) {
+  if (!canMoveDraftSlot(slots, sourceSlotIndex, targetSlotIndex)) {
+    return slots;
+  }
+
+  const sourceSlot = slots.find((slot) => slot.slot_index === sourceSlotIndex);
+  if (!sourceSlot?.widget_key) {
+    return slots;
+  }
+
+  return slots.map((slot) => {
+    if (slot.slot_index === sourceSlotIndex) {
+      return {
+        ...slot,
+        widget_key: null,
+        config_json: {},
+        col_span: 1,
+        row_span: 1,
+      };
+    }
+    if (slot.slot_index === targetSlotIndex) {
+      return {
+        ...slot,
+        widget_key: sourceSlot.widget_key,
+        config_json: sourceSlot.config_json,
+        col_span: sourceSlot.col_span,
+        row_span: sourceSlot.row_span,
+      };
+    }
+    return slot;
+  });
 }
 
 function occupiedSlotAnchors(slots: DraftSlot[]) {

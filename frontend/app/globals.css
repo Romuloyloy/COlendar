@@ -117,6 +117,16 @@ body {
   }
 }
 
+@keyframes sheetCustomizeJiggle {
+  0%,
+  100% {
+    transform: rotate(-0.18deg) translateY(0);
+  }
+  50% {
+    transform: rotate(0.18deg) translateY(-1px);
+  }
+}
+
 @layer base {
   button,
   a,
@@ -472,6 +482,17 @@ body {
     @apply hidden sm:inline;
   }
 
+  .sheet-bottom-handle-row {
+    @apply flex items-center gap-2;
+    pointer-events: auto;
+  }
+
+  .sheet-edge-handle-customize {
+    border-color: var(--color-primary-ring);
+    color: var(--color-primary-strong);
+    background-color: color-mix(in srgb, var(--color-primary-soft) 76%, var(--color-surface));
+  }
+
   .sheet-top-panel-wrap {
     @apply absolute left-1/2 top-12 w-[min(94vw,980px)] -translate-x-1/2 animate-[sheetTopPanelIn_180ms_ease-out];
     pointer-events: auto;
@@ -536,6 +557,54 @@ body {
 
   .sheet-tile:hover {
     background-color: color-mix(in srgb, var(--color-surface) 95%, transparent);
+  }
+
+  .sheet-grid-customize .sheet-tile {
+    animation: sheetCustomizeJiggle 1.9s ease-in-out infinite;
+    cursor: default;
+  }
+
+  .sheet-grid-customize .sheet-tile[draggable="true"] {
+    cursor: grab;
+  }
+
+  .sheet-grid-customize .sheet-tile:nth-child(2n) {
+    animation-delay: -0.45s;
+  }
+
+  .sheet-grid-customize .sheet-tile:nth-child(3n) {
+    animation-delay: -0.9s;
+  }
+
+  .sheet-tile-customize {
+    border-color: color-mix(in srgb, var(--color-primary-ring) 70%, #d8d0c3);
+    background-color: color-mix(in srgb, var(--color-surface) 88%, var(--color-primary-soft));
+  }
+
+  .sheet-tile-customize:hover {
+    transform: none;
+  }
+
+  .sheet-tile-dragging {
+    opacity: 0.55;
+    cursor: grabbing;
+  }
+
+  .sheet-tile-drop-target {
+    border-color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary-soft) 88%, var(--color-surface));
+    box-shadow:
+      inset 0 0 0 2px var(--color-primary-ring),
+      0 14px 32px rgb(82 70 55 / 0.12);
+  }
+
+  .sheet-customize-controls {
+    @apply pointer-events-none absolute inset-x-0 bottom-4 z-40 flex justify-center px-4;
+  }
+
+  .sheet-customize-controls-panel {
+    @apply pointer-events-auto flex w-[min(94vw,520px)] items-center justify-between gap-4 rounded-2xl border border-[#d8d0c3]/90 px-4 py-3 shadow-[0_18px_48px_rgb(82_70_55_/_0.16)] backdrop-blur;
+    background-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
   }
 
   .sheet-floating-panel {
@@ -619,6 +688,32 @@ body {
 
   .sheet-slot-choice-idle:hover {
     background-color: var(--color-primary-soft);
+  }
+
+  .sheet-slot-choice-dragging {
+    opacity: 0.58;
+    transform: scale(0.98);
+  }
+
+  .sheet-slot-choice-drop {
+    border-color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary-soft) 88%, var(--color-surface));
+    box-shadow: inset 0 0 0 1px var(--color-primary-ring);
+  }
+
+  .sheet-slot-choice-invalid {
+    border-color: #e7c5c9;
+    background-color: color-mix(in srgb, #fff4f3 84%, var(--color-surface));
+    cursor: not-allowed;
+  }
+
+  .sheet-drag-handle {
+    @apply inline-flex shrink-0 cursor-grab rounded-full border border-[#ded6ca] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#766f66];
+    background-color: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  }
+
+  .sheet-slot-choice:active .sheet-drag-handle {
+    cursor: grabbing;
   }
 
   .sheet-size-option {

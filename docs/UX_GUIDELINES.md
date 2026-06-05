@@ -37,6 +37,7 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Dangerous actions require confirmation.
 - Sheet actions like delete, reset, and apply layout must not be one-click destructive.
 - Date navigation should use previous/today/next where practical.
+- Calendar week view should feel like a calm weekly planner: readable hour rows, clear day columns, all-day/unscheduled events separated from timed event blocks, and no drag-and-drop affordances unless a future spec asks for scheduling interactions.
 - Avoid UTC date bugs; use browser local date where appropriate.
 
 ## Sheets And Widgets
@@ -56,6 +57,8 @@ The product should stay fast, understandable, and useful for daily personal prod
 - Compact widget rows should prioritize fast scanning: clear titles, muted metadata, soft row hover states, and calm empty states.
 - Sheet motion should stay subtle and functional: hover, opacity, and small position changes only.
 - Empty sheet slots should feel gently actionable in normal viewing mode: primary click opens slot editing for that slot, without a nested Quick Add shortcut.
+- Sheet widget rearranging should stay intentional and edit-mode-only. Drag affordances belong in the slot editor, should communicate valid empty targets clearly, and must not imply freeform placement or normal-mode dashboard-like rearranging.
+- On-sheet customize mode may use a subtle jiggle to signal editability, but it should stay calm and should always provide obvious Save and Revert controls.
 - Widget focus mode should feel temporary and calm: centered overlay, subdued sheet background, clear close affordance, and Escape-to-close behavior when available.
 - Sheet widget item clicks should feel useful without becoming editing workflows: use lightweight previews and clear links to the owning full page.
 - Compact sheet task completion controls should be large enough to click comfortably without making rows feel heavy.

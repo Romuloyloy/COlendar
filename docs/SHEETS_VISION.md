@@ -21,6 +21,9 @@ Sheets are the main workspace surface, and they should evolve gradually.
 - Review Summary can be used as a simple sheet widget that links to the read-focused Review Center.
 - Sheets have a local-only Stark Mode toggle that darkens only the sheet workspace using the active palette.
 - Slot editing uses a frontend/code-defined widget library sourced from the existing dashboard widget registry.
+- Slot editing allows controlled drag-and-drop from an occupied anchor slot to an empty valid slot in edit mode.
+- Edit-mode moves preserve widget config and the current span preset, then persist through the normal save action.
+- On-sheet customize mode can expose the same controlled movement directly on the sheet, with clear Save/Revert controls.
 - Compact rendering matters.
 - Immersive sheet chrome keeps `/sheets` full-viewport, with top, side, and bottom edge controls instead of always-visible page chrome.
 - The top edge workspace menu can be pinned, while the bottom edge menu owns sheet management actions.
@@ -39,7 +42,7 @@ Sheets are the main workspace surface, and they should evolve gradually.
 
 Possible later features include:
 
-- Drag-and-drop.
+- Drag swapping or richer rearranging.
 - Resizing.
 - `x/y/w/h` layout.
 - Stronger command/navigation layer.
@@ -51,7 +54,8 @@ These should be implemented gradually, not all at once.
 ## Implementation Guardrails
 
 - Keep dashboard/widget code intact where Sheets, Review, Calendar, or tests still compose it.
-- Do not add drag-and-drop, resizing, or coordinate-based layout unless a feature spec asks for it.
+- Keep sheet drag-and-drop controlled, edit-mode-only, and limited to empty valid target slots.
+- Do not add dashboard drag-and-drop, normal viewing-mode drag-and-drop, drag swapping, resizing, or coordinate-based layout unless a feature spec asks for it.
 - Keep widget spanning constrained to the supported presets and reject overlaps server-side.
 - Keep focus mode temporary; do not persist it or turn it into floating windows.
 - Keep previews lightweight; full editing belongs in Tasks, Notes, Calendar, and other owning modules.

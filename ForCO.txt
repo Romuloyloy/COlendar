@@ -1,33 +1,39 @@
-Hi! This pass implements Reliability + Data Safety Pack v1 and moves the backend server to port 8018.
+Hi! This pass implements On-Sheet Customize Mode v1.
 
 What changed:
-- Backend now listens on port `8018`, and Docker Compose/frontend defaults point to `http://localhost:8018`.
-- Added backup-style export endpoints under `/api/export`, including full export plus notes, tasks, calendar, tracker, categories, and sheets exports.
-- Full export includes metadata, categories, folders, notes, one-time tasks, recurring tasks, task completions, calendar events, tracker entries, sheets, sheet slots, and dashboard widget preferences.
-- Exports include archived records for backup completeness.
-- Added `/settings` with full/module JSON download buttons, backend/database diagnostics, active palette/Stark state, local-first data safety notes, and known limitations.
-- Linked Settings from normal navigation and the sheet Workspace dropdown.
-- Added `docs/MILESTONE_V0_1_ALPHA.md` and `docs/KNOWN_LIMITATIONS.md`.
-- Updated README and master context for v0.1 alpha, export/backup, diagnostics, and local data safety.
+- Added a bottom-edge Customize entry next to Manage on `/sheets`.
+- Customize mode rearranges widgets directly on the sheet instead of opening the full slot editor.
+- Widgets use a subtle jiggle while customize mode is active.
+- Occupied widgets can be dragged to valid empty slots.
+- Valid drop targets highlight during drag.
+- Save persists the draft slot layout through the existing sheet slot update API.
+- Revert restores the last saved slot layout and exits customize mode.
+- Existing Customize slots remains available for adding widgets, changing sizes, and editing widget configuration.
+- Updated README, Sheets Vision, and UX Guidelines for the new on-sheet behavior.
 
 How to inspect/test it:
 1. `docker compose up --build -d`
 2. `docker compose exec backend pytest`
 3. `docker compose exec frontend npm run build`
-4. Open `http://localhost:3000/settings`.
-5. Confirm diagnostics show backend/database status when the stack is running.
-6. Download the full JSON export and confirm the filename includes a timestamp.
-7. Download module exports for notes/tasks/calendar/tracker/categories/sheets.
-8. Check `http://localhost:8018/health` and `http://localhost:8018/health/db`.
-9. Confirm normal routes still work: `/`, `/sheets`, `/notes`, `/tasks`, `/calendar`, `/tracker`, `/review`, `/search`, `/categories`.
+4. Open `http://localhost:3000/sheets`.
+5. Hover the bottom edge and click Customize.
+6. Confirm widgets subtly jiggle and the Save/Revert controls appear.
+7. Drag an occupied widget to an empty valid slot.
+8. Confirm occupied slots, covered cells, overlaps, and edge-overflow targets do not accept the drop.
+9. Save, refresh, and confirm the moved widget persists.
+10. Re-enter Customize, move a widget, then Revert and confirm the saved layout returns.
 
 What success looks like:
-- The app has a clear v0.1 local alpha safety story.
-- Exports are readable JSON and include archived records.
-- The Settings page gives practical backup and diagnostics utility without becoming a huge settings system.
-- No new tables or migrations are added.
+- Rearranging can happen directly on the sheet.
+- Movement remains controlled and limited to empty valid slots.
+- Widget spans and per-slot config survive moves.
+- The fixed 4x2 grid and existing persistence model remain intact.
 
 Intentionally not included:
-- No import/restore.
-- No cloud backup.
-- No auth, AI, external integrations, notifications, reminders, drag-and-drop, sheet templates, or new recurrence features.
+- No swapping.
+- No invalid-slot drops.
+- No freeform layout.
+- No arbitrary `x/y/w/h` placement.
+- No new resizing rules.
+- No dashboard drag-and-drop.
+- No sheet templates, AI, auth, migrations, or backend widget model changes.
